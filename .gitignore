@@ -1,0 +1,29 @@
+# Dépendances & build
+node_modules/
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/next-env.d.ts
+
+# Secrets / env (NE JAMAIS committer)
+.env
+.env.*
+web/.env
+web/.env.*
+!web/.env.example
+
+# Frames extraites de la vidéo (régénérables)
+frames/
+
+# Binaire d'extraction
+extract
+
+# OS / éditeur
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Claude local
+.claude/settings.local.json
