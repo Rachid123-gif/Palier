@@ -1,4 +1,4 @@
-import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID } from "./supabase";
+import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID, DEMO_UNIT_ID } from "./supabase";
 import type {
   Charge, Incident, Post, LedgerEntry, Provider, CurrentUser, BuildingKpis,
 } from "./types";
@@ -59,7 +59,7 @@ export async function fetchAppData(): Promise<AppData> {
     supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
     supabase.from("profiles").select("*").eq("id", DEMO_PROFILE_ID).single(),
     supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID).limit(1).single(),
-    supabase.from("charges").select("*").eq("building_id", DEMO_BUILDING_ID),
+    supabase.from("charges").select("*").eq("unit_id", DEMO_UNIT_ID),
     supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
     supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
     supabase.from("posts").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),

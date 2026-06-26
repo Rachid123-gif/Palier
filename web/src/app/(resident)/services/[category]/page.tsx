@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useCity } from "@/lib/useCity";
 import { useData } from "@/lib/DataProvider";
 import { categoryBySlug } from "@/lib/data";
+import { OrbField } from "@/components/ui/OrbField";
 import { createServiceRequest } from "@/lib/actions";
 import { whatsappLink, quoteRequestMessage } from "@/lib/whatsapp";
 
@@ -18,7 +19,7 @@ const CONCIERGE = "+212600000000";
 export default function CategoryScreen() {
   const params = useParams<{ category: string }>();
   const { providersFor } = useData();
-  const { slug, city, setCity } = useCity();
+  const { slug, city, quartier, setCity } = useCity();
   const [citySheet, setCitySheet] = useState(false);
 
   const cat = categoryBySlug(params.category);
@@ -90,7 +91,7 @@ export default function CategoryScreen() {
         )}
       </div>
 
-      <CitySheet open={citySheet} onClose={() => setCitySheet(false)} current={slug} onPick={setCity} />
+      <CitySheet open={citySheet} onClose={() => setCitySheet(false)} current={slug} currentQuartier={quartier} onPick={setCity} />
     </div>
   );
 }
@@ -99,15 +100,18 @@ export default function CategoryScreen() {
 function EmptyState({ categoryLabel, cityName, categorySlug, citySlug }: { categoryLabel: string; cityName: string; categorySlug: string; citySlug: string }) {
   return (
     <div className="card overflow-hidden p-0">
-      <div className="bg-hero p-6 text-center text-white">
+      <div className="bg-hero shimmer grain relative overflow-hidden p-6 text-center text-white">
+        <OrbField tone="cool" parallax={false} />
+        <div className="relative z-10">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15">
           <Icon name="Headset" className="h-8 w-8" />
         </div>
-        <h2 className="mt-4 text-[20px] font-bold">Nous trouvons quelqu'un pour vous</h2>
+        <h2 className="glow-text mt-4 text-[20px] font-bold">Nous trouvons quelqu'un pour vous</h2>
         <p className="mx-auto mt-2 max-w-[18rem] text-[13px] text-white/80">
           Pas encore de prestataire <b>{categoryLabel.toLowerCase()}</b> référencé à {cityName} ?
           Notre équipe vous met en relation avec un pro vérifié sous 24h.
         </p>
+        </div>
       </div>
       <div className="space-y-2 p-4">
         {[

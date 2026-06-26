@@ -5,6 +5,8 @@ import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { Rating } from "@/components/ui/primitives";
 import { LogoMark } from "@/components/brand/Logo";
+import { OrbField } from "@/components/ui/OrbField";
+import { Reveal } from "@/components/ui/Reveal";
 import { mad, num, greeting } from "@/lib/format";
 import { popular, categoryBySlug } from "@/lib/data";
 import { useData } from "@/lib/DataProvider";
@@ -36,25 +38,26 @@ export default function HomeScreen() {
 
       <div className="space-y-5 px-4">
         {/* Carte à payer */}
-        <Link href="/charges" className="tap block">
-          <div className="bg-paywall relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
-            <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
-            <div className="absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-white/5" />
-            <div className="relative">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
-                <Icon name="House" className="h-3.5 w-3.5" /> À payer maintenant
-              </span>
-              <div className="mt-3 flex items-end gap-1.5">
-                <span className="text-[44px] font-bold leading-none tracking-tight">{num(totalDue)}</span>
-                <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
-              </div>
-              <p className="mt-1 text-[13px] opacity-80">{charges.length} charges de copropriété</p>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700">
-                Payer maintenant <Icon name="ArrowRight" className="h-4 w-4" />
+        <Reveal>
+          <Link href="/charges" className="tap block">
+            <div className="bg-paywall shimmer grain relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
+              <OrbField tone="warm" />
+              <div className="relative z-10">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+                  <Icon name="House" className="h-3.5 w-3.5" /> À payer maintenant
+                </span>
+                <div className="mt-3 flex items-end gap-1.5">
+                  <span className="glow-text text-[44px] font-bold leading-none tracking-tight">{num(totalDue)}</span>
+                  <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+                </div>
+                <p className="mt-1 text-[13px] opacity-80">{charges.length} charges de copropriété</p>
+                <div className="cta-breathe mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700 shadow-[0_8px_24px_-8px_rgba(255,255,255,0.5)]">
+                  Payer maintenant <Icon name="ArrowRight" className="h-4 w-4" />
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        </Reveal>
 
         {/* Quick actions */}
         <div className="grid grid-cols-3 gap-3">

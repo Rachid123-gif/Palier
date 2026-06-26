@@ -197,7 +197,7 @@ export default function ProviderScreen() {
             createBooking({ providerId: p.id, categorySlug: p.categorySlug, whenType: when, priceEstimate: p.basePrice });
             setTimeout(() => setToast(true), 400);
           }}
-          className={`tap flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold text-white ${ready ? "bg-palier-600" : "pointer-events-none bg-ink-faint/50"}`}
+          className={`tap flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold text-white ${ready ? "cta-breathe bg-palier-600 shadow-[0_10px_28px_-10px_rgba(30,91,80,0.9)]" : "pointer-events-none bg-ink-faint/50"}`}
         >
           <Icon name="MessageCircle" className="h-5 w-5" />
           {when === "scheduled" && !hour ? "Choisissez un créneau" : "Confirmer sur WhatsApp"}

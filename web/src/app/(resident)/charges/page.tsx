@@ -5,6 +5,8 @@ import { ScreenHeader } from "@/components/resident/ScreenHeader";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, Button } from "@/components/ui/primitives";
 import { Sheet, Toast } from "@/components/ui/Sheet";
+import { OrbField } from "@/components/ui/OrbField";
+import { Reveal } from "@/components/ui/Reveal";
 import { useRouter } from "next/navigation";
 import { mad, num, shortDate } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
@@ -57,27 +59,29 @@ export default function ChargesScreen() {
 
       <div className="space-y-5 px-4">
         {/* Total à régler */}
-        <div className="bg-hero relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
-          <div className="absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/10" />
-          <div className="relative">
-            <span className="text-[11px] font-bold uppercase tracking-wide opacity-80">Total à régler</span>
-            <div className="mt-2 flex items-end gap-1.5">
-              <span className="text-[42px] font-bold leading-none tracking-tight">{num(total)}</span>
-              <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+        <Reveal>
+          <div className="bg-hero shimmer grain relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
+            <OrbField tone="cool" />
+            <div className="relative z-10">
+              <span className="text-[11px] font-bold uppercase tracking-wide opacity-80">Total à régler</span>
+              <div className="mt-2 flex items-end gap-1.5">
+                <span className="glow-text text-[42px] font-bold leading-none tracking-tight">{num(total)}</span>
+                <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+              </div>
+              <p className="mt-1 text-[13px] opacity-80">
+                {remaining.length > 0 ? `${remaining.length} charge${remaining.length > 1 ? "s" : ""} en attente` : "Tout est réglé 🎉"}
+              </p>
+              {remaining.length > 0 && (
+                <button
+                  onClick={() => setPayTarget(remaining)}
+                  className="cta-breathe tap mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700 shadow-[0_8px_24px_-8px_rgba(255,255,255,0.5)]"
+                >
+                  <Icon name="Zap" className="h-4 w-4 fill-gold-500 text-gold-500" /> Tout payer en 1 clic
+                </button>
+              )}
             </div>
-            <p className="mt-1 text-[13px] opacity-80">
-              {remaining.length > 0 ? `${remaining.length} charge${remaining.length > 1 ? "s" : ""} en attente` : "Tout est réglé 🎉"}
-            </p>
-            {remaining.length > 0 && (
-              <button
-                onClick={() => setPayTarget(remaining)}
-                className="tap mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700"
-              >
-                <Icon name="Zap" className="h-4 w-4 fill-gold-500 text-gold-500" /> Tout payer en 1 clic
-              </button>
-            )}
           </div>
-        </div>
+        </Reveal>
 
         {/* À régler */}
         {remaining.length > 0 && (

@@ -64,7 +64,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "tap inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold",
+        "press inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold",
         full && "w-full",
         btnVariants[variant], className,
       )}

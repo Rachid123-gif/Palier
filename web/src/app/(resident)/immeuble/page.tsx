@@ -6,6 +6,7 @@ import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/primitives";
 import { LetterAvatar } from "@/components/ui/Avatar";
+import { Reveal } from "@/components/ui/Reveal";
 import { mad, num, shortDate, longDate } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 
@@ -49,11 +50,11 @@ export default function ImmeubleScreen() {
         </Link>
 
         {/* KPI santé immeuble */}
-        <div className="grid grid-cols-3 gap-3">
+        <Reveal className="grid grid-cols-3 gap-3">
           <Kpi icon="Wallet" tint="bg-coral-400/15" color="text-coral-600" value={`${num(buildingKpis.balance, false)}`} unit="MAD" label="Solde caisse" />
           <Kpi icon="CircleCheck" tint="bg-success-soft" color="text-success" value={`${buildingKpis.paymentRate}%`} label="Recouvrement" progress={buildingKpis.paymentRate} />
           <Kpi icon="TriangleAlert" tint="bg-danger-soft" color="text-danger" value={`${buildingKpis.openIncidents}`} label="Incidents" />
-        </div>
+        </Reveal>
 
         {/* Actions */}
         <div>

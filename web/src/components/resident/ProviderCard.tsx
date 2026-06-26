@@ -63,10 +63,10 @@ export function ProviderCard({
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <a href={telLink(p.phone)} className="tap flex items-center justify-center gap-1.5 rounded-full bg-sand py-2.5 text-[13px] font-semibold text-ink">
+        <a href={telLink(p.phone)} className="press flex items-center justify-center gap-1.5 rounded-full bg-sand py-2.5 text-[13px] font-semibold text-ink">
           <Icon name="Phone" className="h-4 w-4" /> Appeler
         </a>
-        <a href={wa} target="_blank" rel="noopener" className="tap flex items-center justify-center gap-1.5 rounded-full bg-[#25D366] py-2.5 text-[13px] font-semibold text-white">
+        <a href={wa} target="_blank" rel="noopener" className="press flex items-center justify-center gap-1.5 rounded-full bg-[#25D366] py-2.5 text-[13px] font-semibold text-white">
           <Icon name="MessageCircle" className="h-4 w-4" /> WhatsApp
         </a>
         {onSelect ? (
@@ -79,7 +79,7 @@ export function ProviderCard({
         ) : (
           <Link
             href={`/services/prestataire/${p.id}`}
-            className="tap flex items-center justify-center gap-1.5 rounded-full bg-palier-600 py-2.5 text-[13px] font-semibold text-white"
+            className="press flex items-center justify-center gap-1.5 rounded-full bg-palier-600 py-2.5 text-[13px] font-semibold text-white"
           >
             Réserver
           </Link>

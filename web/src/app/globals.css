@@ -150,3 +150,131 @@ body {
 /* Tap feedback natif */
 .tap { transition: transform 0.12s ease, opacity 0.12s ease; }
 .tap:active { transform: scale(0.97); opacity: 0.9; }
+
+/* =========================================================================
+   ANIMATIONS PREMIUM — cartes héros "vivantes" (Revolut / Apple Wallet / Linear)
+   Tout en transform/opacity → GPU, 60 FPS.
+   ========================================================================= */
+
+/* ---- 1 & 6. Floating orbs + depth (3 couches) ---- */
+@keyframes orb-a {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: .55; }
+  100% { transform: translate3d(34px, -26px, 0) scale(1.14); opacity: .8; }
+}
+@keyframes orb-b {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: .4; }
+  100% { transform: translate3d(-30px, 20px, 0) scale(1.1); opacity: .6; }
+}
+@keyframes orb-c {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: .3; }
+  100% { transform: translate3d(22px, 24px, 0) scale(1.18); opacity: .5; }
+}
+
+.orb-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(2px);
+  will-change: transform, opacity;
+}
+.orb-blur-lg { filter: blur(38px); }
+.orb-blur-md { filter: blur(24px); }
+.orb-a { animation: orb-a 34s ease-in-out infinite alternate; }
+.orb-b { animation: orb-b 26s ease-in-out infinite alternate; }
+.orb-c { animation: orb-c 40s ease-in-out infinite alternate; }
+/* wrapper qui porte le parallax (translateY piloté par --py) — n'entre pas en conflit
+   avec les keyframes de transform de l'orbe (sur l'élément enfant). */
+.orb-par { position: absolute; transform: translate3d(0, calc(var(--py, 0) * 1px), 0); will-change: transform; }
+
+/* Rotation lente de toute la constellation d'orbs (se croisent, tournent) */
+@keyframes orb-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.orb-rotor { position: absolute; inset: -10%; animation: orb-spin 90s linear infinite; will-change: transform; }
+
+/* Watermark logo Palier — respiration discrète (couche intermédiaire) */
+@keyframes wm-breathe {
+  0%, 100% { transform: scale(1); opacity: .06; }
+  50%      { transform: scale(1.05); opacity: .1; }
+}
+.watermark { position: absolute; pointer-events: none; animation: wm-breathe 9s ease-in-out infinite; will-change: transform, opacity; }
+
+/* ---- 3. Shimmer light (reflet qui passe ~ toutes les 11s) ---- */
+@keyframes shimmer-sweep {
+  0%, 84%   { transform: translateX(-160%) skewX(-16deg); opacity: 0; }
+  90%       { opacity: .55; }
+  100%      { transform: translateX(160%) skewX(-16deg); opacity: 0; }
+}
+.shimmer { position: relative; }
+.shimmer::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 32%, rgba(255, 255, 255, .22) 50%, transparent 68%);
+  transform: translateX(-160%) skewX(-16deg);
+  animation: shimmer-sweep 11s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ---- 5. Grain texture (micro-bruit premium) ---- */
+.grain::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: .05;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ---- 4. Glow effect (montants, KPI, CTA) — extrêmement subtil ---- */
+.glow-text { text-shadow: 0 0 22px rgba(255, 255, 255, .28); }
+@keyframes glow-soft {
+  0%, 100% { opacity: .35; }
+  50%      { opacity: .6; }
+}
+.glow-halo {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(28px);
+  animation: glow-soft 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ---- 7. CTA — léger pulse + hover premium (jamais agressif) ---- */
+@keyframes cta-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.018); }
+}
+.cta-breathe { animation: cta-breathe 3.4s ease-in-out infinite; will-change: transform; }
+.cta-breathe:hover { animation-play-state: paused; transform: scale(1.03); }
+
+/* ---- 8. Hero entrance (CSS, fiable même onglet masqué) ---- */
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.hero-in { animation: hero-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ---- 9. Page transition (CSS) ---- */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.994); }
+  to   { opacity: 1; transform: none; }
+}
+.page-in { animation: page-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ---- 7. Boutons — micro-interaction ressort + feedback tactile ---- */
+.press { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease; will-change: transform; }
+.press:hover { transform: translateY(-1px); }
+.press:active { transform: scale(0.95); }
+
+/* ---- 3 & 5. État actif d'une catégorie (contour lumineux + halo + scale) ---- */
+.cat-chip { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.cat-active { transform: scale(1.06); }
+.cat-active .cat-icon {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 22px 2px rgba(255, 255, 255, 0.45);
+}
+
+/* ---- Accessibilité : couper le mouvement si demandé ---- */
+@media (prefers-reduced-motion: reduce) {
+  .orb-a, .orb-b, .orb-c, .orb-rotor, .watermark, .shimmer::after, .cta-breathe, .glow-halo { animation: none !important; }
+  .hero-in, .page-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+}

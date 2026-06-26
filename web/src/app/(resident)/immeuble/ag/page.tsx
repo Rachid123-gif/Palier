@@ -4,6 +4,8 @@ import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/primitives";
+import { OrbField } from "@/components/ui/OrbField";
+import { Reveal } from "@/components/ui/Reveal";
 import { Toast } from "@/components/ui/Sheet";
 import { longDate } from "@/lib/format";
 
@@ -33,19 +35,24 @@ export default function AgScreen() {
       </header>
 
       <div className="space-y-5 px-4 pt-1">
-        <div className="bg-hero rounded-3xl p-5 text-white shadow-hero">
-          <Badge tone="gold">Dans 13 jours</Badge>
-          <h2 className="mt-2 text-[22px] font-bold">AG ordinaire 2026</h2>
-          <p className="mt-1 text-[13px] text-white/80">{longDate("2026-05-12")} · 18h30 · Hall de la résidence</p>
-          <div className="mt-4 flex gap-2">
-            <button className="tap flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white py-2.5 text-[13px] font-bold text-palier-700">
-              <Icon name="FileText" className="h-4 w-4" /> Convocation PDF
-            </button>
-            <button className="tap flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/15 py-2.5 text-[13px] font-bold text-white">
-              <Icon name="CalendarPlus" className="h-4 w-4" /> Ajouter
-            </button>
+        <Reveal>
+          <div className="bg-hero shimmer grain relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
+            <OrbField tone="cool" />
+            <div className="relative z-10">
+              <Badge tone="gold">Dans 13 jours</Badge>
+              <h2 className="glow-text mt-2 text-[22px] font-bold">AG ordinaire 2026</h2>
+              <p className="mt-1 text-[13px] text-white/80">{longDate("2026-05-12")} · 18h30 · Hall de la résidence</p>
+              <div className="mt-4 flex gap-2">
+                <button className="tap flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white py-2.5 text-[13px] font-bold text-palier-700">
+                  <Icon name="FileText" className="h-4 w-4" /> Convocation PDF
+                </button>
+                <button className="tap flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/15 py-2.5 text-[13px] font-bold text-white">
+                  <Icon name="CalendarPlus" className="h-4 w-4" /> Ajouter
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </Reveal>
 
         <div>
           <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Ordre du jour</h2>
