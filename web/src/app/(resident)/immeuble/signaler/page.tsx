@@ -71,9 +71,9 @@ export default function SignalerScreen() {
 
       <div className="space-y-5 px-4 pt-1">
         {/* Bandeau */}
-        <div className="bg-hero flex items-center gap-3 rounded-2xl p-4 text-white">
-          <Icon name="Wrench" className="h-7 w-7 shrink-0" />
-          <p className="text-[13px] leading-snug text-white/90">Ascenseur, fuite, panne… <b>le syndic est notifié immédiatement</b> et vous suivez la résolution en temps réel.</p>
+        <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-4">
+          <Icon name="Wrench" className="h-7 w-7 shrink-0 text-palier-600" />
+          <p className="text-[13px] leading-snug text-palier-800">Ascenseur, fuite, panne… <b>le syndic est notifié immédiatement</b> et vous suivez la résolution en temps réel.</p>
         </div>
 
         {/* Catégorie */}

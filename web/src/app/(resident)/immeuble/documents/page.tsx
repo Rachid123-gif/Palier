@@ -29,9 +29,9 @@ export default function DocumentsScreen() {
         </div>
       </header>
 
-      <div className="space-y-3 px-4 pt-1">
+      <div className="space-y-4 px-4 pt-1">
         {/* Info */}
-        <div className="flex items-center gap-3 rounded-2xl border border-palier-100 bg-palier-50 p-3.5">
+        <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-3.5">
           <Icon name="FolderOpen" className="h-5 w-5 shrink-0 text-palier-600" />
           <p className="text-[12.5px] font-medium text-palier-800">
             Documents officiels de votre copropriété — PV, contrats, règlements.

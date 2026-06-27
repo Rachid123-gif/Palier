@@ -98,7 +98,7 @@ export default function ServicesScreen() {
               <button
                 key={c.slug}
                 onClick={() => setActive(on ? null : c.slug)}
-                className={`tap flex shrink-0 snap-start items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold ${on ? "bg-palier-600 text-white" : "bg-cream-card text-ink-soft shadow-card"}`}
+                className={`tap flex shrink-0 snap-start items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold ${on ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
               >
                 <Icon name={c.icon} className="h-4 w-4" /> {c.short}
               </button>

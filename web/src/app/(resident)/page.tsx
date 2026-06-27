@@ -44,7 +44,7 @@ export default function HomeScreen() {
       <StatusBar />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pb-3 pt-2">
+      <header className="flex items-center justify-between px-5 pb-2 pt-3">
         <div className="flex items-center gap-3">
           <LogoMark size={42} />
           <div>

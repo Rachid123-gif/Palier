@@ -148,7 +148,7 @@ export default function VoisinageScreen() {
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setVisibleCount(POST_LIMIT); }}
-              className={`tap flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold ${tab === t.key ? "bg-ink text-white" : "bg-cream-card text-ink-soft shadow-card"}`}
+              className={`tap flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold ${tab === t.key ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
             >
               <Icon name={t.icon} className="h-3.5 w-3.5" /> {t.label}
             </button>
