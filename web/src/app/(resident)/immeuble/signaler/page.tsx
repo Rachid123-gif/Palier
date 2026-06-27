@@ -131,9 +131,7 @@ export default function SignalerScreen() {
             placeholder="Décrivez ce qui se passe en quelques lignes…"
             className="w-full resize-none rounded-2xl border border-black/5 bg-cream-card px-4 py-3 text-[14px] text-ink shadow-card outline-none placeholder:text-ink-faint focus:border-palier-300"
           />
-          <button className="tap mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-palier-600">
-            <Icon name="Camera" className="h-4 w-4" /> Ajouter une photo
-          </button>
+          {/* Photo upload — v2 */}
         </div>
 
         <Button full disabled={!cat || !title} onClick={submit} className={!cat || !title ? "opacity-50" : ""} icon="Send">
