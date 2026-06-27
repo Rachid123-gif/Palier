@@ -39,8 +39,6 @@ const t = {
     codeError: "Code incorrect. Vérifiez auprès de votre syndic.",
     codeInfo: "Ce code est unique à votre résidence. Demandez-le à votre syndic.",
     codeBtn: "Valider le code",
-    doneTitle: "Bienvenue",
-    doneDesc: "Votre espace résident est prêt.",
   },
   ar: {
     langLabel: "Français",
@@ -71,14 +69,12 @@ const t = {
     codeError: "رمز غير صحيح. تحقق من السنديك.",
     codeInfo: "هذا الرمز خاص بإقامتك. اطلبه من السنديك.",
     codeBtn: "تأكيد الرمز",
-    doneTitle: "مرحبا",
-    doneDesc: "مساحتك كساكن جاهزة.",
   },
 };
 
 const slideColors = ["bg-palier-600", "bg-[#c5604f]", "bg-[#d9961f]"];
 
-type Step = "welcome" | "code" | "done";
+type Step = "welcome" | "code";
 
 export default function BienvenuePage() {
   const router = useRouter();
@@ -101,8 +97,7 @@ export default function BienvenuePage() {
       setCodeError("");
       localStorage.setItem("palier_onboarded", "1");
       localStorage.setItem("palier_lang", lang);
-      setStep("done");
-      setTimeout(() => router.push("/"), 1500);
+      router.push("/");
     } else {
       setCodeError(i.codeError);
     }
@@ -238,15 +233,5 @@ export default function BienvenuePage() {
     );
   }
 
-  // ─── DONE ─────────────────────────────────────────────────
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center" dir={isAr ? "rtl" : "ltr"}>
-      <StatusBar />
-      <LogoMark size={64} />
-      <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">
-        {i.doneTitle} !
-      </h1>
-      <p className="mt-2 text-[14px] text-ink-soft">{i.doneDesc}</p>
-    </div>
-  );
+  return null;
 }
