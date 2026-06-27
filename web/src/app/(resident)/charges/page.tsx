@@ -188,7 +188,7 @@ export default function ChargesScreen() {
               </>
             ) : (
               <div className="card flex items-center gap-3 p-4">
-                <Icon name="Search" className="h-5 w-5 text-ink-faint" />
+                <Icon name="CalendarX" className="h-5 w-5 text-ink-faint" />
                 <p className="text-[13px] text-ink-soft">Aucune charge sur cette période</p>
               </div>
             )
@@ -331,14 +331,23 @@ function ChargeCard({ c, onReceipt }: { c: Charge; onReceipt?: () => void }) {
           <p className="text-[15px] font-bold text-ink">{c.label}</p>
           <p className="truncate text-[12px] text-ink-soft">{c.detail}</p>
           <div className="mt-1 flex items-center gap-2">
-            <Badge tone={st.tone}>{st.label}</Badge>
+            {c.status === "late" && <Badge tone="danger">En retard</Badge>}
             <span className="truncate text-[11px] text-ink-faint">
               {c.period} · {shortDate(c.dueDate)}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[15px] font-bold text-ink">{num(c.amount)}</p>
+          {isPaid ? (
+            <p className="text-[15px] font-bold text-ink">{num(c.amount)}</p>
+          ) : (
+            <>
+              <p className="text-[15px] font-bold text-ink">{num(c.amount - c.paid)}</p>
+              {c.paid > 0 && (
+                <p className="text-[10px] text-ink-faint">sur {num(c.amount)}</p>
+              )}
+            </>
+          )}
           <p className="text-[10px] font-semibold text-ink-faint">MAD</p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID, DEMO_UNIT_ID } from "./supabase";
-import type { Urgency } from "./types";
+import type { Urgency, Comment } from "./types";
 
 /** Écritures résident → Supabase (le backoffice syndic les exploite). */
 
@@ -99,6 +99,47 @@ export async function logDunning(input: {
     channel: input.channel,
     message: input.message,
   });
+}
+
+export async function createComment(input: {
+  postId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+}) {
+  const { error } = await supabase.from("post_comments").insert({
+    post_id: input.postId,
+    author_name: input.author,
+    avatar_color: input.avatarColor,
+    body: input.body,
+  });
+  if (!error) {
+    // Incrémenter le compteur de commentaires sur le post
+    await supabase.rpc("increment_comments_count", { post_id_input: input.postId });
+  }
+  return { error };
+}
+
+export async function fetchComments(postId: string): Promise<Comment[]> {
+  const { data } = await supabase
+    .from("post_comments")
+    .select("*")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    postId: r.post_id as string,
+    author: r.author_name as string,
+    avatarColor: r.avatar_color as string,
+    body: r.body as string,
+    likes: (r.likes as number) ?? 0,
+    createdAt: r.created_at as string,
+  }));
+}
+
+export async function likeComment(commentId: string) {
+  return supabase.rpc("increment_comment_likes", { comment_id_input: commentId });
 }
 
 export async function recordPayment(items: { id: string; amount: number }[], method: string) {

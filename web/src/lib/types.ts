@@ -44,6 +44,16 @@ export interface Post {
   comments: number;
 }
 
+export interface Comment {
+  id: string;
+  postId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+  likes: number;
+  createdAt: string;
+}
+
 export interface LedgerEntry {
   id: string;
   type: "in" | "out";

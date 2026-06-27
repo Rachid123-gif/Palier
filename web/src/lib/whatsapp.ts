@@ -11,6 +11,28 @@ export function telLink(phone: string): string {
 
 export type WhenType = "now" | "today" | "scheduled";
 
+export function contactMessage(params: {
+  providerName: string;
+  serviceLabel: string;
+  city: string;
+  building?: string;
+  userName?: string;
+}): string {
+  const { providerName, serviceLabel, city, building, userName } = params;
+  return [
+    `Bonjour ${providerName} 👋`,
+    ``,
+    `Je vous contacte via *Palier* pour un service de *${serviceLabel}*.`,
+    `• Adresse : ${building ? building + ", " : ""}${city}`,
+    userName ? `• De la part de : ${userName}` : ``,
+    ``,
+    `Êtes-vous disponible ? Quel serait le tarif ? Merci !`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** @deprecated — utilisez contactMessage à la place */
 export function bookingMessage(params: {
   providerName: string;
   serviceLabel: string;
@@ -20,26 +42,7 @@ export function bookingMessage(params: {
   building?: string;
   userName?: string;
 }): string {
-  const { providerName, serviceLabel, whenType, slotLabel, city, building, userName } = params;
-  const whenText =
-    whenType === "now"
-      ? "dès que possible (maintenant)"
-      : whenType === "today"
-        ? "aujourd'hui"
-        : slotLabel ?? "à planifier";
-  return [
-    `Bonjour ${providerName} 👋`,
-    ``,
-    `Je vous contacte via *Palier* pour une prestation :`,
-    `• Service : ${serviceLabel}`,
-    `• Quand : ${whenText}`,
-    `• Adresse : ${building ? building + ", " : ""}${city}`,
-    userName ? `• De la part de : ${userName}` : ``,
-    ``,
-    `Pouvez-vous confirmer votre disponibilité et le tarif ? Merci !`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return contactMessage(params);
 }
 
 export function dunningMessage(params: {
@@ -68,7 +71,7 @@ export function quoteRequestMessage(params: {
   return [
     `Bonjour, je cherche un prestataire *${categoryLabel}* à ${city} via Palier.`,
     details ? `Besoin : ${details}` : ``,
-    `Pouvez-vous me proposer quelqu'un de vérifié ? Merci !`,
+    `Pouvez-vous m'aider ? Merci !`,
   ]
     .filter(Boolean)
     .join("\n");
