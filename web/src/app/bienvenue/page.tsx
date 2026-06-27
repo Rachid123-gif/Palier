@@ -39,16 +39,6 @@ const t = {
     codeError: "Code incorrect. Vérifiez auprès de votre syndic.",
     codeInfo: "Ce code est unique à votre résidence. Demandez-le à votre syndic.",
     codeBtn: "Valider le code",
-    infoTitle: "Vos informations",
-    infoDesc: "Pour personnaliser votre espace résident.",
-    nameLabel: "Nom complet *",
-    namePlaceholder: "Ex : Fatima El Amrani",
-    aptLabel: "Appartement / Lot",
-    aptPlaceholder: "Ex : Apt 12, 3ème étage",
-    phoneLabel: "Téléphone",
-    phonePlaceholder: "Ex : 06 61 23 45 67",
-    infoBtn: "Accéder à mon immeuble",
-    infoNote: "Vos données restent privées et sécurisées.",
     doneTitle: "Bienvenue",
     doneDesc: "Votre espace résident est prêt.",
   },
@@ -81,16 +71,6 @@ const t = {
     codeError: "رمز غير صحيح. تحقق من السنديك.",
     codeInfo: "هذا الرمز خاص بإقامتك. اطلبه من السنديك.",
     codeBtn: "تأكيد الرمز",
-    infoTitle: "معلوماتك",
-    infoDesc: "لتخصيص مساحتك كساكن.",
-    nameLabel: "الاسم الكامل *",
-    namePlaceholder: "مثال : فاطمة العمراني",
-    aptLabel: "الشقة / اللوط",
-    aptPlaceholder: "مثال : شقة 12، الطابق 3",
-    phoneLabel: "الهاتف",
-    phonePlaceholder: "مثال : 06 61 23 45 67",
-    infoBtn: "الدخول إلى عمارتي",
-    infoNote: "بياناتك تبقى خاصة وآمنة.",
     doneTitle: "مرحبا",
     doneDesc: "مساحتك كساكن جاهزة.",
   },
@@ -98,7 +78,7 @@ const t = {
 
 const slideColors = ["bg-palier-600", "bg-[#c5604f]", "bg-[#d9961f]"];
 
-type Step = "welcome" | "code" | "info" | "done";
+type Step = "welcome" | "code" | "done";
 
 export default function BienvenuePage() {
   const router = useRouter();
@@ -107,9 +87,6 @@ export default function BienvenuePage() {
   const [slide, setSlide] = useState(0);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
-  const [name, setName] = useState("");
-  const [apartment, setApartment] = useState("");
-  const [phone, setPhone] = useState("");
 
   const i = t[lang];
   const isAr = lang === "ar";
@@ -122,21 +99,13 @@ export default function BienvenuePage() {
   function validateCode() {
     if (code.trim().toUpperCase() === DEMO_CODE) {
       setCodeError("");
-      setStep("info");
+      localStorage.setItem("palier_onboarded", "1");
+      localStorage.setItem("palier_lang", lang);
+      setStep("done");
+      setTimeout(() => router.push("/"), 1500);
     } else {
       setCodeError(i.codeError);
     }
-  }
-
-  function finish() {
-    if (!name.trim()) return;
-    localStorage.setItem("palier_onboarded", "1");
-    localStorage.setItem("palier_lang", lang);
-    localStorage.setItem("palier_user_name", name.trim());
-    localStorage.setItem("palier_user_apt", apartment.trim());
-    localStorage.setItem("palier_user_phone", phone.trim());
-    setStep("done");
-    setTimeout(() => router.push("/"), 1500);
   }
 
   // Bouton de langue (coin haut droit)
@@ -269,88 +238,13 @@ export default function BienvenuePage() {
     );
   }
 
-  // ─── INFOS PERSONNELLES ───────────────────────────────────
-  if (step === "info") {
-    const ready = name.trim().length >= 2;
-    return (
-      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
-
-        <div className="flex items-center justify-between px-6 pt-6">
-          <button onClick={() => setStep("code")} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-            <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
-          </button>
-          {langBtn}
-        </div>
-
-        <div className="flex-1 px-6 pt-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
-            <Icon name="UserRound" className="h-8 w-8 text-palier-600" />
-          </div>
-
-          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.infoTitle}</h1>
-          <p className="mt-1.5 text-[14px] text-ink-soft">{i.infoDesc}</p>
-
-          <div className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink-faint">{i.nameLabel}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={i.namePlaceholder}
-                autoFocus
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink-faint">{i.aptLabel}</label>
-              <input
-                type="text"
-                value={apartment}
-                onChange={(e) => setApartment(e.target.value)}
-                placeholder={i.aptPlaceholder}
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink-faint">{i.phoneLabel}</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder={i.phonePlaceholder}
-                dir="ltr"
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pb-10">
-          <button
-            onClick={finish}
-            disabled={!ready}
-            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!ready ? "opacity-50" : ""}`}
-          >
-            {i.infoBtn}
-            <Icon name={isAr ? "ArrowLeft" : "ArrowRight"} className="h-4.5 w-4.5" />
-          </button>
-          <p className="mt-3 text-center text-[11px] text-ink-faint">{i.infoNote}</p>
-        </div>
-      </div>
-    );
-  }
-
   // ─── DONE ─────────────────────────────────────────────────
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 text-center" dir={isAr ? "rtl" : "ltr"}>
       <StatusBar />
       <LogoMark size={64} />
       <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">
-        {i.doneTitle}{name ? `, ${name.split(" ")[0]}` : ""} !
+        {i.doneTitle} !
       </h1>
       <p className="mt-2 text-[14px] text-ink-soft">{i.doneDesc}</p>
     </div>
