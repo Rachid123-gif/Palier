@@ -26,22 +26,26 @@ export interface SyndicData {
   incidents: any[];
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string }[];
   ledger: any[];
+  documents: { id: string; title: string; type: string; date: string; size: string; color: string; tint: string }[];
+  assembly: { date: string; agenda: string[]; votes: { q: string; pour: number; contre: number; abst: number }[]; quorum: number } | null;
   marketplace: { providers: number; bookings: number; requests: number };
 }
 
 export async function fetchSyndicData(): Promise<SyndicData> {
-  const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, provRes, bookRes, reqRes] = await Promise.all([
+  const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, provRes, bookRes, reqRes, docRes, agRes] = await Promise.all([
     supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
     supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID),
     supabase.from("memberships").select("*").eq("building_id", DEMO_BUILDING_ID),
     supabase.from("profiles").select("*"),
-    supabase.from("charges").select("*").eq("building_id", DEMO_BUILDING_ID).eq("period", "Juin 2026"),
+    supabase.from("charges").select("*").eq("building_id", DEMO_BUILDING_ID),
     supabase.from("dunning_logs").select("unit_id, sent_at").eq("building_id", DEMO_BUILDING_ID).order("sent_at", { ascending: false }),
     supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
     supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
     supabase.from("providers").select("id", { count: "exact", head: true }),
     supabase.from("bookings").select("id", { count: "exact", head: true }),
     supabase.from("service_requests").select("id", { count: "exact", head: true }),
+    supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
+    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }).limit(1).single(),
   ]);
 
   const b = bRes.data;
@@ -108,6 +112,14 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     incidents,
     residents,
     ledger: ledRes.data ?? [],
+    documents: (docRes.data ?? []).map((d: any) => ({
+      id: d.id, title: d.title, type: d.doc_type ?? d.type ?? "", date: d.doc_date ?? d.created_at,
+      size: d.size ?? "", color: d.color ?? "text-ink-soft", tint: d.tint ?? "bg-cream-card",
+    })),
+    assembly: agRes.data ? {
+      date: agRes.data.date, agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
+      quorum: agRes.data.quorum ?? 0,
+    } : null,
     marketplace: {
       providers: provRes.count ?? 0,
       bookings: bookRes.count ?? 0,

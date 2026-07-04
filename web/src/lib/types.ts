@@ -100,6 +100,26 @@ export interface City {
   providerCount: number;
 }
 
+export interface DocFile {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+  icon: string;
+  color: string;
+  tint: string;
+}
+
+export interface Assembly {
+  id: string;
+  date: string;
+  time: string;
+  place: string;
+  buildingName: string;
+  agenda: { n: number; t: string; d: string }[];
+  votes: { id: string; q: string; options: string[]; closesAt: string }[];
+}
+
 export interface BuildingKpis {
   balance: number;
   paymentRate: number;

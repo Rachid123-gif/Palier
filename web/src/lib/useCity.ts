@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { cities, currentUser } from "./data";
+import { cities } from "./data";
 
 const KEY = "palier_loc";
+const DEFAULT_CITY = "casablanca";
 
 // Coordonnées approx. des villes (mapping GPS → ville la plus proche).
 const cityCoords: Record<string, [number, number]> = {
@@ -24,21 +25,24 @@ export function nearestCity(lat: number, lng: number): string {
 
 interface Loc { city: string; quartier: string | null }
 
-function read(): Loc {
-  if (typeof window === "undefined") return { city: currentUser.city, quartier: null };
+function read(fallbackCity?: string): Loc {
+  const fallback = fallbackCity ?? DEFAULT_CITY;
+  if (typeof window === "undefined") return { city: fallback, quartier: null };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { city: currentUser.city, quartier: null };
+  return { city: fallback, quartier: null };
 }
 
-/** Localisation (ville + quartier), persistée et synchronisée entre écrans. */
-export function useCity() {
-  const [loc, setLoc] = useState<Loc>({ city: currentUser.city, quartier: null });
+/** Localisation (ville + quartier), persistée et synchronisée entre écrans.
+ *  @param fallbackCity — ville par défaut (celle du résident, issue de Supabase). */
+export function useCity(fallbackCity?: string) {
+  const fallback = fallbackCity ?? DEFAULT_CITY;
+  const [loc, setLoc] = useState<Loc>({ city: fallback, quartier: null });
 
   useEffect(() => {
-    setLoc(read());
+    setLoc(read(fallback));
     const onChange = (e: Event) => {
       const ce = e as CustomEvent<Loc>;
       if (ce.detail) setLoc(ce.detail);

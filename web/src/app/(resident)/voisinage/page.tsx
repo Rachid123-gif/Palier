@@ -89,14 +89,7 @@ export default function VoisinageScreen() {
   async function openComments(post: Post) {
     setCommentPost(post);
     setCommentsLoading(true);
-    let data = await fetchComments(post.id);
-    // Fallback démo si pas de table encore
-    if (data.length === 0 && post.comments > 0) {
-      data = [
-        { id: "demo-1", postId: post.id, author: "Fatima Z.", avatarColor: "#E8A87C", body: "Merci pour l'info, c'est noté !", likes: 2, createdAt: new Date(Date.now() - 3600_000).toISOString() },
-        { id: "demo-2", postId: post.id, author: "Youssef B.", avatarColor: "#7EB5A6", body: "Bien reçu, merci 👍", likes: 1, createdAt: new Date(Date.now() - 1800_000).toISOString() },
-      ];
-    }
+    const data = await fetchComments(post.id);
     setComments(data);
     setCommentsLoading(false);
   }

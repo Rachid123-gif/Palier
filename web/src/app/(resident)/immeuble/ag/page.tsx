@@ -8,28 +8,39 @@ import { Toast } from "@/components/ui/Sheet";
 import { longDate, daysUntil } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 
-/* Données AG — à remplacer par une table Supabase en v2 */
-const AG_DATE = "2026-09-15";
-const AG_TIME = "18h30";
-const AG_PLACE = "Hall de la résidence";
-
-const agenda = [
-  { n: 1, t: "Approbation des comptes 2025", d: "Présentation du bilan et quitus au syndic." },
-  { n: 2, t: "Vote du budget 2026", d: "Charges courantes et provisions." },
-  { n: 3, t: "Rénovation du hall d'entrée", d: "Devis : 78 000 MAD — 3 prestataires." },
-  { n: 4, t: "Questions diverses", d: "Points soulevés par les copropriétaires." },
-];
-
-const votes = [
-  { id: "v1", q: "Approuver le devis de rénovation du hall (78 000 MAD) ?", options: ["Pour", "Contre", "Abstention"], closesAt: AG_DATE },
-];
-
 export default function AgScreen() {
-  const { building } = useData();
+  const { building, assembly } = useData();
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [toast, setToast] = useState(false);
-  const days = daysUntil(AG_DATE);
-  const isPast = days === 0 && new Date(AG_DATE) < new Date();
+
+  if (!assembly) {
+    return (
+      <div className="animate-[fade_0.4s_ease] pb-4">
+        <StatusBar />
+        <header className="flex items-center gap-3 px-5 pb-2 pt-3">
+          <Link href="/immeuble" className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
+            <Icon name="ChevronLeft" className="h-5 w-5" />
+          </Link>
+          <h1 className="text-[22px] font-bold tracking-tight text-ink">Assemblée générale</h1>
+        </header>
+        <div className="space-y-4 px-4 pt-1">
+          <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-3.5">
+            <Icon name="CalendarDays" className="h-5 w-5 shrink-0 text-palier-600" />
+            <p className="text-[12.5px] font-medium text-palier-800">
+              Les informations de la prochaine AG seront affichées ici dès qu&apos;elles seront disponibles.
+            </p>
+          </div>
+          <div className="card flex items-center gap-3 p-4">
+            <Icon name="CalendarX" className="h-5 w-5 text-ink-faint" />
+            <p className="text-[13px] text-ink-soft">Aucune assemblée générale programmée pour le moment</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const days = daysUntil(assembly.date);
+  const isPast = days === 0 && new Date(assembly.date) < new Date();
 
   return (
     <div className="animate-[fade_0.4s_ease] pb-4">
@@ -49,32 +60,34 @@ export default function AgScreen() {
           <div className="relative z-10">
             {!isPast && <Badge tone="gold">Dans {days} jour{days > 1 ? "s" : ""}</Badge>}
             {isPast && <Badge tone="neutral">Terminée</Badge>}
-            <h2 className="mt-2 text-[22px] font-bold">AG ordinaire — {building.name}</h2>
-            <p className="mt-1 text-[13px] text-white/80">{longDate(AG_DATE)} · {AG_TIME} · {AG_PLACE}</p>
+            <h2 className="mt-2 text-[22px] font-bold">AG ordinaire. {building.name}</h2>
+            <p className="mt-1 text-[13px] text-white/80">{longDate(assembly.date)} · {assembly.time} · {assembly.place}</p>
           </div>
         </div>
 
         {/* Ordre du jour */}
-        <div>
-          <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Ordre du jour</h2>
-          <div className="card divide-y divide-black/5 p-0">
-            {agenda.map((a) => (
-              <div key={a.n} className="flex gap-3 p-3.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-100 text-[13px] font-bold text-palier-700">{a.n}</span>
-                <div>
-                  <p className="text-[14px] font-bold text-ink">{a.t}</p>
-                  <p className="text-[12px] text-ink-soft">{a.d}</p>
+        {assembly.agenda.length > 0 && (
+          <div>
+            <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Ordre du jour</h2>
+            <div className="card divide-y divide-black/5 p-0">
+              {assembly.agenda.map((a) => (
+                <div key={a.n} className="flex gap-3 p-3.5">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-100 text-[13px] font-bold text-palier-700">{a.n}</span>
+                  <div>
+                    <p className="text-[14px] font-bold text-ink">{a.t}</p>
+                    <p className="text-[12px] text-ink-soft">{a.d}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Votes ouverts */}
-        {!isPast && (
+        {!isPast && assembly.votes.length > 0 && (
           <div>
             <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Votes ouverts</h2>
-            {votes.map((v) => (
+            {assembly.votes.map((v) => (
               <div key={v.id} className="card p-4">
                 <p className="text-[14px] font-bold text-ink">{v.q}</p>
                 <p className="mt-1 text-[12px] text-ink-faint">Vote pondéré par les tantièmes · clôture le {longDate(v.closesAt)}</p>

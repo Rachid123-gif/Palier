@@ -12,8 +12,8 @@ import { categoryBySlug } from "@/lib/data";
 
 export default function CategoryScreen() {
   const params = useParams<{ category: string }>();
-  const { providersFor } = useData();
-  const { slug, city, quartier, setCity } = useCity();
+  const { providersFor, currentUser } = useData();
+  const { slug, city, quartier, setCity } = useCity(currentUser.city);
   const [citySheet, setCitySheet] = useState(false);
 
   const cat = categoryBySlug(params.category);

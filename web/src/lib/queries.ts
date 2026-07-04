@@ -1,6 +1,7 @@
 import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID, DEMO_UNIT_ID } from "./supabase";
 import type {
   Charge, Incident, Post, LedgerEntry, Provider, CurrentUser, BuildingKpis,
+  DocFile, Assembly,
 } from "./types";
 
 export interface AppData {
@@ -14,6 +15,8 @@ export interface AppData {
   incidents: Incident[];
   posts: Post[];
   providers: Provider[];
+  documents: DocFile[];
+  assembly: Assembly | null;
   notifications: { id: string; title: string; body: string; created_at: string; kind: string }[];
 }
 
@@ -55,7 +58,7 @@ const mapLedger = (r: any): LedgerEntry => ({
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(): Promise<AppData> {
-  const [bRes, pRes, uRes, chRes, ledRes, incRes, postRes, provRes, notifRes] = await Promise.all([
+  const [bRes, pRes, uRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
     supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
     supabase.from("profiles").select("*").eq("id", DEMO_PROFILE_ID).single(),
     supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID).limit(1).single(),
@@ -65,6 +68,8 @@ export async function fetchAppData(): Promise<AppData> {
     supabase.from("posts").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
     supabase.from("providers").select("*").eq("active", true),
     supabase.from("notifications").select("*").eq("profile_id", DEMO_PROFILE_ID).order("created_at", { ascending: false }),
+    supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
+    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }).limit(1).single(),
   ]);
 
   const b = bRes.data;
@@ -101,6 +106,16 @@ export async function fetchAppData(): Promise<AppData> {
     incidents,
     posts: (postRes.data ?? []).map(mapPost),
     providers: (provRes.data ?? []).map(mapProvider),
+    documents: (docRes.data ?? []).map((r: any): DocFile => ({
+      id: r.id, title: r.title, type: r.doc_type ?? r.type ?? "", date: r.doc_date ?? r.created_at,
+      icon: r.icon ?? "FileText", color: r.color ?? "text-ink-soft", tint: r.tint ?? "bg-cream-card",
+    })),
+    assembly: agRes.data ? {
+      id: agRes.data.id, date: agRes.data.date, time: agRes.data.time ?? "18h30",
+      place: agRes.data.place ?? "Hall de la résidence",
+      buildingName: b?.name ?? "",
+      agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
+    } : null,
     notifications: notifRes.data ?? [],
   };
 }

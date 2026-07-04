@@ -4,6 +4,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
 import { cities, quartiersByCity } from "@/lib/data";
 import { nearestCity } from "@/lib/useCity";
+import { useData } from "@/lib/DataProvider";
 
 export function CitySheet({
   open, onClose, current, currentQuartier, onPick,
@@ -14,6 +15,7 @@ export function CitySheet({
   currentQuartier?: string | null;
   onPick: (city: string, quartier?: string | null) => void;
 }) {
+  const { providers } = useData();
   const [detecting, setDetecting] = useState(false);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string>(current);
@@ -72,7 +74,7 @@ export function CitySheet({
                 <Icon name="MapPin" className="h-5 w-5 text-coral-500" />
                 <div className="flex-1 text-left">
                   <p className="text-sm font-semibold text-ink">{c.name}</p>
-                  <p className="text-[12px] text-ink-faint">{c.providerCount} prestataires{active && currentQuartier ? ` · ${currentQuartier}` : ""}</p>
+                  <p className="text-[12px] text-ink-faint">{providers.filter((p) => p.city === c.slug).length} prestataires{active && currentQuartier ? ` · ${currentQuartier}` : ""}</p>
                 </div>
                 {active && !currentQuartier && <Icon name="Check" className="h-5 w-5 text-palier-600" strokeWidth={2.6} />}
                 <Icon

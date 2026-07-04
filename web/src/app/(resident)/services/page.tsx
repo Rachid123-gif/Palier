@@ -6,15 +6,13 @@ import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { CitySheet } from "@/components/resident/CitySheet";
 import { ProviderCard } from "@/components/resident/ProviderCard";
 import { Icon } from "@/components/ui/Icon";
-import { Rating } from "@/components/ui/primitives";
-import { mad } from "@/lib/format";
 import { useCity, LOC_DETECTED_KEY, nearestCity } from "@/lib/useCity";
 import { useData } from "@/lib/DataProvider";
-import { categories, popular, offers, categoryBySlug } from "@/lib/data";
+import { categories, categoryBySlug } from "@/lib/data";
 
 export default function ServicesScreen() {
-  const { providersFor } = useData();
-  const { slug, city, quartier, setCity } = useCity();
+  const { providersFor, currentUser } = useData();
+  const { slug, city, quartier, setCity } = useCity(currentUser.city);
   const [citySheet, setCitySheet] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -34,7 +32,6 @@ export default function ServicesScreen() {
   const availableCats = categories.filter((c) => providersFor(slug, c.slug).length > 0);
   const activeCat = active ? categoryBySlug(active) : null;
   const activeProviders = active ? providersFor(slug, active) : [];
-  const filteredPopular = active ? popular.filter((p) => p.categorySlug === active) : popular;
 
   const q = search.trim().toLowerCase();
   const searchedCats = useMemo(
@@ -88,24 +85,26 @@ export default function ServicesScreen() {
         </div>
 
         {/* Catégories carousel */}
-        <div
-          className="no-scrollbar -mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1"
-          style={{ maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}
-        >
-          {availableCats.map((c) => {
-            const on = active === c.slug;
-            return (
-              <button
-                key={c.slug}
-                onClick={() => setActive(on ? null : c.slug)}
-                className={`tap flex shrink-0 snap-start items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold ${on ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
-              >
-                <Icon name={c.icon} className="h-4 w-4" /> {c.short}
-              </button>
-            );
-          })}
-          <span className="w-2 shrink-0" aria-hidden />
-        </div>
+        {availableCats.length > 0 && (
+          <div
+            className="no-scrollbar -mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1"
+            style={{ maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}
+          >
+            {availableCats.map((c) => {
+              const on = active === c.slug;
+              return (
+                <button
+                  key={c.slug}
+                  onClick={() => setActive(on ? null : c.slug)}
+                  className={`tap flex shrink-0 snap-start items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold ${on ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
+                >
+                  <Icon name={c.icon} className="h-4 w-4" /> {c.short}
+                </button>
+              );
+            })}
+            <span className="w-2 shrink-0" aria-hidden />
+          </div>
+        )}
 
         {/* Résultats filtrés par catégorie */}
         {q ? null : activeCat ? (
@@ -128,58 +127,7 @@ export default function ServicesScreen() {
               </Link>
             )}
           </div>
-        ) : (
-          <>
-            {/* Populaire cette semaine */}
-            <div>
-              <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Populaire cette semaine</h2>
-              <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
-                {filteredPopular.map((p) => {
-                  const cat = categoryBySlug(p.categorySlug);
-                  return (
-                    <Link key={p.id} href={`/services/${p.categorySlug}`} className="tap w-56 shrink-0 rounded-2xl border border-black/5 bg-white p-4 shadow-card">
-                      <div className="flex items-center justify-between">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-50">
-                          <Icon name={cat?.icon ?? "Sparkles"} className="h-5 w-5 text-palier-600" />
-                        </span>
-                        {p.tag && <span className="rounded-full bg-palier-600 px-2 py-0.5 text-[10px] font-bold text-white">{p.tag}</span>}
-                      </div>
-                      <p className="mt-3 text-[15px] font-bold text-ink">{p.title}</p>
-                      <p className="mt-0.5 text-[12px] text-ink-soft">{p.desc}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <Rating value={p.rating} reviews={p.reviews} />
-                        <p className="text-[13px] font-semibold text-palier-700">{mad(p.price, { decimals: false })}</p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Offres spéciales */}
-            <div>
-              <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Offres spéciales</h2>
-              <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
-                {offers.map((o) => (
-                  <div key={o.id} className="w-52 shrink-0 rounded-2xl border border-black/5 bg-white p-4 shadow-card">
-                    <div className="flex items-center justify-between">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-50">
-                        <Icon name={o.icon} className="h-5 w-5 text-palier-600" />
-                      </span>
-                      {o.off && <span className="rounded-full bg-coral-500 px-2 py-0.5 text-[10px] font-bold text-white">{o.off}</span>}
-                    </div>
-                    <p className="mt-3 text-[14px] font-bold leading-tight text-ink">{o.title}</p>
-                    <p className="mt-0.5 text-[12px] text-ink-soft">{o.desc}</p>
-                    <p className="mt-2 text-[13px] font-bold text-ink">
-                      {mad(o.price, { decimals: false })}
-                      {o.was > 0 && <span className="ml-1.5 text-[12px] font-normal text-ink-faint line-through">{o.was}</span>}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+        ) : null}
 
         {/* Toutes les catégories */}
         <div>
