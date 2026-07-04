@@ -9,8 +9,6 @@ export function telLink(phone: string): string {
   return `tel:${phone.replace(/\s/g, "")}`;
 }
 
-export type WhenType = "now" | "today" | "scheduled";
-
 export function contactMessage(params: {
   providerName: string;
   serviceLabel: string;
@@ -32,18 +30,6 @@ export function contactMessage(params: {
     .join("\n");
 }
 
-/** @deprecated — utilisez contactMessage à la place */
-export function bookingMessage(params: {
-  providerName: string;
-  serviceLabel: string;
-  whenType: WhenType;
-  slotLabel?: string;
-  city: string;
-  building?: string;
-  userName?: string;
-}): string {
-  return contactMessage(params);
-}
 
 export function dunningMessage(params: {
   name: string;

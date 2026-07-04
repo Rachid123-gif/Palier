@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fetchSyndicData } from "@/lib/syndic";
 import { PageHeader, KpiCard, Card, StatusPill } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
-import { mad, num, timeAgo } from "@/lib/format";
+import { mad, num, timeAgo, currentPeriod } from "@/lib/format";
 
 export default async function SyndicDashboard() {
   const d = await fetchSyndicData();
@@ -24,7 +24,7 @@ export default async function SyndicDashboard() {
     <div className="animate-[fade_0.3s_ease]">
       <PageHeader
         title="Tableau de bord"
-        subtitle={`${d.building.name} · ${d.building.city} · Juin 2026`}
+        subtitle={`${d.building.name} · ${d.building.city} · ${currentPeriod()}`}
         action={
           <Link href="/syndic/recouvrement" className="tap inline-flex items-center gap-2 rounded-full bg-palier-600 px-4 py-2.5 text-sm font-semibold text-white">
             <Icon name="HandCoins" className="h-4 w-4" /> Lancer le recouvrement
@@ -45,7 +45,7 @@ export default async function SyndicDashboard() {
         {/* Recouvrement breakdown */}
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[16px] font-bold text-ink">Santé du recouvrement — Juin 2026</h2>
+            <h2 className="text-[16px] font-bold text-ink">Santé du recouvrement — {currentPeriod()}</h2>
             <Link href="/syndic/recouvrement" className="text-[13px] font-semibold text-palier-600">Détail →</Link>
           </div>
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-sand">

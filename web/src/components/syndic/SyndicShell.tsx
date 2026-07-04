@@ -18,10 +18,11 @@ const nav = [
 ];
 
 export function SyndicShell({
-  building, badges, children,
+  building, badges, syndicName, children,
 }: {
   building: { name: string; city: string };
   badges: { dunning: number; incidents: number };
+  syndicName: string;
   children: React.ReactNode;
 }) {
   const path = usePathname();
@@ -69,9 +70,11 @@ export function SyndicShell({
         </nav>
 
         <div className="mt-2 flex items-center gap-3 rounded-2xl bg-white/8 p-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-400 text-sm font-bold">KT</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-400 text-sm font-bold">
+            {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold">Karim Tazi</p>
+            <p className="truncate text-[13px] font-semibold">{syndicName}</p>
             <p className="text-[11px] text-white/50">Gestionnaire</p>
           </div>
           <Link href="/" className="text-white/50 hover:text-white"><Icon name="LogOut" className="h-4 w-4" /></Link>

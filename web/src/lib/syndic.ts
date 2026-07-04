@@ -27,7 +27,7 @@ export interface SyndicData {
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string }[];
   ledger: any[];
   documents: { id: string; title: string; type: string; date: string; size: string; color: string; tint: string }[];
-  assembly: { date: string; agenda: string[]; votes: { q: string; pour: number; contre: number; abst: number }[]; quorum: number } | null;
+  assembly: { date: string; agenda: ({ n: number; t: string; d: string } | string)[]; votes: { q: string; pour: number; contre: number; abst: number }[]; quorum: number } | null;
   marketplace: { providers: number; bookings: number; requests: number };
 }
 

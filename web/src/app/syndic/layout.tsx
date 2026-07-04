@@ -9,6 +9,7 @@ export default async function SyndicLayout({ children }: { children: React.React
     <SyndicShell
       building={{ name: data.building.name, city: data.building.city }}
       badges={{ dunning: data.kpis.lateCount + data.kpis.partialCount, incidents: data.kpis.openIncidents }}
+      syndicName={data.building.syndic || "Syndic"}
     >
       {children}
     </SyndicShell>

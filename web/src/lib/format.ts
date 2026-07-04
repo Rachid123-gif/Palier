@@ -23,6 +23,17 @@ const MONTHS = [
   "juil.", "août", "sept.", "oct.", "nov.", "déc.",
 ];
 
+const MONTHS_FULL = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+/** "Juillet 2026" — mois courant avec année */
+export function currentPeriod(): string {
+  const now = new Date();
+  return `${MONTHS_FULL[now.getMonth()]} ${now.getFullYear()}`;
+}
+
 export function shortDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;

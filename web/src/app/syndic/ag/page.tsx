@@ -52,12 +52,19 @@ export default async function SyndicAg() {
           <Card>
             <h2 className="mb-3 text-[16px] font-bold text-ink">Ordre du jour</h2>
             <ol className="space-y-2">
-              {ag.agenda.map((a, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-100 text-[12px] font-bold text-palier-700">{i + 1}</span>
-                  <span className="pt-1 text-[14px] text-ink">{a}</span>
-                </li>
-              ))}
+              {ag.agenda.map((a: { n?: number; t?: string; d?: string } | string, i: number) => {
+                const label = typeof a === "string" ? a : a.t ?? "";
+                const desc = typeof a === "string" ? "" : a.d ?? "";
+                return (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-100 text-[12px] font-bold text-palier-700">{typeof a === "object" && a.n ? a.n : i + 1}</span>
+                    <div className="pt-0.5">
+                      <span className="text-[14px] text-ink">{label}</span>
+                      {desc && <p className="text-[12px] text-ink-soft">{desc}</p>}
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </Card>
         )}

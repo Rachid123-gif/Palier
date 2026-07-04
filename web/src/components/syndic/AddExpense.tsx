@@ -16,7 +16,7 @@ export function AddExpense() {
   async function save() {
     if (!label || !amount) return;
     setBusy(true);
-    await createLedgerEntry({ type, label, amount: Number(amount), category, date: "2026-06-19" });
+    await createLedgerEntry({ type, label, amount: Number(amount), category, date: new Date().toISOString().split("T")[0] });
     setBusy(false); setOpen(false); setLabel(""); setAmount("");
     router.refresh();
   }
