@@ -11,7 +11,7 @@ export default async function RecouvrementPage() {
         title="Recouvrement"
         subtitle={`${d.recouvrement.length} lots · ${currentPeriod()}`}
       />
-      <RecouvrementTable rows={d.recouvrement} building={d.building.name} />
+      <RecouvrementTable rows={d.recouvrement} building={d.building.name} buildingId={d.building.id} chargeCalls={d.chargeCalls} />
     </div>
   );
 }

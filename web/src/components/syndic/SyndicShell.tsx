@@ -8,7 +8,6 @@ import { LogoMark } from "@/components/brand/Logo";
 const nav = [
   { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
   { href: "/syndic/recouvrement", label: "Recouvrement", icon: "Banknote", badgeKey: "dunning" },
-  { href: "/syndic/charges", label: "Charges & appels", icon: "Receipt" },
   { href: "/syndic/incidents", label: "Incidents", icon: "Wrench", badgeKey: "incidents" },
   { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
   { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },

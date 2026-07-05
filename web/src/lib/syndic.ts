@@ -18,6 +18,17 @@ export interface RecouvrementRow {
   dueDate: string | null;
 }
 
+export interface ChargeCall {
+  label: string;
+  category: string;
+  amount: number;
+  dueDate: string;
+  createdAt: string;
+  lots: number;
+  paid: number;
+  total: number;
+}
+
 export interface SyndicData {
   building: { id: string; name: string; address: string; city: string; lots: number; balance: number; syndic: string };
   kpis: {
@@ -25,6 +36,7 @@ export interface SyndicData {
     outstanding: number; balance: number; openIncidents: number; lateCount: number; partialCount: number;
   };
   recouvrement: RecouvrementRow[];
+  chargeCalls: ChargeCall[];
   incidents: any[];
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string; status: string; deactivatedAt: string | null }[];
   ledger: any[];
@@ -83,6 +95,30 @@ export async function fetchSyndicData(): Promise<SyndicData> {
   const collected = charges.reduce((s: number, c: any) => s + Number(c.paid), 0);
   const incidents = incRes.data ?? [];
 
+  // Group charges by label+dueDate to build charge calls history
+  const callsMap = new Map<string, ChargeCall>();
+  for (const c of charges) {
+    const key = `${c.label}||${c.due_date}`;
+    const existing = callsMap.get(key);
+    if (existing) {
+      existing.lots += 1;
+      existing.paid += c.status === "paid" ? 1 : 0;
+      existing.total += Number(c.amount);
+    } else {
+      callsMap.set(key, {
+        label: c.label ?? "Appel de fonds",
+        category: c.category ?? "courantes",
+        amount: Number(c.amount),
+        dueDate: c.due_date ?? "",
+        createdAt: c.created_at ?? "",
+        lots: 1,
+        paid: c.status === "paid" ? 1 : 0,
+        total: Number(c.amount),
+      });
+    }
+  }
+  const chargeCalls = [...callsMap.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
   const residents = memberships
     .map((m: any) => {
       const p: any = profileById.get(m.profile_id);
@@ -108,6 +144,7 @@ export async function fetchSyndicData(): Promise<SyndicData> {
       partialCount: charges.filter((c: any) => c.status === "partial").length,
     },
     recouvrement,
+    chargeCalls,
     incidents,
     residents,
     ledger: ledRes.data ?? [],

@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
 import { mad, num, timeAgo, currentPeriod, shortDate } from "@/lib/format";
-import { sendRelance } from "@/lib/actions";
-import type { RecouvrementRow } from "@/lib/syndic";
+import { sendRelance, emitCharges } from "@/lib/actions";
+import type { RecouvrementRow, ChargeCall } from "@/lib/syndic";
 
 const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: string }[] = [
   { key: "all", label: "Tous" },
@@ -18,19 +18,47 @@ const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: str
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
-export function RecouvrementTable({ rows, building }: { rows: RecouvrementRow[]; building: string }) {
+export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: { rows: RecouvrementRow[]; building: string; buildingId: string; chargeCalls: ChargeCall[] }) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Emit charges modal
+  const [showEmit, setShowEmit] = useState(false);
+  const [emitPending, setEmitPending] = useState(false);
+  const [emitLabel, setEmitLabel] = useState("");
+  const [emitDetail, setEmitDetail] = useState("");
+  const [emitAmount, setEmitAmount] = useState("");
+  const [emitCategory, setEmitCategory] = useState("courantes");
+  const [emitDueDate, setEmitDueDate] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"tout" | "mois" | "3mois" | "6mois" | "custom">("tout");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [periodMonth, setPeriodMonth] = useState("");
   const [periodYear, setPeriodYear] = useState("");
+  const [view, setView] = useState<"suivi" | "historique">("suivi");
   const [statusFilter, setStatusFilter] = useState<"all" | "late" | "due" | "partial" | "paid">("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  // Historique filters
+  const [histSearch, setHistSearch] = useState("");
+  const [histCat, setHistCat] = useState("all");
+  const [histPeriod, setHistPeriod] = useState<"tout" | "mois" | "3mois" | "6mois" | "custom">("tout");
+  const [histPeriodOpen, setHistPeriodOpen] = useState(false);
+  const [histPeriodMonth, setHistPeriodMonth] = useState("");
+  const [histPeriodYear, setHistPeriodYear] = useState("");
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
+
+  function resetEmit() { setEmitLabel(""); setEmitDetail(""); setEmitAmount(""); setEmitCategory("courantes"); setEmitDueDate(""); }
+
+  async function handleEmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emitLabel || !emitAmount || !emitDueDate) return;
+    setEmitPending(true);
+    const res = await emitCharges({ buildingId, label: emitLabel, detail: emitDetail, amount: Number(emitAmount), category: emitCategory, dueDate: emitDueDate });
+    setEmitPending(false);
+    if (res?.error) { flash("Erreur lors de l'émission"); }
+    else { flash(`Appel émis pour ${rows.length} lots`); setShowEmit(false); resetEmit(); router.refresh(); }
+  }
 
   function relanceBody(r: RecouvrementRow) {
     const remaining = r.amount - r.paid;
@@ -147,6 +175,22 @@ export function RecouvrementTable({ rows, building }: { rows: RecouvrementRow[];
 
   return (
     <div>
+      {/* View toggle */}
+      <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+        {([["suivi", "Suivi des paiements"], ["historique", "Historique des appels"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${view === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          >
+            {label}
+            {view === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
+          </button>
+        ))}
+      </div>
+
+      {view === "suivi" ? (
+      <>
       {/* Period filters */}
       <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
         {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
@@ -220,6 +264,9 @@ export function RecouvrementTable({ rows, building }: { rows: RecouvrementRow[];
             </button>
           )}
         </div>
+        <button onClick={() => setShowEmit(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
+          <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre un appel
+        </button>
         <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
           <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
         </button>
@@ -336,6 +383,267 @@ export function RecouvrementTable({ rows, building }: { rows: RecouvrementRow[];
           </>
         )}
       </div>
+
+      </>
+      ) : (
+      /* Historique des appels */
+      (() => {
+        const catLabels: Record<string, string> = { courantes: "Courantes", travaux: "Travaux", provision: "Provision", regularisation: "Régularisation" };
+        const histCategories = [...new Set(chargeCalls.map((c) => c.category))];
+        const histYears = [...new Set(chargeCalls.filter((c) => c.dueDate).map((c) => new Date(c.dueDate).getFullYear().toString()))].sort().reverse();
+        const histCustomLabel = histPeriod === "custom"
+          ? [histPeriodMonth ? MONTHS[parseInt(histPeriodMonth)]?.slice(0, 4) + "." : "", histPeriodYear].filter(Boolean).join(" ") || "Période"
+          : "Période";
+        const filteredCalls = chargeCalls.filter((c) => {
+          if (histCat !== "all" && c.category !== histCat) return false;
+          if (histSearch.trim()) {
+            const q = histSearch.toLowerCase();
+            if (!c.label.toLowerCase().includes(q)) return false;
+          }
+          if (histPeriod === "custom" && c.dueDate) {
+            const d = new Date(c.dueDate);
+            if (histPeriodYear && d.getFullYear().toString() !== histPeriodYear) return false;
+            if (histPeriodMonth && d.getMonth().toString() !== histPeriodMonth) return false;
+          } else if (histPeriod !== "tout" && c.dueDate) {
+            const now = new Date();
+            const ago = new Date(now);
+            if (histPeriod === "mois") ago.setMonth(ago.getMonth() - 1);
+            else if (histPeriod === "3mois") ago.setMonth(ago.getMonth() - 3);
+            else if (histPeriod === "6mois") ago.setMonth(ago.getMonth() - 6);
+            if (new Date(c.dueDate) < ago) return false;
+          }
+          return true;
+        });
+        return (
+      <div>
+        {/* Period tabs */}
+        <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+          {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setHistPeriod(key); setHistPeriodMonth(""); setHistPeriodYear(""); }}
+              className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            >
+              {label}
+              {histPeriod === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
+            </button>
+          ))}
+          <button
+            onClick={() => setHistPeriodOpen(true)}
+            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          >
+            <Icon name="CalendarDays" className="h-3.5 w-3.5" />
+            {histCustomLabel}
+            {histPeriod === "custom" && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
+          </button>
+        </div>
+
+        {/* Toolbar */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1">
+            <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+            <input
+              value={histSearch}
+              onChange={(e) => setHistSearch(e.target.value)}
+              placeholder="Rechercher un appel…"
+              className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+            />
+            {histSearch && (
+              <button onClick={() => setHistSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink">
+                <Icon name="X" className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {histCategories.length > 1 && (
+            <select
+              value={histCat}
+              onChange={(e) => setHistCat(e.target.value)}
+              className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-medium text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+            >
+              <option value="all">Toutes les catégories</option>
+              {histCategories.map((cat) => <option key={cat} value={cat}>{catLabels[cat] ?? cat}</option>)}
+            </select>
+          )}
+          <button onClick={() => setShowEmit(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700">
+            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre un appel
+          </button>
+        </div>
+
+        <p className="mb-3 text-[12px] text-ink-soft">{filteredCalls.length} appel{filteredCalls.length > 1 ? "s" : ""}</p>
+
+        {filteredCalls.length === 0 ? (
+          <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
+            <Icon name="Receipt" className="mx-auto h-8 w-8 text-ink-faint" />
+            <p className="mt-2 text-[13px] text-ink-soft">{chargeCalls.length === 0 ? "Aucun appel de fonds émis" : "Aucun résultat"}</p>
+            {chargeCalls.length === 0 ? (
+              <button onClick={() => setShowEmit(true)} className="mt-1 text-[13px] font-medium text-palier-600">Émettre un premier appel</button>
+            ) : (
+              <button onClick={() => { setHistSearch(""); setHistCat("all"); setHistPeriod("tout"); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
+            <table className="w-full table-fixed text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                  <th className="w-[30%] px-4 py-2.5">Libellé</th>
+                  <th className="w-[15%] px-4 py-2.5">Catégorie</th>
+                  <th className="w-[15%] px-4 py-2.5">Montant / lot</th>
+                  <th className="w-[15%] px-4 py-2.5">Échéance</th>
+                  <th className="w-[25%] px-4 py-2.5">Paiement</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/[0.04]">
+                {filteredCalls.map((c, idx) => {
+                  const paidRate = c.lots > 0 ? Math.round((c.paid / c.lots) * 100) : 0;
+                  return (
+                    <tr key={idx} className="transition-colors hover:bg-sand/50">
+                      <td className="overflow-hidden px-4 py-2.5">
+                        <p className="truncate font-medium text-ink">{c.label}</p>
+                      </td>
+                      <td className="px-4 py-2.5 text-ink-soft">{catLabels[c.category] ?? c.category}</td>
+                      <td className="px-4 py-2.5 font-medium text-ink">{mad(c.amount, { decimals: false })}</td>
+                      <td className="px-4 py-2.5 text-ink-soft">{c.dueDate ? shortDate(c.dueDate) : "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sand/50">
+                            <div className="h-full rounded-full bg-palier-600" style={{ width: `${paidRate}%` }} />
+                          </div>
+                          <span className="text-[11px] font-medium text-ink-soft">{c.paid}/{c.lots}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      {/* Hist period picker modal */}
+      {histPeriodOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setHistPeriodOpen(false)}>
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
+                  <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
+                </span>
+                <div>
+                  <h2 className="text-[16px] font-semibold text-ink">Filtrer par période</h2>
+                  <p className="text-[12px] text-ink-soft">Sélectionnez un mois et/ou une année</p>
+                </div>
+              </div>
+              <button onClick={() => setHistPeriodOpen(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+                <Icon name="X" className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {MONTHS.map((m, idx) => (
+                    <button
+                      key={m}
+                      onClick={() => setHistPeriodMonth(histPeriodMonth === idx.toString() ? "" : idx.toString())}
+                      className={`rounded-xl py-2.5 text-[13px] font-semibold transition-colors ${histPeriodMonth === idx.toString() ? "bg-palier-600 text-white" : "border border-black/[0.08] bg-white text-ink hover:bg-sand/50"}`}
+                    >
+                      {m.slice(0, 4)}.
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {histYears.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[12px] font-semibold text-ink">Année</p>
+                  <div className="flex flex-wrap gap-2">
+                    {histYears.map((y) => (
+                      <button
+                        key={y}
+                        onClick={() => setHistPeriodYear(histPeriodYear === y ? "" : y)}
+                        className={`rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-colors ${histPeriodYear === y ? "bg-palier-600 text-white" : "border border-black/[0.08] bg-white text-ink hover:bg-sand/50"}`}
+                      >
+                        {y}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setHistPeriodMonth(""); setHistPeriodYear(""); setHistPeriod("tout"); setHistPeriodOpen(false); }}
+                  className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
+                >
+                  Réinitialiser
+                </button>
+                <button
+                  onClick={() => { setHistPeriod("custom"); setHistPeriodOpen(false); }}
+                  className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"
+                >
+                  Appliquer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+        );
+      })()
+      )}
+
+      {/* Emit charges modal */}
+      {showEmit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowEmit(false); resetEmit(); }}>
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
+                  <Icon name="Receipt" className="h-5 w-5 text-palier-600" />
+                </span>
+                <div>
+                  <h2 className="text-[16px] font-semibold text-ink">Émettre un appel de fonds</h2>
+                  <p className="text-[12px] text-ink-soft">L&apos;appel sera envoyé à {rows.length} lots</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowEmit(false); resetEmit(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+                <Icon name="X" className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleEmit} className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Libellé</label>
+                <input type="text" value={emitLabel} onChange={(e) => setEmitLabel(e.target.value)} placeholder="Charges courantes Juillet 2026" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Détail</label>
+                <input type="text" value={emitDetail} onChange={(e) => setEmitDetail(e.target.value)} placeholder="Syndic + ascenseur + nettoyage" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Montant / lot (MAD)</label>
+                  <input type="number" value={emitAmount} onChange={(e) => setEmitAmount(e.target.value)} placeholder="500" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Catégorie</label>
+                  <select value={emitCategory} onChange={(e) => setEmitCategory(e.target.value)} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20">
+                    <option value="courantes">Courantes</option>
+                    <option value="travaux">Travaux</option>
+                    <option value="provision">Provision</option>
+                    <option value="regularisation">Régularisation</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date d&apos;échéance</label>
+                <input type="date" value={emitDueDate} onChange={(e) => setEmitDueDate(e.target.value)} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+              </div>
+              <button type="submit" disabled={emitPending} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
+                {emitPending ? "Émission…" : "Émettre l'appel"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Period picker modal */}
       {periodOpen && (
