@@ -11,7 +11,7 @@ const nav = [
   { href: "/syndic/incidents", label: "Incidents", icon: "Wrench", badgeKey: "incidents" },
   { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
   { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
-  { href: "/syndic/ag", label: "AG & votes", icon: "Calendar" },
+  { href: "/syndic/ag", label: "Assemblées", icon: "Calendar" },
   { href: "/syndic/documents", label: "Documents", icon: "FileText" },
   { href: "/syndic/parametres", label: "Paramètres", icon: "Settings" },
 ];

@@ -3,5 +3,8 @@ import { AgView } from "./AgView";
 
 export default async function SyndicAg() {
   const d = await fetchSyndicData();
-  return <AgView assembly={d.assembly} buildingId={d.building.id} />;
+  const residentProfileIds = d.residents
+    .filter((r) => r.status === "active")
+    .map((r) => r.id);
+  return <AgView assemblies={d.assemblies} buildingId={d.building.id} residentProfileIds={residentProfileIds} />;
 }

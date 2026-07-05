@@ -370,6 +370,44 @@ export async function createAssembly(input: {
   });
 }
 
+/** Mettre à jour les résultats d'une assemblée (quorum + votes + compte-rendu + PV) */
+export async function updateAssembly(input: {
+  assemblyId: string;
+  quorum: number;
+  votes: { q: string; pour: number; contre: number; abst: number }[];
+  summary?: string;
+  pvUrl?: string;
+}) {
+  return supabase.from("assemblies").update({
+    quorum: input.quorum,
+    votes: input.votes,
+    summary: input.summary ?? "",
+    pv_url: input.pvUrl ?? "",
+  }).eq("id", input.assemblyId);
+}
+
+/** Supprimer une AG (annuler une convocation) */
+export async function deleteAssembly(assemblyId: string) {
+  return supabase.from("assemblies").delete().eq("id", assemblyId);
+}
+
+/** Notifier tous les résidents d'une AG */
+export async function notifyAssembly(input: {
+  profileIds: string[];
+  date: string;
+  place: string;
+}) {
+  const title = "Assemblée générale convoquée";
+  const body = `Assemblée prévue le ${input.date} à ${input.place}. Consultez l'ordre du jour dans votre application.`;
+  const notifications = input.profileIds.map((profileId) => ({
+    profile_id: profileId,
+    title,
+    body,
+    kind: "ag",
+  }));
+  return supabase.from("notifications").insert(notifications);
+}
+
 /** Charger la configuration du bâtiment */
 export async function loadBuildingSettings(buildingId: string) {
   const { data } = await supabase

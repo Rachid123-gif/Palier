@@ -10,6 +10,7 @@ const kindIcon: Record<string, { icon: string; tint: string; color: string }> = 
   incident: { icon: "TriangleAlert", tint: "bg-danger-soft", color: "text-danger" },
   charge: { icon: "ReceiptText", tint: "bg-coral-400/20", color: "text-coral-600" },
   post: { icon: "Megaphone", tint: "bg-palier-100", color: "text-palier-600" },
+  ag: { icon: "CalendarDays", tint: "bg-amber-100", color: "text-amber-600" },
 };
 
 export function NotificationsBell({ dark = false }: { dark?: boolean }) {

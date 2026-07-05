@@ -29,6 +29,18 @@ export interface ChargeCall {
   total: number;
 }
 
+export interface AssemblyRow {
+  id: string;
+  date: string;
+  time: string;
+  place: string;
+  agenda: { n: number; t: string; d: string }[];
+  votes: { q: string; pour: number; contre: number; abst: number }[];
+  quorum: number;
+  summary: string;
+  pvUrl: string;
+}
+
 export interface SyndicData {
   building: { id: string; name: string; address: string; city: string; lots: number; balance: number; syndic: string };
   kpis: {
@@ -41,7 +53,7 @@ export interface SyndicData {
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string; status: string; deactivatedAt: string | null }[];
   ledger: any[];
   documents: { id: string; title: string; type: string; date: string; size: string; color: string; tint: string }[];
-  assembly: { date: string; agenda: ({ n: number; t: string; d: string } | string)[]; votes: { q: string; pour: number; contre: number; abst: number }[]; quorum: number } | null;
+  assemblies: AssemblyRow[];
 }
 
 export async function fetchSyndicData(): Promise<SyndicData> {
@@ -55,7 +67,7 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
     supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
     supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
-    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }).limit(1).single(),
+    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }),
   ]);
 
   const b = bRes.data;
@@ -152,9 +164,16 @@ export async function fetchSyndicData(): Promise<SyndicData> {
       id: d.id, title: d.title, type: d.doc_type ?? d.type ?? "", date: d.doc_date ?? d.created_at,
       size: d.size ?? "", color: d.color ?? "text-ink-soft", tint: d.tint ?? "bg-cream-card",
     })),
-    assembly: agRes.data ? {
-      date: agRes.data.date, agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
-      quorum: agRes.data.quorum ?? 0,
-    } : null,
+    assemblies: (agRes.data ?? []).map((ag: any) => ({
+      id: ag.id,
+      date: ag.date,
+      time: ag.time ?? "18:00",
+      place: ag.place ?? "",
+      agenda: ag.agenda ?? [],
+      votes: ag.votes ?? [],
+      quorum: ag.quorum ?? 0,
+      summary: ag.summary ?? "",
+      pvUrl: ag.pv_url ?? "",
+    })),
   };
 }
