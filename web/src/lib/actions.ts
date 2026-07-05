@@ -110,7 +110,7 @@ export async function deleteLedgerEntry(id: string) {
 
 export async function logDunning(input: {
   unitId: string;
-  channel: "push" | "sms" | "whatsapp";
+  channel: "push" | "sms" | "whatsapp" | "app";
   message: string;
 }) {
   return supabase.from("dunning_logs").insert({
@@ -119,6 +119,30 @@ export async function logDunning(input: {
     channel: input.channel,
     message: input.message,
   });
+}
+
+/** Envoyer une relance in-app (notification + dunning log) */
+export async function sendRelance(input: {
+  unitId: string;
+  profileId: string;
+  title: string;
+  body: string;
+}) {
+  const [notifRes, dunningRes] = await Promise.all([
+    supabase.from("notifications").insert({
+      profile_id: input.profileId,
+      title: input.title,
+      body: input.body,
+      kind: "charge",
+    }),
+    supabase.from("dunning_logs").insert({
+      building_id: DEMO_BUILDING_ID,
+      unit_id: input.unitId,
+      channel: "app",
+      message: input.body,
+    }),
+  ]);
+  return { notifError: notifRes.error, dunningError: dunningRes.error };
 }
 
 export async function createComment(input: {
@@ -294,10 +318,6 @@ export async function resolveIncident(incidentId: string) {
   return supabase.from("incidents").update({ status: "resolved" }).eq("id", incidentId);
 }
 
-/** Assigner un incident (passer en "in_progress") */
-export async function assignIncident(incidentId: string) {
-  return supabase.from("incidents").update({ status: "in_progress" }).eq("id", incidentId);
-}
 
 /** Émettre un appel de fonds (créer des charges pour tous les lots) */
 export async function emitCharges(input: {

@@ -36,12 +36,12 @@ const catLabels: Record<string, string> = {
   communes: "Parties communes", jardinier: "Jardin", autre: "Autre",
 };
 
-const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", high: "Élevé", urgent: "Urgent" };
+const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", urgent: "Urgent", high: "Urgent" };
 const urgencyColors: Record<string, { bg: string; text: string; dot: string }> = {
   low: { bg: "bg-slate-50", text: "text-slate-600", dot: "bg-slate-400" },
   normal: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
-  high: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
   urgent: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+  high: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
 };
 
 const statusTabs: { key: "all" | "open" | "resolved"; label: string }[] = [
@@ -111,7 +111,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   // KPIs (follow period)
   const nonResolved = periodFiltered.filter((i) => i.status !== "resolved").length;
   const resolvedInc = periodFiltered.filter((i) => i.status === "resolved").length;
-  const urgentOpen = periodFiltered.filter((i) => i.status !== "resolved" && i.urgency === "urgent").length;
+  const urgentOpen = periodFiltered.filter((i) => i.status !== "resolved" && (i.urgency === "urgent" || i.urgency === "high")).length;
 
   // Categories present in data
   const usedCategories = useMemo(() => {
@@ -134,7 +134,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       const sa = a.status === "resolved" ? 1 : 0;
       const sb = b.status === "resolved" ? 1 : 0;
       if (sa !== sb) return sa - sb;
-      const urgOrder: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+      const urgOrder: Record<string, number> = { urgent: 0, high: 0, normal: 1, low: 2 };
       const ua = urgOrder[a.urgency] ?? 2;
       const ub = urgOrder[b.urgency] ?? 2;
       if (ua !== ub) return ua - ub;
@@ -148,11 +148,29 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
 
   function resetFilters() { setStatusFilter("all"); setUrgencyFilter("all"); setCatFilter("all"); setSearch(""); setPeriodFilter("tout"); setPeriodMonth(""); setPeriodYear(""); setPage(0); }
 
+  function exportCSV() {
+    const header = "Date,Titre,Catégorie,Urgence,Statut,Signalé par";
+    const csvRows = filtered.map((i) =>
+      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${catLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
+    );
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `palier-incidents-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    flash("Export CSV téléchargé");
+  }
+
   return (
     <div>
       <PageHeader
         title="Incidents"
         subtitle={`${incidents.length} signalements · ${openCount} non résolus`}
+        action={
+          <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
+            <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+          </button>
+        }
       />
 
       {/* Period filters */}
@@ -181,15 +199,15 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Non résolus</p>
-          <p className={`text-[28px] font-bold leading-none ${nonResolved > 0 ? "text-amber-600" : "text-ink"}`}>{nonResolved}</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{nonResolved}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Résolus</p>
-          <p className="text-[28px] font-bold leading-none text-emerald-600">{resolvedInc}</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{resolvedInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Urgents</p>
-          <p className={`text-[28px] font-bold leading-none ${urgentOpen > 0 ? "text-red-600" : "text-ink"}`}>{urgentOpen}</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{urgentOpen}</p>
         </div>
       </div>
 
@@ -238,7 +256,6 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
         >
           <option value="all">Toutes urgences</option>
           <option value="urgent">Urgent</option>
-          <option value="high">Élevé</option>
           <option value="normal">Normal</option>
           <option value="low">Faible</option>
         </select>

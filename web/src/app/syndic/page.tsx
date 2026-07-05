@@ -70,7 +70,6 @@ export default async function SyndicDashboard() {
             {[
               { label: "Lots", v: k.lots, sub: `${k.residents} résidents` },
               { label: "Incidents ouverts", v: k.openIncidents, sub: "à traiter" },
-              { label: "Prestataires", v: d.marketplace.providers, sub: "actifs" },
             ].map((m) => (
               <div key={m.label} className="flex items-center justify-between">
                 <div>
@@ -97,7 +96,7 @@ export default async function SyndicDashboard() {
                 <p className="truncate text-[13px] font-medium text-ink">{i.title}</p>
                 <p className="text-[12px] text-ink-soft">{i.reporter_name} · {timeAgo(i.created_at)}</p>
               </div>
-              {i.urgency === "urgent" && <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600">Urgent</span>}
+              {(i.urgency === "urgent" || i.urgency === "high") && <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600">Urgent</span>}
               <StatusPill status={i.status} />
             </div>
           ))}

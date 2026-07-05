@@ -18,8 +18,8 @@ const catIcons: Record<string, string> = {
   communes: "Building", jardinier: "Leaf", autre: "CircleEllipsis",
 };
 
-const urgencyIcons: Record<string, string> = { low: "Leaf", normal: "ThumbsUp", high: "TriangleAlert", urgent: "Siren" };
-const urgencyTones: Record<string, string> = { low: "neutral", normal: "brand", high: "warning", urgent: "danger" };
+const urgencyIcons: Record<string, string> = { low: "Leaf", normal: "ThumbsUp", urgent: "Siren" };
+const urgencyTones: Record<string, string> = { low: "neutral", normal: "brand", urgent: "danger" };
 
 export default function SignalerScreen() {
   const { incidents, currentUser } = useData();
@@ -35,13 +35,12 @@ export default function SignalerScreen() {
   const catSlugs = Object.keys(T.cats) as (keyof typeof T.cats)[];
   const urgKeys = Object.keys(T.urgencies) as (keyof typeof T.urgencies)[];
 
-  const statusMeta: Record<string, { label: string; tone: "warning" | "info" | "success" }> = {
+  const statusMeta: Record<string, { label: string; tone: "warning" | "success" }> = {
     open: { label: T.statuses.open, tone: "warning" },
-    in_progress: { label: T.statuses.in_progress, tone: "info" },
     resolved: { label: T.statuses.resolved, tone: "success" },
   };
 
-  const grouped = (["open", "in_progress", "resolved"] as const).map((s) => ({
+  const grouped = (["open", "resolved"] as const).map((s) => ({
     status: s, items: incidents.filter((inc) => inc.status === s),
   }));
 

@@ -52,6 +52,12 @@ ON CONFLICT (code) DO NOTHING;
 ALTER TABLE memberships ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive'));
 ALTER TABLE memberships ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ;
 
--- 7. Politique RLS (optionnelle pour le MVP, à activer en prod)
+-- 7. Migrer urgence "high" → "urgent" (suppression du niveau redondant)
+UPDATE incidents SET urgency = 'urgent' WHERE urgency = 'high';
+
+-- 8. Migrer statut "in_progress" → "open" (simplification ouvert/résolu)
+UPDATE incidents SET status = 'open' WHERE status = 'in_progress';
+
+-- 9. Politique RLS (optionnelle pour le MVP, à activer en prod)
 -- ALTER TABLE access_codes ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE building_settings ENABLE ROW LEVEL SECURITY;

@@ -169,8 +169,8 @@ export const t = {
         proprete: "Propreté", nuisibles: "Nuisibles", nuisance: "Nuisance sonore",
         parking: "Parking", communes: "Parties communes", jardinier: "Jardinage", autre: "Autre",
       },
-      urgencies: { low: "Pas urgent", normal: "Normal", high: "Important", urgent: "Urgent" },
-      statuses: { open: "Ouvert", in_progress: "En cours", resolved: "Résolu" },
+      urgencies: { low: "Pas urgent", normal: "Normal", urgent: "Urgent" },
+      statuses: { open: "Ouvert", resolved: "Résolu" },
     },
 
     // ── Voisinage ──
@@ -449,8 +449,8 @@ export const t = {
         proprete: "نظافة", nuisibles: "حشرات", nuisance: "إزعاج صوتي",
         parking: "موقف", communes: "الأجزاء المشتركة", jardinier: "بستنة", autre: "أخرى",
       },
-      urgencies: { low: "غير مستعجل", normal: "عادي", high: "مهم", urgent: "مستعجل" },
-      statuses: { open: "مفتوح", in_progress: "قيد المعالجة", resolved: "تم الحل" },
+      urgencies: { low: "غير مستعجل", normal: "عادي", urgent: "مستعجل" },
+      statuses: { open: "مفتوح", resolved: "تم الحل" },
     },
 
     // ── Voisinage ──

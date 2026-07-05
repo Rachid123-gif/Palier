@@ -36,7 +36,6 @@ const pills: Record<string, { label: string; cls: string }> = {
   due: { label: "À payer", cls: "bg-warning-soft text-warning" },
   late: { label: "En retard", cls: "bg-danger-soft text-danger" },
   open: { label: "Ouvert", cls: "bg-warning-soft text-warning" },
-  in_progress: { label: "En cours", cls: "bg-info-soft text-info" },
   resolved: { label: "Résolu", cls: "bg-success-soft text-success" },
 };
 

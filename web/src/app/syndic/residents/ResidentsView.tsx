@@ -79,6 +79,19 @@ export function ResidentsView({
     return digits;
   }
 
+  function exportCSV() {
+    const header = "Lot,Nom,Statut,Téléphone,Rôle";
+    const csvRows = filtered.map((r) =>
+      `${r.unit},"${r.name.replace(/"/g, '""')}",${(r.status ?? "active") === "active" ? "Actif" : "Désactivé"},${r.phone},${r.role === "tenant" ? "Locataire" : "Propriétaire"}`
+    );
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `palier-residents-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    flash("Export CSV téléchargé");
+  }
+
   function openAdd() { setAddForm({ name: "", phone: "", unit: "", role: "owner" }); setAddResult(null); setAddError(""); setModal("add"); }
 
   function handleAdd(e: React.FormEvent) {
@@ -153,9 +166,14 @@ export function ResidentsView({
         title="Résidents & lots"
         subtitle={`${kpis.lots} lots · ${activeResidents.length} résidents actifs`}
         action={
-          <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Ajouter un résident
-          </button>
+          <div className="flex gap-2">
+            <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
+              <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+            </button>
+            <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700">
+              <Icon name="Plus" className="h-3.5 w-3.5" /> Ajouter un résident
+            </button>
+          </div>
         }
       />
 

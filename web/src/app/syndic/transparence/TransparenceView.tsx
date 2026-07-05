@@ -235,7 +235,7 @@ export function TransparenceView({
             </span>
             <p className="text-[12px] font-semibold text-ink">Total entrées</p>
           </div>
-          <p className="text-[24px] font-bold leading-none text-emerald-700" dir="ltr">+{num(totalIn, false)}</p>
+          <p className="text-[24px] font-bold leading-none text-ink" dir="ltr">+{num(totalIn, false)}</p>
           <p className="mt-1.5 text-[12px] font-medium text-ink-soft">MAD</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
@@ -255,7 +255,7 @@ export function TransparenceView({
             </span>
             <p className="text-[12px] font-semibold text-ink">Solde</p>
           </div>
-          <p className={`text-[24px] font-bold leading-none ${periodBalance >= 0 ? "text-palier-700" : "text-red-600"}`} dir="ltr">
+          <p className="text-[24px] font-bold leading-none text-ink" dir="ltr">
             {periodBalance < 0 && "−"}{num(Math.abs(periodBalance), false)}
           </p>
           <p className="mt-1.5 text-[12px] font-medium text-ink-soft">

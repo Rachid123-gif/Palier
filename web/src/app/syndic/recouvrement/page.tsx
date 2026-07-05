@@ -6,10 +6,10 @@ import { RecouvrementTable } from "@/components/syndic/RecouvrementTable";
 export default async function RecouvrementPage() {
   const d = await fetchSyndicData();
   return (
-    <div className="animate-[fade_0.3s_ease]">
+    <div>
       <PageHeader
         title="Recouvrement"
-        subtitle={`Charges de ${currentPeriod()} · taux ${d.kpis.rate}% · ${d.kpis.lateCount} en retard`}
+        subtitle={`${d.recouvrement.length} lots · ${currentPeriod()}`}
       />
       <RecouvrementTable rows={d.recouvrement} building={d.building.name} />
     </div>
