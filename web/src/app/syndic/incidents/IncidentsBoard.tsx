@@ -511,7 +511,7 @@ function InProgressBtn({ id, onInProgress }: { id: string; onInProgress: (id: st
     <button
       disabled={pending}
       onClick={() => start(() => onInProgress(id))}
-      className="rounded-md bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+      className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
     >
       {pending ? "…" : "En cours"}
     </button>
@@ -524,9 +524,9 @@ function ResolveBtn({ id, onResolve }: { id: string; onResolve: (id: string) => 
     <button
       disabled={pending}
       onClick={() => start(() => onResolve(id))}
-      className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
+      className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
     >
-      {pending ? "…" : "Marquer résolu"}
+      {pending ? "…" : "Résolu"}
     </button>
   );
 }
