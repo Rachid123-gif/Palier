@@ -100,6 +100,32 @@ export const t = {
     // ── Notifications ──
     notifications: "Notifications",
 
+    // ── Feedback ──
+    feedback: {
+      title: "Votre avis",
+      subtitle: "Aidez-nous à améliorer Palier",
+      cta: "Donner mon avis",
+      typeBug: "Problème",
+      typeSuggestion: "Suggestion",
+      typeAutre: "Autre",
+      descBug: "Décrivez le problème rencontré",
+      descSuggestion: "Décrivez votre idée",
+      descAutre: "Votre message",
+      placeholderBug: "Que s'est-il passé ?",
+      placeholderSuggestion: "Quelle fonctionnalité aimeriez-vous ?",
+      placeholderAutre: "Votre message…",
+      contactLabel: "Comment vous recontacter ?",
+      phone: "Téléphone",
+      email: "Email",
+      transparency: "Informations partagées",
+      transparencyNote: "Seul le moyen de contact choisi est partagé.",
+      send: "Envoyer",
+      sending: "Envoi…",
+      thankYou: "Merci pour votre retour !",
+      thankYouSub: "Notre équipe va l'examiner.",
+      sendAnother: "Envoyer un autre avis",
+    },
+
     // ── Immeuble ──
     immeuble: {
       incidents: "Incidents",
@@ -379,6 +405,32 @@ export const t = {
 
     // ── Notifications ──
     notifications: "الإشعارات",
+
+    // ── Feedback ──
+    feedback: {
+      title: "رأيك",
+      subtitle: "ساعدنا في تحسين Palier",
+      cta: "أعط رأيي",
+      typeBug: "مشكلة",
+      typeSuggestion: "اقتراح",
+      typeAutre: "أخرى",
+      descBug: "صف المشكلة",
+      descSuggestion: "صف فكرتك",
+      descAutre: "رسالتك",
+      placeholderBug: "ماذا حدث؟",
+      placeholderSuggestion: "ما الميزة التي تريدها؟",
+      placeholderAutre: "رسالتك…",
+      contactLabel: "كيف تريد أن نتواصل معك؟",
+      phone: "هاتف",
+      email: "بريد إلكتروني",
+      transparency: "المعلومات المشاركة",
+      transparencyNote: "يتم مشاركة وسيلة الاتصال المختارة فقط.",
+      send: "إرسال",
+      sending: "جاري الإرسال…",
+      thankYou: "!شكرا على رأيك",
+      thankYouSub: "فريقنا سيراجعه.",
+      sendAnother: "إرسال رأي آخر",
+    },
 
     // ── Immeuble ──
     immeuble: {

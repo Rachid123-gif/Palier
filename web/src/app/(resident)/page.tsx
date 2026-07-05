@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
+import { FeedbackCard } from "@/components/resident/FeedbackCard";
 import { Icon } from "@/components/ui/Icon";
 import { Rating } from "@/components/ui/primitives";
 import { LogoMark } from "@/components/brand/Logo";
@@ -202,6 +204,9 @@ export default function HomeScreen() {
             </Link>
           </div>
         )}
+
+        {/* ═══════ Feedback ═══════ */}
+        <FeedbackCard />
 
         {/* ═══════ Services recommandés ═══════ */}
         {cityProviders.length > 0 && (

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { saveBuildingSettings, generateAccessCode } from "@/lib/actions";
+import { supabase } from "@/lib/supabase";
 
 interface BuildingSettings {
   enabled_categories: string[] | null;
@@ -32,6 +33,7 @@ const sections = [
   { key: "categories", label: "Catégories", icon: "Tags" },
   { key: "codes", label: "Codes d'accès", icon: "KeyRound" },
   { key: "relance", label: "Relances", icon: "Bell" },
+  { key: "feedback", label: "Retours", icon: "MessageCircle" },
 ] as const;
 
 type SectionKey = typeof sections[number]["key"];
@@ -99,6 +101,13 @@ export function SettingsView({
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
+
+  // ── Feedback ──
+  const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion" | "autre">("suggestion");
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackContact, setFeedbackContact] = useState<"phone" | "email">("phone");
 
   // ── Relance ──
   const [relanceMsg, setRelanceMsg] = useState(
@@ -582,6 +591,158 @@ export function SettingsView({
                 </p>
               </div>
             </Card>
+          )}
+
+          {/* ═══ RETOURS & SUGGESTIONS ═══ */}
+          {activeSection === "feedback" && (
+            <>
+              <div className="flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
+                <Icon name="Lightbulb" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+                <p className="text-[12px] text-palier-700">
+                  Aidez-nous à améliorer Palier ! Signalez un problème ou proposez une fonctionnalité. Chaque retour est lu par notre équipe.
+                </p>
+              </div>
+
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
+                    <Icon name="MessageCircle" className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Envoyer un retour</h2>
+                    <p className="text-[12px] text-ink-soft">Votre avis compte pour améliorer l&apos;application.</p>
+                  </div>
+                </div>
+
+                {feedbackSent ? (
+                  <div className="flex flex-col items-center py-6">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                      <Icon name="CircleCheck" className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <p className="text-[14px] font-semibold text-ink">Merci pour votre retour !</p>
+                    <p className="mt-1 text-[12px] text-ink-soft">Notre équipe va l&apos;examiner rapidement.</p>
+                    <button
+                      onClick={() => { setFeedbackSent(false); setFeedbackMsg(""); }}
+                      className="mt-4 rounded-lg border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-ink hover:bg-sand/50"
+                    >
+                      Envoyer un autre retour
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Type */}
+                    <div>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Type de retour</label>
+                      <div className="flex gap-2">
+                        {([
+                          { key: "bug" as const, label: "Problème", icon: "Bug" },
+                          { key: "suggestion" as const, label: "Suggestion", icon: "Lightbulb" },
+                          { key: "autre" as const, label: "Autre", icon: "MessageSquare" },
+                        ]).map((t) => (
+                          <button
+                            key={t.key}
+                            onClick={() => setFeedbackType(t.key)}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-[12px] font-medium transition-colors ${
+                              feedbackType === t.key
+                                ? "border-palier-300 bg-palier-50 text-palier-700"
+                                : "border-black/[0.06] bg-white text-ink-soft hover:bg-sand/50"
+                            }`}
+                          >
+                            <Icon name={t.icon} className="h-3.5 w-3.5" />
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Message */}
+                    <div>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">
+                        {feedbackType === "bug" ? "Décrivez le problème" : feedbackType === "suggestion" ? "Décrivez votre idée" : "Votre message"}
+                      </label>
+                      <textarea
+                        value={feedbackMsg}
+                        onChange={(e) => setFeedbackMsg(e.target.value)}
+                        placeholder={
+                          feedbackType === "bug"
+                            ? "Que s'est-il passé ? Quand et où dans l'application ?"
+                            : feedbackType === "suggestion"
+                            ? "Quelle fonctionnalité aimeriez-vous voir ?"
+                            : "Votre message…"
+                        }
+                        rows={4}
+                        className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                      />
+                    </div>
+
+                    {/* Contact preference */}
+                    <div>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Comment souhaitez-vous être recontacté ?</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setFeedbackContact("phone")}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-[12px] font-medium transition-colors ${
+                            feedbackContact === "phone"
+                              ? "border-palier-300 bg-palier-50 text-palier-700"
+                              : "border-black/[0.06] bg-white text-ink-soft hover:bg-sand/50"
+                          }`}
+                        >
+                          <Icon name="Phone" className="h-3.5 w-3.5" />
+                          Téléphone
+                        </button>
+                        <button
+                          onClick={() => setFeedbackContact("email")}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-[12px] font-medium transition-colors ${
+                            feedbackContact === "email"
+                              ? "border-palier-300 bg-palier-50 text-palier-700"
+                              : "border-black/[0.06] bg-white text-ink-soft hover:bg-sand/50"
+                          }`}
+                        >
+                          <Icon name="Mail" className="h-3.5 w-3.5" />
+                          Email
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Transparency note */}
+                    <div className="rounded-xl bg-sand/50 p-3">
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Informations partagées avec l&apos;équipe Palier</p>
+                      <div className="space-y-1 text-[12px] text-ink-soft">
+                        <p><span className="font-medium text-ink">Nom :</span> {building.syndic || "—"}</p>
+                        <p><span className="font-medium text-ink">Résidence :</span> {building.name}</p>
+                        {feedbackContact === "phone" && <p><span className="font-medium text-ink">Téléphone :</span> {phone || "—"}</p>}
+                        {feedbackContact === "email" && <p><span className="font-medium text-ink">Email :</span> {email || "—"}</p>}
+                      </div>
+                      <p className="mt-2 text-[11px] text-ink-faint">Seul le moyen de contact choisi est partagé.</p>
+                    </div>
+
+                    {/* Submit */}
+                    <button
+                      onClick={async () => {
+                        if (!feedbackMsg.trim()) return;
+                        setFeedbackSending(true);
+                        await supabase.from("feedback").insert({
+                          building_id: building.id,
+                          type: feedbackType,
+                          message: feedbackMsg.trim(),
+                          sender_name: building.syndic || "Syndic",
+                          sender_phone: feedbackContact === "phone" ? (phone || null) : null,
+                          sender_email: feedbackContact === "email" ? (email || null) : null,
+                          contact_preference: feedbackContact,
+                          building_name: building.name,
+                        });
+                        setFeedbackSending(false);
+                        setFeedbackSent(true);
+                      }}
+                      disabled={!feedbackMsg.trim() || feedbackSending}
+                      className="w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
+                    >
+                      {feedbackSending ? "Envoi…" : "Envoyer"}
+                    </button>
+                  </div>
+                )}
+              </Card>
+            </>
           )}
 
           {/* ── Déconnexion (mobile) ── */}
