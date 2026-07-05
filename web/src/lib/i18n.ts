@@ -112,6 +112,9 @@ export const t = {
 
     // ── Notifications ──
     notifications: "Notifications",
+    notifVide: "Aucune notification pour le moment",
+    notifVideSub: "Vous serez notifié des événements importants de votre immeuble.",
+    notifToutLu: "Tout marquer comme lu",
 
     // ── Feedback ──
     feedback: {
@@ -470,6 +473,9 @@ export const t = {
 
     // ── Notifications ──
     notifications: "الإشعارات",
+    notifVide: "لا توجد إشعارات حالياً",
+    notifVideSub: "سيتم إخطارك بالأحداث المهمة في عمارتك.",
+    notifToutLu: "تحديد الكل كمقروء",
 
     // ── Feedback ──
     feedback: {
