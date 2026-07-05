@@ -81,43 +81,7 @@ export default function ImmeubleScreen() {
 
       <div className="space-y-5 px-4 pt-1">
 
-        <div className="space-y-2">
-          <Link href="/immeuble/signaler" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-soft">
-              <Icon name="Wrench" className="h-5 w-5 text-danger" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.incidents}</p>
-              {openIncidents.length > 0 ? (
-                <p className="text-[12px] font-medium text-danger">{T.signalementsEnCours(openIncidents.length)}</p>
-              ) : (
-                <p className="text-[12px] text-ink-faint">{T.aucunProbleme}</p>
-              )}
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
-          <Link href="/immeuble/documents" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-soft">
-              <Icon name="FolderOpen" className="h-5 w-5 text-warning" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.documents}</p>
-              <p className="text-[12px] text-ink-faint">{T.documentsSub}</p>
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
-          <Link href="/immeuble/ag" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0e4fb]">
-              <Icon name="Vote" className="h-5 w-5 text-[#7a4ea8]" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.ag}</p>
-              <p className="text-[12px] text-ink-faint">{T.agSub}</p>
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
-        </div>
-
+        {/* ═══════ Transparence financière ═══════ */}
         <div className="flex items-center gap-2 px-1">
           <Icon name="ShieldCheck" className="h-5 w-5 text-palier-600" />
           <h2 className="text-[17px] font-bold tracking-tight text-ink">{T.transparenceFinanciere}</h2>
@@ -227,6 +191,44 @@ export default function ImmeubleScreen() {
               <p className="text-[13px] text-ink-soft">{T.aucunMouvement}</p>
             </div>
           )}
+        </div>
+
+        {/* ═══════ Incidents, AG, Documents ═══════ */}
+        <div className="space-y-2">
+          <Link href="/immeuble/signaler" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-soft">
+              <Icon name="Wrench" className="h-5 w-5 text-danger" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.incidents}</p>
+              {openIncidents.length > 0 ? (
+                <p className="text-[12px] font-medium text-danger">{T.signalementsEnCours(openIncidents.length)}</p>
+              ) : (
+                <p className="text-[12px] text-ink-faint">{T.aucunProbleme}</p>
+              )}
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
+          <Link href="/immeuble/ag" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0e4fb]">
+              <Icon name="Vote" className="h-5 w-5 text-[#7a4ea8]" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.ag}</p>
+              <p className="text-[12px] text-ink-faint">{T.agSub}</p>
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
+          <Link href="/immeuble/documents" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-soft">
+              <Icon name="FolderOpen" className="h-5 w-5 text-warning" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.documents}</p>
+              <p className="text-[12px] text-ink-faint">{T.documentsSub}</p>
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
         </div>
 
         {building.syndic && (
