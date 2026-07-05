@@ -419,13 +419,7 @@ export async function loadBuildingSettings(buildingId: string) {
 }
 
 /** Sauvegarder la configuration du bâtiment */
-export async function saveBuildingSettings(buildingId: string, settings: {
-  enabled_categories?: string[];
-  features?: Record<string, boolean>;
-  syndic_phone?: string;
-  syndic_email?: string;
-  welcome_message?: string;
-}) {
+export async function saveBuildingSettings(buildingId: string, settings: Record<string, unknown>) {
   const { data: existing } = await supabase
     .from("building_settings")
     .select("id")
