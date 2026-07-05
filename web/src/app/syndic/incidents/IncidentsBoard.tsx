@@ -208,7 +208,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           <p className="text-[28px] font-bold leading-none text-ink">{openInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-amber-600">En cours</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">En cours</p>
           <p className="text-[28px] font-bold leading-none text-ink">{inProgressInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
@@ -216,7 +216,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           <p className="text-[28px] font-bold leading-none text-ink">{resolvedInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-red-600">Urgents</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Urgents</p>
           <p className="text-[28px] font-bold leading-none text-ink">{urgentOpen}</p>
         </div>
       </div>
@@ -297,11 +297,11 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
             <table className="hidden w-full table-fixed text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="w-[40%] px-4 py-2.5">Incident</th>
-                  <th className="w-[10%] px-4 py-2.5">Statut</th>
+                  <th className="w-[35%] px-4 py-2.5">Incident</th>
+                  <th className="w-[13%] px-4 py-2.5">Statut</th>
                   <th className="w-[14%] px-4 py-2.5">Signalé par</th>
                   <th className="w-[10%] px-4 py-2.5">Date</th>
-                  <th className="w-[26%] px-4 py-2.5 text-right">Actions</th>
+                  <th className="w-[28%] px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -318,17 +318,15 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                       </td>
                       <td className="px-4 py-2.5">
                         {isResolved ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                            <Icon name="Check" className="h-3 w-3" />
-                            Résolu
+                          <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            <Icon name="Check" className="h-3 w-3" />Résolu
                           </span>
                         ) : inc.status === "in_progress" ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                            <Icon name="Clock" className="h-3 w-3" />
-                            En cours
+                          <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                            <Icon name="Clock" className="h-3 w-3" />En cours
                           </span>
                         ) : (
-                          <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
+                          <span className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
                             {urgencyLabels[inc.urgency] ?? inc.urgency}
                           </span>
                         )}
