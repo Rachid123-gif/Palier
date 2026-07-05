@@ -120,6 +120,14 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
         </button>
       } />
 
+      {/* Info banner */}
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+        <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+        <p className="text-[12px] text-ink-soft">
+          Les documents ajoutés ici sont accessibles par les résidents depuis leur application. Utilisez les catégories pour organiser les PV, règlements, contrats et factures de la copropriété.
+        </p>
+      </div>
+
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <KpiCard label="Documents" value={String(totalDocs)} />
@@ -151,14 +159,6 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
           </select>
         </div>
       </Card>
-
-      {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
-        <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
-        <p className="text-[12px] text-palier-700">
-          Les documents ajoutés ici sont accessibles par les résidents depuis leur application. Utilisez les catégories pour organiser les PV, règlements, contrats et factures de la copropriété.
-        </p>
-      </div>
 
       {/* Documents table */}
       <Card>

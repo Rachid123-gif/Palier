@@ -428,9 +428,9 @@ export function SettingsView({
                 </div>
               </Card>
 
-              <div className="flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
-                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
-                <p className="text-[12px] text-palier-700">
+              <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <p className="text-[12px] text-ink-soft">
                   Ces informations apparaîtront dans l&apos;application des résidents. Ils pourront voir les horaires du gardien et le contacter directement par téléphone ou WhatsApp.
                 </p>
               </div>
@@ -440,9 +440,9 @@ export function SettingsView({
           {/* ═══ CATÉGORIES ═══ */}
           {activeSection === "categories" && (
             <>
-              <div className="flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
-                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
-                <p className="text-[12px] text-palier-700">
+              <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <p className="text-[12px] text-ink-soft">
                   Personnalisez les catégories utilisées dans les filtres et formulaires de votre résidence. Chaque résidence peut avoir ses propres catégories.
                 </p>
               </div>
@@ -498,9 +498,9 @@ export function SettingsView({
           {activeSection === "codes" && (
             <>
               {/* Explanation */}
-              <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3">
-                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                <div className="text-[12px] text-amber-800">
+              <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <div className="text-[12px] text-ink-soft">
                   <p className="font-semibold">Comment ça fonctionne ?</p>
                   <p className="mt-1">Lorsque vous ajoutez un résident depuis « Résidents & lots », un code d&apos;accès unique est automatiquement généré et envoyé par WhatsApp.</p>
                   <p className="mt-1">Si le résident n&apos;a pas reçu son code, utilisez ce formulaire pour en régénérer un et le renvoyer par WhatsApp.</p>
@@ -510,8 +510,8 @@ export function SettingsView({
               {/* Generate & send */}
               <Card>
                 <div className="mb-4 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-                    <Icon name="KeyRound" className="h-4 w-4 text-amber-600" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-palier-100">
+                    <Icon name="KeyRound" className="h-4 w-4 text-palier-600" />
                   </div>
                   <div>
                     <h2 className="text-[14px] font-semibold text-ink">Renvoyer un code d&apos;accès</h2>
@@ -584,9 +584,9 @@ export function SettingsView({
                 </div>
               </div>
 
-              <div className="mt-3 flex items-start gap-2 rounded-xl bg-palier-50 px-3.5 py-2.5">
-                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
-                <p className="text-[12px] text-palier-700">
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-3.5 py-2.5">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <p className="text-[12px] text-ink-soft">
                   Ce message est envoyé comme notification dans l&apos;application du résident lorsque vous cliquez sur « Relancer » depuis la page Recouvrement.
                 </p>
               </div>
@@ -596,9 +596,9 @@ export function SettingsView({
           {/* ═══ RETOURS & SUGGESTIONS ═══ */}
           {activeSection === "feedback" && (
             <>
-              <div className="flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
-                <Icon name="Lightbulb" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
-                <p className="text-[12px] text-palier-700">
+              <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <p className="text-[12px] text-ink-soft">
                   Aidez-nous à améliorer Palier ! Signalez un problème ou proposez une fonctionnalité. Chaque retour est lu par notre équipe.
                 </p>
               </div>

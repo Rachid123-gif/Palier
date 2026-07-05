@@ -282,12 +282,6 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
         )}
       </div>
 
-      {/* Info note */}
-      <div className="mb-3 flex items-center gap-2 rounded-xl bg-palier-50 px-3.5 py-2.5">
-        <Icon name="Info" className="h-4 w-4 shrink-0 text-palier-600" />
-        <p className="text-[12px] text-palier-700">Relancer un résident lui enverra un rappel de paiement directement dans son application Palier.</p>
-      </div>
-
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
         {filtered.length === 0 ? (

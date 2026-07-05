@@ -177,6 +177,14 @@ export function ResidentsView({
         }
       />
 
+      {/* Info note */}
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+        <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+        <p className="text-[12px] text-ink-soft">
+          Les résidents ajoutés ici reçoivent un code d&apos;accès par WhatsApp pour rejoindre la résidence sur l&apos;application Palier. Ils peuvent consulter leurs charges, signaler des incidents et accéder aux documents.
+        </p>
+      </div>
+
       {/* Stats row */}
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
