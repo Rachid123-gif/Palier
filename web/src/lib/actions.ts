@@ -88,6 +88,26 @@ export async function createLedgerEntry(input: {
   });
 }
 
+export async function updateLedgerEntry(id: string, input: {
+  type: "in" | "out";
+  label: string;
+  amount: number;
+  category: string;
+  date: string;
+}) {
+  return supabase.from("ledger_entries").update({
+    type: input.type,
+    label: input.label,
+    amount: input.amount,
+    category: input.category,
+    entry_date: input.date,
+  }).eq("id", id);
+}
+
+export async function deleteLedgerEntry(id: string) {
+  return supabase.from("ledger_entries").delete().eq("id", id);
+}
+
 export async function logDunning(input: {
   unitId: string;
   channel: "push" | "sms" | "whatsapp";
