@@ -52,7 +52,7 @@ export interface SyndicData {
   incidents: any[];
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string; status: string; deactivatedAt: string | null }[];
   ledger: any[];
-  documents: { id: string; title: string; type: string; date: string; size: string; color: string; tint: string }[];
+  documents: { id: string; title: string; type: string; date: string; size: string; url: string }[];
   assemblies: AssemblyRow[];
 }
 
@@ -162,7 +162,7 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     ledger: ledRes.data ?? [],
     documents: (docRes.data ?? []).map((d: any) => ({
       id: d.id, title: d.title, type: d.doc_type ?? d.type ?? "", date: d.doc_date ?? d.created_at,
-      size: d.size ?? "", color: d.color ?? "text-ink-soft", tint: d.tint ?? "bg-cream-card",
+      size: d.size ?? "", url: d.url ?? "",
     })),
     assemblies: (agRes.data ?? []).map((ag: any) => ({
       id: ag.id,
