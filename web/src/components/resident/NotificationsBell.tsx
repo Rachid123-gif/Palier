@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
 import { useData } from "@/lib/DataProvider";
+import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 
 const kindIcon: Record<string, { icon: string; tint: string; color: string }> = {
@@ -13,6 +14,7 @@ const kindIcon: Record<string, { icon: string; tint: string; color: string }> = 
 
 export function NotificationsBell({ dark = false }: { dark?: boolean }) {
   const { notifications } = useData();
+  const { lang, i } = useLang();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -26,7 +28,7 @@ export function NotificationsBell({ dark = false }: { dark?: boolean }) {
         </span>
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} title="Notifications">
+      <Sheet open={open} onClose={() => setOpen(false)} title={i.notifications}>
         <div className="space-y-2">
           {notifications.map((n) => {
             const k = kindIcon[n.kind] ?? kindIcon.post;
@@ -38,7 +40,7 @@ export function NotificationsBell({ dark = false }: { dark?: boolean }) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">{n.title}</p>
                   <p className="text-[13px] text-ink-soft">{n.body}</p>
-                  <p className="mt-0.5 text-[11px] text-ink-faint">{timeAgo(n.created_at)}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-faint">{timeAgo(n.created_at, lang)}</p>
                 </div>
               </div>
             );

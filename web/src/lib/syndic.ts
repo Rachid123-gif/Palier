@@ -24,7 +24,7 @@ export interface SyndicData {
   };
   recouvrement: RecouvrementRow[];
   incidents: any[];
-  residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string }[];
+  residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string; status: string; deactivatedAt: string | null }[];
   ledger: any[];
   documents: { id: string; title: string; type: string; date: string; size: string; color: string; tint: string }[];
   assembly: { date: string; agenda: ({ n: number; t: string; d: string } | string)[]; votes: { q: string; pour: number; contre: number; abst: number }[]; quorum: number } | null;
@@ -88,7 +88,7 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     .map((m: any) => {
       const p: any = profileById.get(m.profile_id);
       const u: any = units.find((x: any) => x.id === m.unit_id);
-      return p ? { id: p.id, name: p.full_name, avatarColor: p.avatar_color, phone: p.phone, unit: u?.ref ?? "—", role: m.role } : null;
+      return p ? { id: p.id, name: p.full_name, avatarColor: p.avatar_color, phone: p.phone, unit: u?.ref ?? "—", role: m.role, status: m.status ?? "active", deactivatedAt: m.deactivated_at ?? null } : null;
     })
     .filter(Boolean) as SyndicData["residents"];
 

@@ -3,10 +3,10 @@ import { cn } from "@/lib/cn";
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[26px] font-bold tracking-tight text-ink">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-[14px] text-ink-soft">{subtitle}</p>}
+        <h1 className="text-[22px] font-bold tracking-tight text-ink">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-[13px] text-ink-soft">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -14,23 +14,18 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 }
 
 export function KpiCard({
-  icon, label, value, unit, tint, color, hint, trend,
+  label, value, unit, hint, trend,
 }: {
-  icon: string; label: string; value: string; unit?: string; tint: string; color: string; hint?: string; trend?: string;
+  icon?: string; label: string; value: string; unit?: string; tint?: string; color?: string; hint?: string; trend?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(20,32,29,0.04)]">
-      <div className="flex items-center justify-between">
-        <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", tint)}>
-          <Icon name={icon} className={cn("h-5 w-5", color)} strokeWidth={2.2} />
-        </span>
-        {trend && <span className="text-[11px] font-semibold text-success">{trend}</span>}
-      </div>
-      <p className="mt-3 text-[24px] font-bold leading-none text-ink">
-        {value}{unit && <span className="ml-1 text-[12px] font-semibold text-ink-faint">{unit}</span>}
+    <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+      <p className="text-[12px] font-medium text-ink-soft">{label}</p>
+      <p className="mt-1 text-[22px] font-bold leading-none text-ink">
+        {value}{unit && <span className="ml-1 text-[12px] font-medium text-ink-soft">{unit}</span>}
       </p>
-      <p className="mt-1 text-[12.5px] text-ink-soft">{label}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-ink-faint">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-ink-soft">{hint}</p>}
+      {trend && <p className="mt-1 text-[11px] font-semibold text-success">{trend}</p>}
     </div>
   );
 }
@@ -47,9 +42,9 @@ const pills: Record<string, { label: string; cls: string }> = {
 
 export function StatusPill({ status }: { status: string }) {
   const p = pills[status] ?? { label: status, cls: "bg-sand text-ink-soft" };
-  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold", p.cls)}>{p.label}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold", p.cls)}>{p.label}</span>;
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("rounded-2xl border border-black/5 bg-white p-5 shadow-[0_1px_2px_rgba(20,32,29,0.04)]", className)}>{children}</div>;
+  return <div className={cn("rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card", className)}>{children}</div>;
 }

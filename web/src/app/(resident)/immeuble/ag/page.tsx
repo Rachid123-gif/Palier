@@ -7,9 +7,12 @@ import { Badge } from "@/components/ui/primitives";
 import { Toast } from "@/components/ui/Sheet";
 import { longDate, daysUntil } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
+import { useLang } from "@/lib/LangProvider";
 
 export default function AgScreen() {
   const { building, assembly } = useData();
+  const { lang, i, isAr } = useLang();
+  const T = i.ag;
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [toast, setToast] = useState(false);
 
@@ -19,20 +22,18 @@ export default function AgScreen() {
         <StatusBar />
         <header className="flex items-center gap-3 px-5 pb-2 pt-3">
           <Link href="/immeuble" className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-            <Icon name="ChevronLeft" className="h-5 w-5" />
+            <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
           </Link>
-          <h1 className="text-[22px] font-bold tracking-tight text-ink">Assemblée générale</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-ink">{T.title}</h1>
         </header>
         <div className="space-y-4 px-4 pt-1">
           <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-3.5">
             <Icon name="CalendarDays" className="h-5 w-5 shrink-0 text-palier-600" />
-            <p className="text-[12.5px] font-medium text-palier-800">
-              Les informations de la prochaine AG seront affichées ici dès qu&apos;elles seront disponibles.
-            </p>
+            <p className="text-[12.5px] font-medium text-palier-800">{T.infoVide}</p>
           </div>
           <div className="card flex items-center gap-3 p-4">
             <Icon name="CalendarX" className="h-5 w-5 text-ink-faint" />
-            <p className="text-[13px] text-ink-soft">Aucune assemblée générale programmée pour le moment</p>
+            <p className="text-[13px] text-ink-soft">{T.aucune}</p>
           </div>
         </div>
       </div>
@@ -47,28 +48,26 @@ export default function AgScreen() {
       <StatusBar />
       <header className="flex items-center gap-3 px-5 pb-2 pt-3">
         <Link href="/immeuble" className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-          <Icon name="ChevronLeft" className="h-5 w-5" />
+          <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight text-ink">Assemblée générale</h1>
+        <h1 className="text-[22px] font-bold tracking-tight text-ink">{T.title}</h1>
       </header>
 
       <div className="space-y-5 px-4 pt-1">
-        {/* Hero AG */}
         <div className="bg-hero relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
           <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
           <div className="absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-white/5" />
           <div className="relative z-10">
-            {!isPast && <Badge tone="gold">Dans {days} jour{days > 1 ? "s" : ""}</Badge>}
-            {isPast && <Badge tone="neutral">Terminée</Badge>}
-            <h2 className="mt-2 text-[22px] font-bold">AG ordinaire. {building.name}</h2>
-            <p className="mt-1 text-[13px] text-white/80">{longDate(assembly.date)} · {assembly.time} · {assembly.place}</p>
+            {!isPast && <Badge tone="gold">{T.dans(days)}</Badge>}
+            {isPast && <Badge tone="neutral">{T.terminee}</Badge>}
+            <h2 className="mt-2 text-[22px] font-bold">{T.agOrdinaire} {building.name}</h2>
+            <p className="mt-1 text-[13px] text-white/80">{longDate(assembly.date, lang)} · {assembly.time} · {assembly.place}</p>
           </div>
         </div>
 
-        {/* Ordre du jour */}
         {assembly.agenda.length > 0 && (
           <div>
-            <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Ordre du jour</h2>
+            <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">{T.ordreDuJour}</h2>
             <div className="card divide-y divide-black/5 p-0">
               {assembly.agenda.map((a) => (
                 <div key={a.n} className="flex gap-3 p-3.5">
@@ -83,14 +82,13 @@ export default function AgScreen() {
           </div>
         )}
 
-        {/* Votes ouverts */}
         {!isPast && assembly.votes.length > 0 && (
           <div>
-            <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">Votes ouverts</h2>
+            <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">{T.votesOuverts}</h2>
             {assembly.votes.map((v) => (
               <div key={v.id} className="card p-4">
                 <p className="text-[14px] font-bold text-ink">{v.q}</p>
-                <p className="mt-1 text-[12px] text-ink-faint">Vote pondéré par les tantièmes · clôture le {longDate(v.closesAt)}</p>
+                <p className="mt-1 text-[12px] text-ink-faint">{T.votePondere} {longDate(v.closesAt, lang)}</p>
                 <div className="mt-3 space-y-2">
                   {v.options.map((o) => {
                     const active = choice[v.id] === o;
@@ -114,7 +112,7 @@ export default function AgScreen() {
         )}
       </div>
 
-      <Toast open={toast} onClose={() => setToast(false)} title="Vote enregistré" body="Votre voix est prise en compte (pondérée par vos tantièmes). Modifiable jusqu'à la clôture." />
+      <Toast open={toast} onClose={() => setToast(false)} title={T.voteEnregistre} body={T.voteBody} />
     </div>
   );
 }

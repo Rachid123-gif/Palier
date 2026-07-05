@@ -7,14 +7,15 @@ import { LogoMark } from "@/components/brand/Logo";
 
 const nav = [
   { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
-  { href: "/syndic/recouvrement", label: "Recouvrement", icon: "HandCoins", badgeKey: "dunning" },
-  { href: "/syndic/charges", label: "Charges & appels", icon: "ReceiptText" },
-  { href: "/syndic/incidents", label: "Incidents", icon: "TriangleAlert", badgeKey: "incidents" },
+  { href: "/syndic/recouvrement", label: "Recouvrement", icon: "Banknote", badgeKey: "dunning" },
+  { href: "/syndic/charges", label: "Charges & appels", icon: "Receipt" },
+  { href: "/syndic/incidents", label: "Incidents", icon: "AlertCircle", badgeKey: "incidents" },
   { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
-  { href: "/syndic/transparence", label: "Transparence", icon: "ShieldCheck" },
-  { href: "/syndic/marketplace", label: "Marketplace", icon: "Store" },
-  { href: "/syndic/ag", label: "AG & votes", icon: "Vote" },
-  { href: "/syndic/documents", label: "Documents", icon: "FolderOpen" },
+  { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
+  { href: "/syndic/marketplace", label: "Marketplace", icon: "ShoppingBag" },
+  { href: "/syndic/ag", label: "AG & votes", icon: "Calendar" },
+  { href: "/syndic/documents", label: "Documents", icon: "FileText" },
+  { href: "/syndic/parametres", label: "Paramètres", icon: "Settings" },
 ];
 
 export function SyndicShell({
@@ -27,24 +28,16 @@ export function SyndicShell({
 }) {
   const path = usePathname();
   return (
-    <div className="flex min-h-dvh bg-[#f3efe7] text-ink">
+    <div className="flex min-h-dvh bg-cream text-ink">
       {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col bg-palier-900 p-4 text-white md:flex">
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <LogoMark size={36} />
-          <div>
-            <p className="text-[15px] font-bold leading-none">Palier</p>
-            <p className="text-[11px] text-white/50">Espace syndic</p>
-          </div>
+      <aside className="sticky top-0 hidden h-dvh w-[244px] shrink-0 flex-col border-r border-black/[0.06] bg-cream-card px-3 py-4 md:flex">
+        <div className="flex items-center gap-2 px-2 pb-4">
+          <LogoMark size={28} />
+          <span className="text-[14px] font-semibold text-ink">Palier</span>
+          <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-white/8 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Immeuble géré</p>
-          <p className="mt-0.5 text-[14px] font-bold leading-tight">{building.name}</p>
-          <p className="text-[11px] text-white/55">{building.city}</p>
-        </div>
-
-        <nav className="mt-4 flex-1 space-y-1">
+        <nav className="no-scrollbar flex-1 space-y-px overflow-y-auto">
           {nav.map((n) => {
             const active = n.exact ? path === n.href : path.startsWith(n.href);
             const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
@@ -53,14 +46,19 @@ export function SyndicShell({
                 key={n.href}
                 href={n.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-colors",
-                  active ? "bg-white text-palier-800 shadow-sm" : "text-white/70 hover:bg-white/10 hover:text-white",
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
+                  active
+                    ? "bg-palier-600 text-white"
+                    : "text-ink-soft hover:bg-sand/50 hover:text-ink",
                 )}
               >
-                <Icon name={n.icon} className="h-[18px] w-[18px]" strokeWidth={2.2} />
+                <Icon name={n.icon} className="h-4 w-4" strokeWidth={1.8} />
                 <span className="flex-1">{n.label}</span>
                 {badge > 0 && (
-                  <span className={cn("flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold", active ? "bg-danger text-white" : "bg-danger text-white")}>
+                  <span className={cn(
+                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
+                    active ? "bg-white/20 text-white" : "bg-red-500 text-white",
+                  )}>
                     {badge}
                   </span>
                 )}
@@ -69,26 +67,34 @@ export function SyndicShell({
           })}
         </nav>
 
-        <div className="mt-2 flex items-center gap-3 rounded-2xl bg-white/8 p-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-400 text-sm font-bold">
-            {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold">{syndicName}</p>
-            <p className="text-[11px] text-white/50">Gestionnaire</p>
+        <div className="border-t border-black/[0.06] pt-3">
+          <div className="rounded-lg bg-black/[0.03] px-2.5 py-2">
+            <p className="text-[11px] font-medium text-ink-soft">Résidence</p>
+            <p className="text-[13px] font-semibold text-ink">{building.name}</p>
+            <p className="text-[11px] text-ink-soft">{building.city}</p>
           </div>
-          <Link href="/" className="text-white/50 hover:text-white"><Icon name="LogOut" className="h-4 w-4" /></Link>
+          <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
+              {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+            </span>
+            <span className="flex-1 truncate text-[13px] font-medium text-ink">{syndicName}</span>
+            <Link href="/" className="text-ink-faint transition-colors hover:text-ink"><Icon name="LogOut" className="h-3.5 w-3.5" /></Link>
+          </div>
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar mobile */}
-        <div className="flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 md:hidden">
-          <div className="flex items-center gap-2"><LogoMark size={28} /><span className="font-bold">Palier syndic</span></div>
-          <Link href="/syndic/recouvrement" className="rounded-full bg-palier-600 px-3 py-1.5 text-xs font-semibold text-white">Recouvrement</Link>
+        <div className="flex items-center justify-between border-b border-black/[0.06] bg-cream-card px-4 py-2.5 md:hidden">
+          <div className="flex items-center gap-2">
+            <LogoMark size={24} />
+            <span className="text-[14px] font-semibold text-ink">Palier</span>
+          </div>
+          <Link href="/syndic/recouvrement" className="rounded-lg bg-palier-600 px-3 py-1.5 text-[12px] font-semibold text-white">
+            Recouvrement
+          </Link>
         </div>
-        <div className="mx-auto w-full max-w-[1100px] flex-1 p-5 md:p-8">{children}</div>
+        <div className="mx-auto w-full max-w-[1060px] flex-1 px-6 py-6 md:px-8 md:py-8">{children}</div>
       </main>
     </div>
   );

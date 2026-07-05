@@ -128,9 +128,12 @@ export interface BuildingKpis {
 
 export interface CurrentUser {
   name: string;
+  phone: string;
   unit: string;
+  role: string;
   building: string;
   city: string;
   cityName: string;
   avatarColor: string;
+  membershipStatus: "active" | "inactive";
 }

@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { cities, quartiersByCity } from "@/lib/data";
 import { nearestCity } from "@/lib/useCity";
 import { useData } from "@/lib/DataProvider";
+import { useLang } from "@/lib/LangProvider";
 
 export function CitySheet({
   open, onClose, current, currentQuartier, onPick,
@@ -16,6 +17,7 @@ export function CitySheet({
   onPick: (city: string, quartier?: string | null) => void;
 }) {
   const { providers } = useData();
+  const { i } = useLang();
   const [detecting, setDetecting] = useState(false);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string>(current);
@@ -34,7 +36,7 @@ export function CitySheet({
     }
   }
 
-  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const query = norm(q);
   const visible = cities.filter((c) => {
     if (!query) return true;
@@ -43,21 +45,20 @@ export function CitySheet({
   });
 
   return (
-    <Sheet open={open} onClose={onClose} title="Choisir ma zone">
-      {/* Recherche */}
+    <Sheet open={open} onClose={onClose} title={i.city.title}>
       <div className="mb-3 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-card">
         <Icon name="Search" className="h-4 w-4 text-ink-faint" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Rechercher une ville ou un quartier"
+          placeholder={i.city.searchPlaceholder}
           className="w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-faint"
         />
       </div>
 
       <button onClick={detect} className="press mb-3 flex w-full items-center gap-3 rounded-2xl bg-palier-600 p-3.5 text-white">
         <Icon name={detecting ? "LoaderCircle" : "LocateFixed"} className={`h-5 w-5 ${detecting ? "animate-spin" : ""}`} />
-        <span className="text-sm font-semibold">{detecting ? "Détection en cours…" : "Détecter ma position (GPS)"}</span>
+        <span className="text-sm font-semibold">{detecting ? i.city.detection : i.city.detecter}</span>
       </button>
 
       <div className="space-y-2">
@@ -72,9 +73,9 @@ export function CitySheet({
                 className="flex w-full items-center gap-3 p-3.5"
               >
                 <Icon name="MapPin" className="h-5 w-5 text-coral-500" />
-                <div className="flex-1 text-left">
+                <div className="flex-1 text-start">
                   <p className="text-sm font-semibold text-ink">{c.name}</p>
-                  <p className="text-[12px] text-ink-faint">{providers.filter((p) => p.city === c.slug).length} prestataires{active && currentQuartier ? ` · ${currentQuartier}` : ""}</p>
+                  <p className="text-[12px] text-ink-faint">{providers.filter((p) => p.city === c.slug).length} {i.city.prestataires}{active && currentQuartier ? ` · ${currentQuartier}` : ""}</p>
                 </div>
                 {active && !currentQuartier && <Icon name="Check" className="h-5 w-5 text-palier-600" strokeWidth={2.6} />}
                 <Icon

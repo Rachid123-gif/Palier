@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-
-const DEMO_CODE = "PALIER2026";
+import { validateAccessCode } from "@/lib/actions";
 
 type Lang = "fr" | "ar";
 
@@ -41,6 +40,7 @@ const t = {
     codeErrorSyndic: "Code incorrect. Vérifiez dans votre email d'inscription.",
     codeInfoResident: "Ce code est unique à votre résidence. Demandez-le à votre syndic.",
     codeInfoSyndic: "Ce code vous a été envoyé par Palier lors de la création de votre espace.",
+    syndicWebNote: "Pour plus de confort, vous pouvez aussi accéder à votre espace syndic depuis un ordinateur sur ",
     codeBtn: "Valider le code",
     roleTitle: "Vous êtes…",
     roleDesc: "Sélectionnez votre profil pour accéder à l'espace adapté.",
@@ -80,6 +80,7 @@ const t = {
     codeErrorSyndic: "رمز غير صحيح. تحقق من بريدك الإلكتروني.",
     codeInfoResident: "هذا الرمز خاص بإقامتك. اطلبه من السنديك.",
     codeInfoSyndic: "هذا الرمز أُرسل إليك من بالييه عند إنشاء مساحتك.",
+    syndicWebNote: "لمزيد من الراحة، يمكنك أيضاً الوصول إلى مساحة السنديك من الكمبيوتر على ",
     codeBtn: "تأكيد الرمز",
     roleTitle: "أنت…",
     roleDesc: "اختر ملفك الشخصي للوصول إلى المساحة المناسبة.",
@@ -92,12 +93,12 @@ const t = {
 
 const slideColors = ["bg-palier-600", "bg-[#c5604f]", "bg-[#d9961f]"];
 
-type Step = "welcome" | "role" | "code";
+type Step = "lang" | "welcome" | "role" | "code";
 
 export default function BienvenuePage() {
   const router = useRouter();
   const [lang, setLang] = useState<Lang>("fr");
-  const [step, setStep] = useState<Step>("welcome");
+  const [step, setStep] = useState<Step>("lang");
   const [slide, setSlide] = useState(0);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
@@ -117,15 +118,42 @@ export default function BienvenuePage() {
     setStep("code");
   }
 
-  function validateCode() {
-    if (code.trim().toUpperCase() === DEMO_CODE) {
-      setCodeError("");
-      localStorage.setItem("palier_onboarded", "1");
-      localStorage.setItem("palier_lang", lang);
-      localStorage.setItem("palier_role", role ?? "resident");
-      router.push(role === "syndic" ? "/syndic" : "/");
-    } else {
+  const [validating, setValidating] = useState(false);
+
+  async function validateCode() {
+    if (!code.trim()) return;
+    setValidating(true);
+    setCodeError("");
+
+    try {
+      const result = await validateAccessCode(code.trim().toUpperCase(), role ?? "resident");
+
+      if (result.valid) {
+        localStorage.setItem("palier_onboarded", "1");
+        localStorage.setItem("palier_lang", lang);
+        localStorage.setItem("palier_role", result.role!);
+        if (result.buildingId) localStorage.setItem("palier_building_id", result.buildingId);
+        router.push(result.role === "syndic" ? "/syndic" : "/");
+      } else {
+        const errorMessages: Record<string, string> = lang === "fr" ? {
+          code_not_found: "Code introuvable. Vérifiez le code et réessayez.",
+          code_already_used: "Ce code a déjà été utilisé.",
+          wrong_role: role === "syndic"
+            ? "Ce code est réservé aux résidents. Utilisez votre code syndic."
+            : "Ce code est réservé au syndic. Demandez un code résident à votre syndic.",
+        } : {
+          code_not_found: "الرمز غير موجود. تحقق من الرمز وأعد المحاولة.",
+          code_already_used: "هذا الرمز تم استخدامه من قبل.",
+          wrong_role: role === "syndic"
+            ? "هذا الرمز مخصص للسكان. استخدم رمز السنديك الخاص بك."
+            : "هذا الرمز مخصص للسنديك. اطلب رمز ساكن من السنديك.",
+        };
+        setCodeError(errorMessages[result.error!] ?? (role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident));
+      }
+    } catch {
       setCodeError(role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident);
+    } finally {
+      setValidating(false);
     }
   }
 
@@ -136,9 +164,58 @@ export default function BienvenuePage() {
       className="tap flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-soft shadow-sm"
     >
       <Icon name="Globe" className="h-3.5 w-3.5" />
-      {i.langLabel}
+      {lang === "fr" ? <span style={{ fontFamily: "var(--font-cairo), sans-serif" }}>{i.langLabel}</span> : i.langLabel}
     </button>
   );
+
+  // ─── LANGUAGE SELECTION ─────────────────────────────────
+  if (step === "lang") {
+    return (
+      <div className="flex h-full flex-col">
+        <StatusBar />
+
+        <div className="flex flex-1 flex-col items-center justify-center px-6">
+          <LogoMark size={56} />
+          <Wordmark className="mt-3" />
+
+          <p className="mt-8 text-center text-[15px] text-ink-soft">
+            Choisissez votre langue · <span style={{ fontFamily: "var(--font-cairo), sans-serif" }}>اختر لغتك</span>
+          </p>
+
+          <div className="mt-6 w-full max-w-[20rem] space-y-3">
+            <button
+              onClick={() => { setLang("fr"); setStep("welcome"); }}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-palier-50">
+                <Icon name="Languages" className="h-6 w-6 text-palier-600" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[16px] font-bold text-ink">Français</p>
+                <p className="text-[12px] text-ink-soft">Continuer en français</p>
+              </div>
+              <Icon name="ChevronRight" className="h-5 w-5 text-ink-faint" />
+            </button>
+
+            <button
+              onClick={() => { setLang("ar"); setStep("welcome"); }}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-end shadow-card"
+              dir="rtl"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-palier-50">
+                <Icon name="Languages" className="h-6 w-6 text-palier-600" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[16px] font-bold text-ink" style={{ fontFamily: "var(--font-cairo), sans-serif" }}>العربية</p>
+                <p className="text-[12px] text-ink-soft" style={{ fontFamily: "var(--font-cairo), sans-serif" }}>المتابعة بالعربية</p>
+              </div>
+              <Icon name="ChevronLeft" className="h-5 w-5 text-ink-faint" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── WELCOME SLIDES ──────────────────────────────────────
   if (step === "welcome") {
@@ -244,15 +321,22 @@ export default function BienvenuePage() {
             <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
             <p className="text-[12px] leading-snug text-palier-800">{role === "syndic" ? i.codeInfoSyndic : i.codeInfoResident}</p>
           </div>
+
+          {role === "syndic" && (
+            <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-sand/60 px-4 py-3">
+              <Icon name="Monitor" className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
+              <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener" className="font-semibold text-palier-600 underline">palier.ma</a></p>
+            </div>
+          )}
         </div>
 
         <div className="px-6 pb-10">
           <button
             onClick={validateCode}
-            disabled={!code.trim()}
-            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!code.trim() ? "opacity-50" : ""}`}
+            disabled={!code.trim() || validating}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!code.trim() || validating ? "opacity-50" : ""}`}
           >
-            {i.codeBtn}
+            {validating ? <><Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> </> : null}{i.codeBtn}
           </button>
         </div>
       </div>

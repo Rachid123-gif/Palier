@@ -146,8 +146,265 @@ export async function recordPayment(items: { id: string; amount: number }[], met
   await supabase.from("payments").insert(
     items.map((c) => ({ charge_id: c.id, profile_id: DEMO_PROFILE_ID, amount: c.amount, method, status: "paid" })),
   );
-  // Marque chaque charge réglée (montant propre).
   await Promise.all(
     items.map((c) => supabase.from("charges").update({ status: "paid", paid: c.amount }).eq("id", c.id)),
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SYNDIC — Actions backoffice
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Générer un code d'accès résident */
+export async function generateAccessCode(input: {
+  buildingId: string;
+  label?: string;
+}) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const { data, error } = await supabase.from("access_codes").insert({
+    building_id: input.buildingId,
+    code,
+    role: "resident",
+    label: input.label ?? null,
+  }).select().single();
+  return { data, error, code };
+}
+
+/** Lister les codes d'accès d'un bâtiment */
+export async function listAccessCodes(buildingId: string) {
+  const { data } = await supabase
+    .from("access_codes")
+    .select("*")
+    .eq("building_id", buildingId)
+    .eq("role", "resident")
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+/** Valider un code d'accès (onboarding) */
+export async function validateAccessCode(code: string, selectedRole: "resident" | "syndic") {
+  const { data } = await supabase
+    .from("access_codes")
+    .select("*")
+    .eq("code", code.trim().toUpperCase())
+    .single();
+
+  if (!data) return { valid: false, error: "code_not_found" as const };
+  if (data.used_at) return { valid: false, error: "code_already_used" as const };
+  if (data.role !== selectedRole) return { valid: false, error: "wrong_role" as const, expectedRole: data.role };
+
+  // Marquer comme utilisé
+  await supabase
+    .from("access_codes")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", data.id);
+
+  return { valid: true, buildingId: data.building_id, role: data.role };
+}
+
+/** Supprimer un code non utilisé */
+export async function deleteAccessCode(codeId: string) {
+  return supabase.from("access_codes").delete().eq("id", codeId).is("used_at", null);
+}
+
+/** Ajouter un résident + générer un code d'accès automatique */
+export async function addResident(input: {
+  buildingId: string;
+  name: string;
+  phone: string;
+  unit: string;
+  role: "owner" | "tenant";
+}): Promise<{ error?: string; code?: string }> {
+  // 1. Find the unit by ref
+  const { data: unit } = await supabase
+    .from("units")
+    .select("id")
+    .eq("building_id", input.buildingId)
+    .eq("ref", input.unit.trim().toUpperCase())
+    .single();
+
+  if (!unit) return { error: "unit_not_found" };
+
+  // 2. Random avatar color
+  const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
+  const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+
+  // 3. Create profile
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .insert({
+      full_name: input.name,
+      phone: input.phone,
+      avatar_color: avatarColor,
+      city: "casablanca",
+    })
+    .select()
+    .single();
+
+  if (profileErr || !profile) return { error: "profile_error" };
+
+  // 4. Create membership
+  const { error: memberErr } = await supabase
+    .from("memberships")
+    .insert({
+      building_id: input.buildingId,
+      profile_id: profile.id,
+      unit_id: unit.id,
+      role: input.role,
+    });
+
+  if (memberErr) return { error: "membership_error" };
+
+  // 5. Auto-generate unique access code
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  await supabase.from("access_codes").insert({
+    building_id: input.buildingId,
+    code,
+    role: "resident",
+    label: `${input.unit.trim().toUpperCase()} – ${input.name}`,
+  });
+
+  return { code };
+}
+
+/** Résoudre un incident */
+export async function resolveIncident(incidentId: string) {
+  return supabase.from("incidents").update({ status: "resolved" }).eq("id", incidentId);
+}
+
+/** Assigner un incident (passer en "in_progress") */
+export async function assignIncident(incidentId: string) {
+  return supabase.from("incidents").update({ status: "in_progress" }).eq("id", incidentId);
+}
+
+/** Émettre un appel de fonds (créer des charges pour tous les lots) */
+export async function emitCharges(input: {
+  buildingId: string;
+  label: string;
+  detail: string;
+  amount: number;
+  category: string;
+  dueDate: string;
+}) {
+  const { data: units } = await supabase
+    .from("units")
+    .select("id, ref")
+    .eq("building_id", input.buildingId);
+
+  if (!units?.length) return { error: "no_units" };
+
+  const charges = units.map((u) => ({
+    building_id: input.buildingId,
+    unit_id: u.id,
+    label: input.label,
+    detail: input.detail,
+    period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+    amount: input.amount,
+    paid: 0,
+    due_date: input.dueDate,
+    status: "due",
+    category: input.category,
+  }));
+
+  return supabase.from("charges").insert(charges);
+}
+
+/** Convoquer une AG */
+export async function createAssembly(input: {
+  buildingId: string;
+  date: string;
+  time: string;
+  place: string;
+  agenda: { n: number; t: string; d: string }[];
+}) {
+  return supabase.from("assemblies").insert({
+    building_id: input.buildingId,
+    date: input.date,
+    time: input.time,
+    place: input.place,
+    agenda: input.agenda,
+    votes: [],
+    quorum: 0,
+  });
+}
+
+/** Charger la configuration du bâtiment */
+export async function loadBuildingSettings(buildingId: string) {
+  const { data } = await supabase
+    .from("building_settings")
+    .select("*")
+    .eq("building_id", buildingId)
+    .single();
+  return data;
+}
+
+/** Sauvegarder la configuration du bâtiment */
+export async function saveBuildingSettings(buildingId: string, settings: {
+  enabled_categories?: string[];
+  features?: Record<string, boolean>;
+  syndic_phone?: string;
+  syndic_email?: string;
+  welcome_message?: string;
+}) {
+  const { data: existing } = await supabase
+    .from("building_settings")
+    .select("id")
+    .eq("building_id", buildingId)
+    .single();
+
+  if (existing) {
+    return supabase.from("building_settings")
+      .update({ ...settings, updated_at: new Date().toISOString() })
+      .eq("building_id", buildingId);
+  }
+  return supabase.from("building_settings").insert({ building_id: buildingId, ...settings });
+}
+
+/** Modifier les infos d'un résident */
+export async function updateResident(input: {
+  profileId: string;
+  name: string;
+  phone: string;
+  role: "owner" | "tenant";
+  buildingId: string;
+}) {
+  await supabase.from("profiles").update({ full_name: input.name, phone: input.phone }).eq("id", input.profileId);
+  await supabase.from("memberships").update({ role: input.role }).eq("profile_id", input.profileId).eq("building_id", input.buildingId);
+}
+
+/** Désactiver un résident (ne supprime rien, met le membership en "inactive") */
+export async function deactivateResident(profileId: string, buildingId: string) {
+  await supabase
+    .from("memberships")
+    .update({ status: "inactive", deactivated_at: new Date().toISOString() })
+    .eq("profile_id", profileId)
+    .eq("building_id", buildingId);
+}
+
+/** Réactiver un résident désactivé */
+export async function reactivateResident(profileId: string, buildingId: string) {
+  await supabase
+    .from("memberships")
+    .update({ status: "active", deactivated_at: null })
+    .eq("profile_id", profileId)
+    .eq("building_id", buildingId);
+}
+
+/** Récupérer l'historique complet d'un résident pour export */
+export async function fetchResidentHistory(profileId: string, buildingId: string) {
+  const [memRes, chargesRes, incRes, postsRes] = await Promise.all([
+    supabase.from("memberships").select("*, units(ref)").eq("profile_id", profileId).eq("building_id", buildingId).single(),
+    supabase.from("charges").select("*").eq("unit_id", (await supabase.from("memberships").select("unit_id").eq("profile_id", profileId).eq("building_id", buildingId).single()).data?.unit_id ?? ""),
+    supabase.from("incidents").select("*").eq("reporter_id", profileId).eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabase.from("posts").select("*").eq("author_id", profileId).eq("building_id", buildingId).order("created_at", { ascending: false }),
+  ]);
+
+  return {
+    membership: memRes.data,
+    charges: chargesRes.data ?? [],
+    incidents: incRes.data ?? [],
+    posts: postsRes.data ?? [],
+  };
 }

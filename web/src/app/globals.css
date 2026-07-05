@@ -112,6 +112,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Arabic: utiliser Cairo pour un rendu lisible et cohérent */
+[dir="rtl"] {
+  font-family: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Masquer la scrollbar pour le feeling natif */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

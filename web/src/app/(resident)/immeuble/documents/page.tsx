@@ -4,30 +4,29 @@ import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
+import { useLang } from "@/lib/LangProvider";
 
 export default function DocumentsScreen() {
   const { building, documents } = useData();
+  const { lang, i, isAr } = useLang();
 
   return (
     <div className="animate-[fade_0.4s_ease] pb-4">
       <StatusBar />
       <header className="flex items-center gap-3 px-5 pb-2 pt-3">
         <Link href="/immeuble" className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-          <Icon name="ChevronLeft" className="h-5 w-5" />
+          <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-ink">Documents</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-ink">{i.docs.title}</h1>
           <p className="text-[13px] text-ink-soft">{building.name}</p>
         </div>
       </header>
 
       <div className="space-y-4 px-4 pt-1">
-        {/* Info */}
         <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-3.5">
           <Icon name="FolderOpen" className="h-5 w-5 shrink-0 text-palier-600" />
-          <p className="text-[12.5px] font-medium text-palier-800">
-            Documents officiels de votre copropriété. PV, contrats, règlements.
-          </p>
+          <p className="text-[12.5px] font-medium text-palier-800">{i.docs.info}</p>
         </div>
 
         {documents.length > 0 ? (
@@ -38,7 +37,7 @@ export default function DocumentsScreen() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-bold text-ink">{d.title}</p>
-                <p className="text-[12px] text-ink-faint">{d.type} · {shortDate(d.date)}</p>
+                <p className="text-[12px] text-ink-faint">{d.type} · {shortDate(d.date, lang)}</p>
               </div>
               <Icon name="Eye" className="h-5 w-5 text-ink-faint" />
             </div>
@@ -46,7 +45,7 @@ export default function DocumentsScreen() {
         ) : (
           <div className="card flex items-center gap-3 p-4">
             <Icon name="FolderOpen" className="h-5 w-5 text-ink-faint" />
-            <p className="text-[13px] text-ink-soft">Aucun document disponible pour le moment</p>
+            <p className="text-[13px] text-ink-soft">{i.docs.aucun}</p>
           </div>
         )}
       </div>

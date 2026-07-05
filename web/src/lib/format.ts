@@ -1,3 +1,5 @@
+import { t, type Lang } from "./i18n";
+
 /** Formatage monétaire MAD façon app marocaine : "1 234,95 MAD" */
 export function mad(amount: number, opts: { decimals?: boolean } = {}): string {
   const decimals = opts.decimals ?? true;
@@ -5,7 +7,7 @@ export function mad(amount: number, opts: { decimals?: boolean } = {}): string {
     minimumFractionDigits: decimals ? 2 : 0,
     maximumFractionDigits: decimals ? 2 : 0,
   }).format(amount);
-  return `${n.replace(/ /g, " ")} MAD`;
+  return `${n.replace(/ /g, "\u00A0")} MAD`;
 }
 
 /** Montant nu sans devise (pour affichages héro) */
@@ -15,54 +17,46 @@ export function num(amount: number, decimals = true): string {
     maximumFractionDigits: decimals ? 2 : 0,
   })
     .format(amount)
-    .replace(/ /g, " ");
+    .replace(/ /g, "\u00A0");
 }
-
-const MONTHS = [
-  "janv.", "févr.", "mars", "avr.", "mai", "juin",
-  "juil.", "août", "sept.", "oct.", "nov.", "déc.",
-];
-
-const MONTHS_FULL = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
 
 /** "Juillet 2026" — mois courant avec année */
-export function currentPeriod(): string {
+export function currentPeriod(lang: Lang = "fr"): string {
   const now = new Date();
-  return `${MONTHS_FULL[now.getMonth()]} ${now.getFullYear()}`;
+  return `${t[lang].months[now.getMonth()]} ${now.getFullYear()}`;
 }
 
-export function shortDate(iso: string): string {
+export function shortDate(iso: string, lang: Lang = "fr"): string {
   const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${d.getDate()} ${t[lang].monthsShort[d.getMonth()]}`;
 }
 
-export function longDate(iso: string): string {
+export function longDate(iso: string, lang: Lang = "fr"): string {
   const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()} ${t[lang].monthsShort[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** "il y a 2 h", "il y a 3 j" */
-export function timeAgo(iso: string): string {
+/** "il y a 2 h", "منذ 2 س" */
+export function timeAgo(iso: string, lang: Lang = "fr"): string {
+  const i = t[lang];
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.round(diff / 60000);
-  if (min < 1) return "à l'instant";
-  if (min < 60) return `il y a ${min} min`;
+  if (min < 1) return i.aLinstant;
+  if (min < 60) return i.ilYA(min, i.min);
   const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
+  if (h < 24) return i.ilYA(h, i.h);
   const d = Math.round(h / 24);
-  return `il y a ${d} j`;
+  return i.ilYA(d, i.j);
 }
 
 /** Salutation contextuelle */
-export function greeting(): string {
+export function greeting(lang: Lang = "fr"): string {
+  const i = t[lang];
   const h = new Date().getHours();
-  if (h < 6) return "Bonne nuit";
-  if (h < 12) return "Bonjour";
-  if (h < 18) return "Bon après-midi";
-  return "Bonsoir";
+  if (h < 6) return i.bonneNuit;
+  if (h < 12) return i.bonjour;
+  if (h < 18) return i.bonApresMidi;
+  return i.bonsoir;
 }
 
 /** Jours restants avant une date */
@@ -72,7 +66,7 @@ export function daysUntil(iso: string): number {
   return Math.max(0, Math.ceil((target.getTime() - now.getTime()) / 86400000));
 }
 
-/** Format date relative courte : "dans 3 jours", "demain", "aujourd'hui", "dépassée" */
+/** Format date relative courte */
 export function dueDateLabel(iso: string): string {
   const d = daysUntil(iso);
   if (d === 0) return "aujourd'hui";

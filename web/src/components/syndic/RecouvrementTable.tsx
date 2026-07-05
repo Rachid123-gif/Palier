@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
 import { Toast } from "@/components/ui/Sheet";
-import { mad, timeAgo } from "@/lib/format";
+import { mad, timeAgo, currentPeriod } from "@/lib/format";
 import { whatsappLink, telLink, dunningMessage } from "@/lib/whatsapp";
 import { logDunning } from "@/lib/actions";
 import type { RecouvrementRow } from "@/lib/syndic";
@@ -18,90 +18,91 @@ export function RecouvrementTable({ rows, building }: { rows: RecouvrementRow[];
   const due = rows.reduce((s, r) => s + (r.amount - r.paid), 0);
 
   function msg(r: RecouvrementRow) {
-    return dunningMessage({ name: r.ownerName.split(" ")[0], amount: r.amount - r.paid, period: "Juin 2026", building });
+    return dunningMessage({ name: r.ownerName.split(" ")[0], amount: r.amount - r.paid, period: currentPeriod(), building });
   }
 
   function relance(r: RecouvrementRow, channel: "push" | "sms" | "whatsapp") {
     logDunning({ unitId: r.unitId, channel, message: msg(r) }).then(() => router.refresh());
-    if (channel === "push") setToast({ title: "Notification envoyée", body: `${r.ownerName} a reçu une notification push de rappel.` });
+    if (channel === "push") setToast({ title: "Notification envoyée", body: `${r.ownerName} a reçu un rappel.` });
   }
 
   async function relanceAll() {
     setBusy(true);
     await Promise.all(unpaid.map((r) => logDunning({ unitId: r.unitId, channel: "whatsapp", message: msg(r) })));
     setBusy(false);
-    setToast({ title: "Relances envoyées", body: `${unpaid.length} résidents relancés (WhatsApp + push). Suivi mis à jour.` });
+    setToast({ title: "Relances envoyées", body: `${unpaid.length} résidents relancés.` });
     router.refresh();
   }
 
   return (
     <div>
-      {/* Barre d'action */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/5 bg-white p-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-danger-soft"><Icon name="AlertCircle" className="h-5 w-5 text-danger" /></span>
-          <div>
-            <p className="text-[15px] font-bold text-ink">{mad(due, { decimals: false })} à recouvrer</p>
-            <p className="text-[12px] text-ink-soft">{unpaid.length} lots impayés sur {rows.length}</p>
-          </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+        <div>
+          <p className="text-[14px] font-semibold text-ink">{mad(due, { decimals: false })} à recouvrer</p>
+          <p className="text-[12px] text-ink-soft">{unpaid.length} impayés sur {rows.length} lots</p>
         </div>
         <button
           onClick={relanceAll}
           disabled={busy || unpaid.length === 0}
-          className="tap inline-flex items-center gap-2 rounded-full bg-palier-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700 disabled:opacity-50"
         >
-          <Icon name={busy ? "LoaderCircle" : "Send"} className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+          <Icon name={busy ? "LoaderCircle" : "Send"} className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
           Relancer tous les impayés
         </button>
       </div>
 
-      {/* Tableau */}
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white">
-        <table className="w-full text-left">
+      <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
+        <table className="w-full text-left text-[13px]">
           <thead>
-            <tr className="border-b border-black/5 text-[11px] uppercase tracking-wide text-ink-faint">
-              <th className="px-4 py-3 font-semibold">Lot</th>
-              <th className="px-4 py-3 font-semibold">Résident</th>
-              <th className="px-4 py-3 font-semibold">Montant</th>
-              <th className="px-4 py-3 font-semibold">Statut</th>
-              <th className="px-4 py-3 font-semibold">Dernière relance</th>
-              <th className="px-4 py-3 text-right font-semibold">Relance</th>
+            <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              <th className="px-4 py-2.5">Lot</th>
+              <th className="px-4 py-2.5">Résident</th>
+              <th className="px-4 py-2.5">Montant</th>
+              <th className="px-4 py-2.5">Statut</th>
+              <th className="px-4 py-2.5">Dernière relance</th>
+              <th className="px-4 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/5">
+          <tbody className="divide-y divide-black/[0.04]">
             {rows.map((r) => {
               const remaining = r.amount - r.paid;
               return (
-                <tr key={r.unitId} className="text-[13.5px] hover:bg-[#faf8f3]">
-                  <td className="px-4 py-3 font-semibold text-ink">{r.ref}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: r.avatarColor }}>
+                <tr key={r.unitId} className="transition-colors hover:bg-sand/50">
+                  <td className="px-4 py-2.5 font-medium text-ink">{r.ref}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: r.avatarColor }}>
                         {r.ownerName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                       </span>
                       <div>
-                        <p className="font-medium text-ink">{r.ownerName}</p>
-                        <p className="text-[11px] text-ink-faint">{r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+                        <p className="text-ink">{r.ownerName}</p>
+                        <p className="text-[11px] text-ink-soft">{r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-ink">{mad(r.amount, { decimals: false })}</p>
-                    {r.status === "partial" && <p className="text-[11px] text-info">{mad(remaining, { decimals: false })} restant</p>}
+                  <td className="px-4 py-2.5">
+                    <p className="font-medium text-ink">{mad(r.amount, { decimals: false })}</p>
+                    {r.status === "partial" && <p className="text-[11px] text-blue-600">{mad(remaining, { decimals: false })} restant</p>}
                   </td>
-                  <td className="px-4 py-3"><StatusPill status={r.status} /></td>
-                  <td className="px-4 py-3 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                  <td className="px-4 py-2.5 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
+                  <td className="px-4 py-2.5">
                     {r.status === "paid" ? (
-                      <span className="flex items-center justify-end gap-1 text-[12px] font-semibold text-success"><Icon name="CircleCheck" className="h-4 w-4" /> À jour</span>
+                      <span className="flex items-center justify-end gap-1 text-[12px] font-medium text-emerald-600">À jour</span>
                     ) : (
-                      <div className="flex items-center justify-end gap-1.5">
-                        <a href={whatsappLink(r.phone, msg(r))} target="_blank" rel="noopener" onClick={() => relance(r, "whatsapp")} title="WhatsApp"
-                          className="tap flex h-8 w-8 items-center justify-center rounded-lg bg-[#25D366] text-white"><Icon name="MessageCircle" className="h-4 w-4" /></a>
-                        <a href={telLink(r.phone)} onClick={() => relance(r, "sms")} title="Appeler / SMS"
-                          className="tap flex h-8 w-8 items-center justify-center rounded-lg bg-info-soft text-info"><Icon name="Phone" className="h-4 w-4" /></a>
-                        <button onClick={() => relance(r, "push")} title="Notification push"
-                          className="tap flex h-8 w-8 items-center justify-center rounded-lg bg-palier-100 text-palier-600"><Icon name="Bell" className="h-4 w-4" /></button>
+                      <div className="flex items-center justify-end gap-1">
+                        <a href={whatsappLink(r.phone, msg(r))} target="_blank" rel="noopener" onClick={() => relance(r, "whatsapp")}
+                          className="rounded-md p-1.5 text-ink-faint hover:bg-emerald-50 hover:text-emerald-600" title="WhatsApp">
+                          <Icon name="MessageCircle" className="h-3.5 w-3.5" />
+                        </a>
+                        <a href={telLink(r.phone)} onClick={() => relance(r, "sms")}
+                          className="rounded-md p-1.5 text-ink-faint hover:bg-blue-50 hover:text-blue-600" title="Appeler">
+                          <Icon name="Phone" className="h-3.5 w-3.5" />
+                        </a>
+                        <button onClick={() => relance(r, "push")}
+                          className="rounded-md p-1.5 text-ink-faint hover:bg-palier-50 hover:text-ink" title="Notification">
+                          <Icon name="Bell" className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     )}
                   </td>

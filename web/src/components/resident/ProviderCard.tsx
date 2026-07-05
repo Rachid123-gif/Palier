@@ -6,6 +6,7 @@ import { Badge, Rating } from "@/components/ui/primitives";
 import { mad } from "@/lib/format";
 import { telLink, whatsappLink, contactMessage } from "@/lib/whatsapp";
 import { useData } from "@/lib/DataProvider";
+import { useLang } from "@/lib/LangProvider";
 import type { Provider } from "@/lib/types";
 
 export function ProviderCard({
@@ -15,6 +16,7 @@ export function ProviderCard({
   categoryLabel: string;
 }) {
   const { currentUser } = useData();
+  const { i } = useLang();
   const wa = whatsappLink(
     p.whatsapp,
     contactMessage({
@@ -30,7 +32,7 @@ export function ProviderCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <h3 className="text-[15px] font-bold text-ink">{p.name}</h3>
-            {p.topNeighbor && <Badge tone="gold" icon="Crown">Top voisins</Badge>}
+            {p.topNeighbor && <Badge tone="gold" icon="Crown">{i.provider.topVoisins}</Badge>}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
             <Rating value={p.rating} reviews={p.reviews} />
@@ -43,23 +45,23 @@ export function ProviderCard({
 
       <div className="mt-3 flex items-center justify-between">
         <p className="text-[13px] text-ink-soft">
-          À partir de <b className="text-[15px] text-ink">{mad(p.basePrice, { decimals: false })}</b>
+          {i.provider.aPartirDe} <b className="text-[15px] text-ink">{mad(p.basePrice, { decimals: false })}</b>
         </p>
-        {p.availableToday && <Badge tone="brand" icon="Clock">Dispo</Badge>}
+        {p.availableToday && <Badge tone="brand" icon="Clock">{i.provider.dispoBadge}</Badge>}
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <a href={telLink(p.phone)} className="tap flex items-center justify-center gap-1.5 rounded-full bg-sand py-2.5 text-[13px] font-semibold text-ink">
-          <Icon name="Phone" className="h-4 w-4" /> Appeler
+          <Icon name="Phone" className="h-4 w-4" /> {i.provider.appeler}
         </a>
         <a href={wa} target="_blank" rel="noopener" className="tap flex items-center justify-center gap-1.5 rounded-full bg-[#25D366] py-2.5 text-[13px] font-semibold text-white">
-          <Icon name="MessageCircle" className="h-4 w-4" /> WhatsApp
+          <Icon name="MessageCircle" className="h-4 w-4" /> {i.provider.whatsapp}
         </a>
         <Link
           href={`/services/prestataire/${p.id}`}
           className="tap flex items-center justify-center gap-1.5 rounded-full bg-palier-600 py-2.5 text-[13px] font-semibold text-white"
         >
-          Voir
+          {i.provider.voir}
         </Link>
       </div>
     </div>

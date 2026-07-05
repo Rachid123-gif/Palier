@@ -6,7 +6,7 @@ import type {
 
 export interface AppData {
   currentUser: CurrentUser;
-  building: { name: string; address: string; city: string; lots: number; syndic: string };
+  building: { name: string; address: string; city: string; lots: number; syndic: string; syndicPhone: string };
   buildingKpis: BuildingKpis;
   charges: Charge[];
   chargesHistory: Charge[];
@@ -58,10 +58,11 @@ const mapLedger = (r: any): LedgerEntry => ({
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(): Promise<AppData> {
-  const [bRes, pRes, uRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
+  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
     supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
     supabase.from("profiles").select("*").eq("id", DEMO_PROFILE_ID).single(),
     supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID).limit(1).single(),
+    supabase.from("memberships").select("role, status").eq("profile_id", DEMO_PROFILE_ID).eq("building_id", DEMO_BUILDING_ID).single(),
     supabase.from("charges").select("*").eq("unit_id", DEMO_UNIT_ID),
     supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
     supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
@@ -84,7 +85,10 @@ export async function fetchAppData(): Promise<AppData> {
   return {
     currentUser: {
       name: p?.full_name ?? "Résident",
+      phone: p?.phone ?? "",
       unit: u?.ref ?? "—",
+      role: memRes.data?.role ?? "owner",
+      membershipStatus: (memRes.data?.status ?? "active") as "active" | "inactive",
       building: b?.name ?? "Mon immeuble",
       city: (b?.city ?? "Casablanca").toLowerCase(),
       cityName: b?.city ?? "Casablanca",
@@ -92,7 +96,7 @@ export async function fetchAppData(): Promise<AppData> {
     },
     building: {
       name: b?.name ?? "", address: b?.address ?? "", city: b?.city ?? "",
-      lots: b?.lots_count ?? 0, syndic: b?.syndic_name ?? "",
+      lots: b?.lots_count ?? 0, syndic: b?.syndic_name ?? "", syndicPhone: b?.syndic_phone ?? "",
     },
     buildingKpis: {
       balance: Number(b?.balance ?? 0),
