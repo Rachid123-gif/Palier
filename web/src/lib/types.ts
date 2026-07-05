@@ -27,7 +27,7 @@ export interface Incident {
   messages: number;
 }
 
-export type PostType = "announcement" | "event" | "help" | "found" | "general";
+export type PostType = "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";
 
 export interface Post {
   id: string;
@@ -42,6 +42,14 @@ export interface Post {
   body: string;
   reactions: { like: number; love: number; haha: number; wow: number };
   comments: number;
+  /** Optional attached image */
+  imageUrl?: string;
+  /** Recommandations only: category slug */
+  category?: string;
+  /** Recommandations only: provider name */
+  providerName?: string;
+  /** Recommandations only: provider phone */
+  providerPhone?: string;
 }
 
 export interface Comment {

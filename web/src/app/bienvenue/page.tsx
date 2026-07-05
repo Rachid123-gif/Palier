@@ -312,7 +312,7 @@ export default function BienvenuePage() {
             />
             {codeError && (
               <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
-                <Icon name="AlertCircle" className="h-4 w-4" /> {codeError}
+                <Icon name="CircleAlert" className="h-4 w-4" /> {codeError}
               </p>
             )}
           </div>

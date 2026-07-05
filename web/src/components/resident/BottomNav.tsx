@@ -10,7 +10,7 @@ const tabKeys = [
   { href: "/charges", key: "charges" as const, icon: "ReceiptText" },
   { href: "/immeuble", key: "immeuble" as const, icon: "Building2" },
   { href: "/voisinage", key: "voisinage" as const, icon: "Users" },
-  { href: "/services", key: "services" as const, icon: "Sparkles" },
+  { href: "/services", key: "services" as const, icon: "HandHelping" },
 ];
 
 export function BottomNav() {

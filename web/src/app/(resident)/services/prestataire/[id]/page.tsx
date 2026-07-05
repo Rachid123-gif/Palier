@@ -58,7 +58,7 @@ export default function ProviderScreen() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <h2 className="text-[17px] font-bold text-ink">{p.name}</h2>
-                {p.topNeighbor && <Badge tone="gold" icon="Crown">{T.topVoisins}</Badge>}
+                {p.topNeighbor && <Badge tone="gold" icon="Users">{T.topVoisins}</Badge>}
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <Rating value={p.rating} reviews={p.reviews} />

@@ -26,7 +26,11 @@ export async function createPost(input: {
   author: string;
   avatarColor: string;
   body: string;
-  type?: "announcement" | "event" | "help" | "found" | "general";
+  type?: "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";
+  title?: string;
+  category?: string;
+  providerName?: string;
+  providerPhone?: string;
 }) {
   return supabase.from("posts").insert({
     building_id: DEMO_BUILDING_ID,
@@ -35,6 +39,10 @@ export async function createPost(input: {
     role: "resident",
     type: input.type ?? "general",
     body: input.body,
+    title: input.title ?? null,
+    category: input.category ?? null,
+    provider_name: input.providerName ?? null,
+    provider_phone: input.providerPhone ?? null,
   });
 }
 
@@ -228,10 +236,16 @@ export async function listAccessCodes(buildingId: string) {
 
 /** Valider un code d'accès (onboarding) */
 export async function validateAccessCode(code: string, selectedRole: "resident" | "syndic") {
+  // Bypass local pour démo (à retirer quand la migration Supabase est exécutée)
+  const upper = code.trim().toUpperCase();
+  if (upper === "DEMO") {
+    return { valid: true, buildingId: DEMO_BUILDING_ID, role: selectedRole };
+  }
+
   const { data } = await supabase
     .from("access_codes")
     .select("*")
-    .eq("code", code.trim().toUpperCase())
+    .eq("code", upper)
     .single();
 
   if (!data) return { valid: false, error: "code_not_found" as const };

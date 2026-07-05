@@ -1,33 +1,24 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
-import { FeedbackCard } from "@/components/resident/FeedbackCard";
 import { Icon } from "@/components/ui/Icon";
-import { Rating } from "@/components/ui/primitives";
 import { LogoMark } from "@/components/brand/Logo";
-import { mad, num, greeting } from "@/lib/format";
-import { categories } from "@/lib/data";
+import { num, greeting } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { LangToggle } from "@/components/resident/LangToggle";
 
-/* ───────── Helper: catégorie icon lookup ───────── */
-function catIcon(slug: string) {
-  return categories.find((c) => c.slug === slug);
-}
-
 export default function HomeScreen() {
   const {
     currentUser, building, totalDue, charges,
-    incidents, posts, providers,
+    incidents, posts,
   } = useData();
   const { lang, i, isAr } = useLang();
 
   const quickActions = [
     { href: "/voisinage", label: i.home.voisinage, sub: i.home.voisinageSub, icon: "MessageCircle", tint: "bg-palier-100", color: "text-palier-600" },
-    { href: "/services", label: i.home.services, sub: i.home.servicesSub, icon: "Sparkles", tint: "bg-coral-400/20", color: "text-coral-600" },
+    { href: "/services", label: i.home.services, sub: i.home.servicesSub, icon: "HandHelping", tint: "bg-coral-400/20", color: "text-coral-600" },
     { href: "/immeuble/signaler", label: i.home.signaler, sub: i.home.signalerSub, icon: "TriangleAlert", tint: "bg-warning-soft", color: "text-warning" },
   ];
 
@@ -37,27 +28,25 @@ export default function HomeScreen() {
   const latestAnnouncement = syndicAnnouncements[0];
   const nextEvent = posts.find((p) => p.type === "event");
 
-  const cityProviders = providers
-    .filter((p) => p.city === currentUser.city)
-    .sort((a, b) => Number(b.topNeighbor ?? false) - Number(a.topNeighbor ?? false) || b.rating - a.rating)
-    .slice(0, 6);
-
   return (
     <div className="animate-[fade_0.4s_ease]">
       <StatusBar />
 
       {/* Header */}
       <header className="flex items-center justify-between px-5 pb-2 pt-3">
-        <Link href="/profil" className="tap flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <LogoMark size={42} />
           <div>
             <p className="text-[13px] text-ink-soft">{greeting(lang)},</p>
             <p className="text-[17px] font-bold leading-tight text-ink">{currentUser.name.split(" ")[0]}</p>
           </div>
-        </Link>
+        </div>
         <div className="flex items-center gap-2">
           <LangToggle />
           <NotificationsBell />
+          <Link href="/profil" className="tap flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-card">
+            <Icon name="Settings" className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          </Link>
         </div>
       </header>
 
@@ -199,56 +188,9 @@ export default function HomeScreen() {
               <p className="text-sm font-bold text-ink">{building.syndic}</p>
               <p className="text-[12px] text-ink-soft">{building.name} · {building.lots} {i.home.lots}</p>
             </div>
-            <Link href="/immeuble" className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-100">
-              <Icon name="Phone" className="h-4 w-4 text-palier-600" strokeWidth={2.3} />
-            </Link>
-          </div>
-        )}
-
-        {/* ═══════ Feedback ═══════ */}
-        <FeedbackCard />
-
-        {/* ═══════ Services recommandés ═══════ */}
-        {cityProviders.length > 0 && (
-          <div>
-            <div className="mb-3 flex items-center justify-between px-1">
-              <h2 className="text-[17px] font-bold tracking-tight text-ink">{i.home.servicesRecommandes}</h2>
-              <Link href="/services" className="text-sm font-semibold text-palier-600">{i.home.toutVoir}</Link>
-            </div>
-            <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
-              {cityProviders.map((p) => {
-                const cat = catIcon(p.categorySlug);
-                return (
-                  <Link
-                    key={p.id}
-                    href={`/services/prestataire/${p.id}`}
-                    className="tap w-44 shrink-0 rounded-3xl border border-black/5 bg-white p-4 shadow-card"
-                  >
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold text-white"
-                      style={{ background: `linear-gradient(135deg, ${p.avatar.from}, ${p.avatar.to})` }}
-                    >
-                      {p.avatar.initials}
-                    </div>
-                    <div className="mt-2.5">
-                      <Rating value={p.rating} reviews={p.reviews} />
-                    </div>
-                    <p className="mt-1 text-[14px] font-bold leading-tight text-ink">{p.name}</p>
-                    <p className="mt-0.5 text-[12px] text-ink-soft">
-                      {i.catLabels[p.categorySlug] ?? p.categorySlug} · {p.district}
-                    </p>
-                    <p className="mt-1 text-[12px] font-semibold text-palier-600">
-                      {i.home.des} {mad(p.basePrice, { decimals: false })}
-                    </p>
-                    {p.topNeighbor && (
-                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#fbf0d8] px-2 py-0.5 text-[10px] font-semibold text-[#a87d12]">
-                        <Icon name="Star" className="h-2.5 w-2.5 fill-current" /> {i.home.topVoisins}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
+            <a href={`https://wa.me/${building.syndicPhone.replace(/\s/g, "")}`} target="_blank" rel="noopener" className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-100">
+              <Icon name="MessageCircle" className="h-4 w-4 text-palier-600" strokeWidth={2.3} />
+            </a>
           </div>
         )}
 

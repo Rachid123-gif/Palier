@@ -47,6 +47,8 @@ export default function VoisinageScreen() {
   const [commentText, setCommentText] = useState("");
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
 
   const tabs: { key: PostType | "all"; label: string; icon: string }[] = [
     { key: "all", label: T.tabs.all, icon: "Sparkles" },
@@ -75,17 +77,38 @@ export default function VoisinageScreen() {
     help: { label: T.badges.help, tone: "warning" },
     found: { label: T.badges.found, tone: "gold" },
     general: { label: T.badges.general, tone: "success" },
+    service: { label: i.services.badge, tone: "brand" },
+    recommendation: { label: i.services.badge, tone: "brand" },
   };
 
   const list = [...posts].sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false));
   const byType = tab === "all" ? list : list.filter((p) => p.type === tab);
   const filtered = filterByTime(byType, timePeriod);
 
+  function handleMediaSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaFile(file);
+    if (file.type.startsWith("image/")) {
+      setMediaPreview(URL.createObjectURL(file));
+    } else {
+      setMediaPreview(null);
+    }
+  }
+
+  function clearMedia() {
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaFile(null);
+    setMediaPreview(null);
+  }
+
   async function publish() {
     const body = text.trim();
     if (!body) return;
+    // TODO: upload mediaFile to Supabase Storage and get URL
     await createPost({ author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general" });
     setComposer(false); setText(""); setPostType(null); setToast(true);
+    clearMedia();
     router.refresh();
   }
 
@@ -179,7 +202,7 @@ export default function VoisinageScreen() {
         )}
       </div>
 
-      <Sheet open={composer} onClose={() => setComposer(false)} title={T.publierDans}>
+      <Sheet open={composer} onClose={() => { setComposer(false); clearMedia(); }} title={T.publierDans}>
         <div className="flex gap-3">
           <LetterAvatar letter={currentUser.name[0]} color={currentUser.avatarColor} size={40} />
           <div className="flex-1">
@@ -187,9 +210,37 @@ export default function VoisinageScreen() {
               className="w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-300" />
             <div className="mt-1 flex items-center justify-between px-1">
               <span className="text-[12px] text-ink-faint">{text.length}/300</span>
+              <div className="flex gap-1.5">
+                <label className="tap flex cursor-pointer items-center gap-1 rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-semibold text-palier-700">
+                  <Icon name="Image" className="h-3.5 w-3.5" /> {T.ajouterPhoto}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleMediaSelect} />
+                </label>
+                <label className="tap flex cursor-pointer items-center gap-1 rounded-full bg-sand px-2.5 py-1 text-[11px] font-semibold text-ink-soft">
+                  <Icon name="Paperclip" className="h-3.5 w-3.5" /> {T.ajouterFichier}
+                  <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleMediaSelect} />
+                </label>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Media preview */}
+        {mediaFile && (
+          <div className="mt-3 flex items-start gap-2">
+            {mediaPreview ? (
+              <img src={mediaPreview} alt="" className="h-20 w-20 rounded-xl object-cover" />
+            ) : (
+              <div className="flex h-14 items-center gap-2 rounded-xl bg-sand px-3">
+                <Icon name="FileText" className="h-5 w-5 text-ink-soft" />
+                <span className="max-w-[10rem] truncate text-[12px] font-medium text-ink">{mediaFile.name}</span>
+              </div>
+            )}
+            <button onClick={clearMedia} className="tap flex h-7 w-7 items-center justify-center rounded-full bg-danger-soft text-danger">
+              <Icon name="X" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className="mt-3">
           <p className="mb-2 text-[12px] font-semibold text-ink-faint">{T.categorieOptionnelle} <span className="font-normal">({T.optionnel})</span></p>
           <div className="flex flex-wrap gap-2">
@@ -325,6 +376,10 @@ function PostCard({ p, onComment, typeBadge, lang, T }: {
         <button onClick={() => setExpanded((v) => !v)} className="tap mt-1 text-[12px] font-semibold text-palier-600">
           {expanded ? T.voirMoins : T.lireSuite}
         </button>
+      )}
+
+      {p.imageUrl && (
+        <img src={p.imageUrl} alt="" className="mt-3 w-full rounded-2xl object-cover" style={{ maxHeight: 240 }} />
       )}
 
       <div className="mt-3 flex items-center gap-3">

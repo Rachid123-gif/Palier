@@ -11,7 +11,7 @@ export const t = {
     // ── Home ──
     home: {
       voisinage: "Voisinage", voisinageSub: "Annonces, entraide",
-      services: "Services", servicesSub: "Ménage, plomberie…",
+      services: "Services", servicesSub: "Bouche à oreille",
       signaler: "Signaler", signalerSub: "Incident",
       aPayerMaintenant: "À payer maintenant",
       chargeNonPayee: (n: number) => `${n} charge${n > 1 ? "s" : ""} non payée${n > 1 ? "s" : ""}`,
@@ -26,13 +26,9 @@ export const t = {
       toutEstCalme: "Tout est calme dans l'immeuble",
       votreSyndic: "Votre syndic",
       lots: "lots",
-      servicesRecommandes: "Services recommandés",
-      toutVoir: "Tout voir",
-      des: "dès",
-      topVoisins: "Top voisins",
     },
 
-    // ── Profil ──
+    // ── Profil / Paramètres ──
     profil: {
       title: "Mon profil",
       mesInfos: "Mes informations",
@@ -43,11 +39,28 @@ export const t = {
       residence: "Résidence",
       proprietaire: "Propriétaire",
       locataire: "Locataire",
+      // Notifications
+      notificationsTitle: "Notifications",
+      notificationsDesc: "Choisissez les notifications que vous souhaitez recevoir.",
+      notifToutActiver: "Tout activer",
+      notifToutDesactiver: "Tout désactiver",
+      notifCharges: "Charges & paiements",
+      notifChargesDesc: "Rappels de paiement, reçus",
+      notifIncidents: "Incidents",
+      notifIncidentsDesc: "Mises à jour des signalements",
+      notifVoisinage: "Voisinage",
+      notifVoisinageDesc: "Publications, commentaires",
+      notifAG: "Assemblée générale",
+      notifAGDesc: "Convocations, votes",
+      notifSyndic: "Annonces syndic",
+      notifSyndicDesc: "Messages du syndic",
+      // Export
       exportTitle: "Mes données",
       exportDesc: "Téléchargez l'historique complet de votre résidence.",
       exportCharges: "Charges",
       exportIncidents: "Incidents",
       exportButton: "Exporter mes données",
+      // Erreur
       signalerErreur: "Signaler une erreur",
       signalerDesc: "Une information est incorrecte ? Prévenez votre syndic pour la corriger.",
       prevenir: "Prévenir le syndic",
@@ -226,25 +239,64 @@ export const t = {
       epingle: "Épinglé par le syndic",
       voirMoins: "Voir moins",
       lireSuite: "Lire la suite",
+      ajouterPhoto: "Photo",
+      ajouterFichier: "Fichier",
+      supprimerMedia: "Supprimer",
     },
 
-    // ── Services ──
+    // ── Services (bouche à oreille) ──
     services: {
       label: "Services",
-      title: "À domicile",
-      votreZone: "Votre zone",
-      modifier: "Modifier",
-      searchPlaceholder: "Plombier, ménage, climatisation…",
-      effacer: "Effacer",
-      voirPrestataires: (n: number) => `Voir les ${n} prestataires`,
-      resultats: (q: string) => `Résultats pour "${q}"`,
-      toutesCategories: "Toutes les catégories",
-      aucuneCategorie: (q: string) => `Aucune catégorie trouvée pour "${q}"`,
-      dispo: "dispo",
-      info: "Annuaire de prestataires pour faciliter votre quotidien. Contactez-les directement pour convenir des modalités.",
+      title: "Bouche à oreille",
+      info: "Besoin d'un prestataire ? Pas besoin de chercher ailleurs, demandez à vos voisins. Ils connaissent les meilleurs.",
+      // Tabs
+      tabRecos: "Recommandations",
+      tabDemandes: "Demandes",
+      // Recommandations
+      toutesCategories: "Tout",
+      aucuneReco: "Aucune recommandation pour le moment. Partagez un prestataire que vous avez testé !",
+      partagerReco: "Partager une recommandation",
+      recoPubliee: "Recommandation publiée !",
+      recoPublieeBody: "Vos voisins peuvent maintenant trouver ce prestataire.",
+      // Demandes
+      placeholder: "Vous cherchez un prestataire ?",
+      aucuneDemande: "Aucune demande pour le moment. Posez votre question !",
+      posterDemande: "Poster une demande",
+      demandePubliee: "Demande publiée !",
+      demandePublieeBody: "Vos voisins verront votre demande et pourront recommander un prestataire.",
+      // Composer — recommandation
+      titreRecoSheet: "Recommander un prestataire",
+      nomPrestataire: "Nom du prestataire",
+      nomPlaceholder: "Ex : Ahmed Plomberie",
+      categorieLabel: "Catégorie",
+      categoriePlaceholder: "Ex : Plomberie, Ménage…",
+      categorieNouvelle: "Nouvelle catégorie",
+      avisLabel: "Pourquoi vous le recommandez ?",
+      avisPlaceholder: "Travail soigné, ponctuel, bon prix…",
+      telephoneLabel: "Téléphone / WhatsApp",
+      telephonePlaceholder: "06 XX XX XX XX",
+      optionnel: "optionnel",
+      publier: "Publier",
+      // Composer — demande
+      titreDemandeSheet: "Poster une demande",
+      demandePlaceholder: "Ex : Quelqu'un connaît un bon plombier dans le quartier ?",
+      // Shared
+      voirPlus: (n: number) => `Voir plus (${n} restant${n > 1 ? "s" : ""})`,
+      reponses: (n: number) => `${n} réponse${n !== 1 ? "s" : ""}`,
+      repondre: "Répondre",
+      commentaires: "Réponses",
+      aucuneReponse: "Aucune réponse pour le moment",
+      ecrireReponse: "Écrire une réponse…",
+      jaime: "Utile",
+      chargement: "Chargement...",
+      voirMoins: "Voir moins",
+      lireSuite: "Lire la suite",
+      badge: "Service",
+      appeler: "Appeler",
+      whatsapp: "WhatsApp",
     },
 
-    // ── Services catégorie ──
+    // ── Services catégorie (legacy) ──
     servicesCat: {
       prestataires: (n: number) => `${n} prestataire${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""}`,
       aucun: "Aucun prestataire pour le moment",
@@ -254,9 +306,9 @@ export const t = {
       retour: "Retour aux services",
     },
 
-    // ── Provider card ──
+    // ── Provider card (kept for legacy links) ──
     provider: {
-      topVoisins: "Top voisins",
+      topVoisins: "Recommandé par vos voisins",
       aPartirDe: "À partir de",
       dispoBadge: "Dispo",
       appeler: "Appeler",
@@ -270,7 +322,7 @@ export const t = {
       tarif: "Tarif indicatif",
       des: "dès",
       dispoAujourdhui: "Disponible aujourd'hui",
-      note: "Ce prestataire est référencé dans l'annuaire Palier. Contactez-le directement pour convenir des modalités et du tarif.",
+      note: "Ce prestataire a été recommandé par des résidents de votre quartier. Contactez-le directement pour convenir des modalités.",
       contactDirectement: "Contactez directement le prestataire pour votre demande",
     },
 
@@ -317,7 +369,7 @@ export const t = {
     // ── Home ──
     home: {
       voisinage: "الجيران", voisinageSub: "إعلانات، تعاون",
-      services: "الخدمات", servicesSub: "نظافة، سباكة…",
+      services: "الخدمات", servicesSub: "توصيات الجيران",
       signaler: "إبلاغ", signalerSub: "حادث",
       aPayerMaintenant: "واجب الدفع الآن",
       chargeNonPayee: (n: number) => `${n} ${n > 1 ? "مصاريف غير مدفوعة" : "مصروف غير مدفوع"}`,
@@ -332,13 +384,9 @@ export const t = {
       toutEstCalme: "كل شيء هادئ في العمارة",
       votreSyndic: "السنديك الخاص بك",
       lots: "شقق",
-      servicesRecommandes: "خدمات موصى بها",
-      toutVoir: "عرض الكل",
-      des: "ابتداءً من",
-      topVoisins: "الأكثر شعبية",
     },
 
-    // ── Profil ──
+    // ── Profil / Paramètres ──
     profil: {
       title: "ملفي الشخصي",
       mesInfos: "معلوماتي",
@@ -349,11 +397,28 @@ export const t = {
       residence: "الإقامة",
       proprietaire: "مالك",
       locataire: "مستأجر",
+      // Notifications
+      notificationsTitle: "الإشعارات",
+      notificationsDesc: "اختر الإشعارات التي تريد تلقيها.",
+      notifToutActiver: "تفعيل الكل",
+      notifToutDesactiver: "تعطيل الكل",
+      notifCharges: "المصاريف والدفع",
+      notifChargesDesc: "تذكيرات الدفع، الوصولات",
+      notifIncidents: "الحوادث",
+      notifIncidentsDesc: "تحديثات البلاغات",
+      notifVoisinage: "الجيران",
+      notifVoisinageDesc: "المنشورات، التعليقات",
+      notifAG: "الجمع العام",
+      notifAGDesc: "الدعوات، التصويتات",
+      notifSyndic: "إعلانات السنديك",
+      notifSyndicDesc: "رسائل السنديك",
+      // Export
       exportTitle: "بياناتي",
       exportDesc: "حمّل سجل إقامتك الكامل.",
       exportCharges: "المصاريف",
       exportIncidents: "الحوادث",
       exportButton: "تصدير بياناتي",
+      // Erreur
       signalerErreur: "الإبلاغ عن خطأ",
       signalerDesc: "معلومة خاطئة؟ أبلغ السنديك لتصحيحها.",
       prevenir: "إبلاغ السنديك",
@@ -532,25 +597,64 @@ export const t = {
       epingle: "مثبت من طرف السنديك",
       voirMoins: "عرض أقل",
       lireSuite: "اقرأ المزيد",
+      ajouterPhoto: "صورة",
+      ajouterFichier: "ملف",
+      supprimerMedia: "حذف",
     },
 
-    // ── Services ──
+    // ── Services (bouche à oreille) ──
     services: {
       label: "الخدمات",
-      title: "في المنزل",
-      votreZone: "منطقتك",
-      modifier: "تعديل",
-      searchPlaceholder: "سباك، نظافة، تكييف…",
-      effacer: "مسح",
-      voirPrestataires: (n: number) => `عرض ${n} مقدمي خدمات`,
-      resultats: (q: string) => `نتائج "${q}"`,
-      toutesCategories: "جميع الفئات",
-      aucuneCategorie: (q: string) => `لم يتم العثور على فئة لـ "${q}"`,
-      dispo: "متوفر",
-      info: "دليل مقدمي الخدمات لتسهيل يومك. تواصل معهم مباشرة للاتفاق على التفاصيل.",
+      title: "توصيات الجيران",
+      info: "محتاج خدمة؟ ما كاين علاش تقلّب بعيد، سوّل جيرانك. هما لي كيعرفو الأحسن.",
+      // Tabs
+      tabRecos: "التوصيات",
+      tabDemandes: "الطلبات",
+      // Recommandations
+      toutesCategories: "الكل",
+      aucuneReco: "لا توجد توصيات حالياً. شارك مقدم خدمة جربته!",
+      partagerReco: "مشاركة توصية",
+      recoPubliee: "تم نشر التوصية!",
+      recoPublieeBody: "جيرانك يمكنهم الآن العثور على مقدم الخدمة هذا.",
+      // Demandes
+      placeholder: "تبحث عن مقدم خدمة؟",
+      aucuneDemande: "لا توجد طلبات حالياً. اطرح سؤالك!",
+      posterDemande: "نشر طلب",
+      demandePubliee: "تم نشر الطلب!",
+      demandePublieeBody: "جيرانك سيرون طلبك ويمكنهم التوصية بمقدم خدمة.",
+      // Composer — recommandation
+      titreRecoSheet: "التوصية بمقدم خدمة",
+      nomPrestataire: "اسم مقدم الخدمة",
+      nomPlaceholder: "مثال: أحمد السباك",
+      categorieLabel: "الفئة",
+      categoriePlaceholder: "مثال: سباكة، تنظيف…",
+      categorieNouvelle: "فئة جديدة",
+      avisLabel: "لماذا توصي به؟",
+      avisPlaceholder: "عمل متقن، دقيق في المواعيد، سعر مناسب…",
+      telephoneLabel: "الهاتف / واتساب",
+      telephonePlaceholder: "06 XX XX XX XX",
+      optionnel: "اختياري",
+      publier: "نشر",
+      // Composer — demande
+      titreDemandeSheet: "نشر طلب",
+      demandePlaceholder: "مثال: واش كاين شي سباك مزيان فالحي؟",
+      // Shared
+      voirPlus: (n: number) => `عرض المزيد (${n} ${n > 1 ? "متبقية" : "متبقي"})`,
+      reponses: (n: number) => `${n} ${n !== 1 ? "ردود" : "رد"}`,
+      repondre: "رد",
+      commentaires: "الردود",
+      aucuneReponse: "لا توجد ردود حالياً",
+      ecrireReponse: "اكتب رداً…",
+      jaime: "مفيد",
+      chargement: "جاري التحميل...",
+      voirMoins: "عرض أقل",
+      lireSuite: "اقرأ المزيد",
+      badge: "خدمة",
+      appeler: "اتصل",
+      whatsapp: "واتساب",
     },
 
-    // ── Services catégorie ──
+    // ── Services catégorie (legacy) ──
     servicesCat: {
       prestataires: (n: number) => `${n} ${n > 1 ? "مقدمي خدمات متوفرين" : "مقدم خدمة متوفر"}`,
       aucun: "لا يوجد مقدم خدمة حالياً",
@@ -560,9 +664,9 @@ export const t = {
       retour: "العودة للخدمات",
     },
 
-    // ── Provider card ──
+    // ── Provider card (kept for legacy links) ──
     provider: {
-      topVoisins: "الأكثر شعبية",
+      topVoisins: "موصى به من جيرانك",
       aPartirDe: "ابتداءً من",
       dispoBadge: "متوفر",
       appeler: "اتصل",
@@ -576,7 +680,7 @@ export const t = {
       tarif: "السعر التقريبي",
       des: "ابتداءً من",
       dispoAujourdhui: "متوفر اليوم",
-      note: "مقدم الخدمة هذا مسجل في دليل Palier. تواصل معه مباشرة للاتفاق على التفاصيل والأسعار.",
+      note: "مقدم الخدمة هذا موصى به من سكان حيّك. تواصل معه مباشرة للاتفاق على التفاصيل.",
       contactDirectement: "تواصل مباشرة مع مقدم الخدمة لطلبك",
     },
 

@@ -32,7 +32,7 @@ export function ProviderCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <h3 className="text-[15px] font-bold text-ink">{p.name}</h3>
-            {p.topNeighbor && <Badge tone="gold" icon="Crown">{i.provider.topVoisins}</Badge>}
+            {p.topNeighbor && <Badge tone="gold" icon="Users">{i.provider.topVoisins}</Badge>}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
             <Rating value={p.rating} reviews={p.reviews} />
