@@ -451,6 +451,7 @@ export function SettingsView({
               <CategoryBlock
                 title="Catégories d'incidents"
                 desc="Utilisées lors du signalement d'un incident par les résidents."
+                note="Les résidents peuvent aussi signaler un incident avec une catégorie personnalisée via « Autre ». Ces nouvelles catégories apparaîtront automatiquement ici."
                 icon="TriangleAlert"
                 iconTint="bg-amber-100"
                 iconColor="text-amber-600"
@@ -795,9 +796,9 @@ export function SettingsView({
    ═══════════════════════════════════════════════════════════ */
 
 function CategoryBlock({
-  title, desc, icon, iconTint, iconColor, items, newValue, setNewValue, placeholder, onAdd, onRemove,
+  title, desc, note, icon, iconTint, iconColor, items, newValue, setNewValue, placeholder, onAdd, onRemove,
 }: {
-  title: string; desc: string; icon: string; iconTint: string; iconColor: string;
+  title: string; desc: string; note?: string; icon: string; iconTint: string; iconColor: string;
   items: string[]; newValue: string; setNewValue: (v: string) => void; placeholder: string;
   onAdd: () => void; onRemove: (i: number) => void;
 }) {
@@ -812,6 +813,13 @@ function CategoryBlock({
           <p className="text-[12px] text-ink-soft">{desc}</p>
         </div>
       </div>
+
+      {note && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <Icon name="Lightbulb" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          <p className="text-[12px] text-amber-800">{note}</p>
+        </div>
+      )}
 
       {/* Tags */}
       <div className="mb-3 flex flex-wrap gap-1.5">

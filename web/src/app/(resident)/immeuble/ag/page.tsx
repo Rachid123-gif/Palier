@@ -13,7 +13,13 @@ export default function AgScreen() {
   const { building, assembly } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.ag;
-  const [choice, setChoice] = useState<Record<string, string>>({});
+  const [choice, setChoice] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("palier_ag_votes");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [toast, setToast] = useState(false);
 
   if (!assembly) {
@@ -95,7 +101,7 @@ export default function AgScreen() {
                     return (
                       <button
                         key={o}
-                        onClick={() => { setChoice((c) => ({ ...c, [v.id]: o })); setToast(true); }}
+                        onClick={() => { setChoice((c) => { const next = { ...c, [v.id]: o }; localStorage.setItem("palier_ag_votes", JSON.stringify(next)); return next; }); setToast(true); }}
                         className={`tap flex w-full items-center justify-between rounded-2xl border p-3 ${active ? "border-palier-500 bg-palier-50" : "border-black/5 bg-white"}`}
                       >
                         <span className="text-[14px] font-semibold text-ink">{o}</span>

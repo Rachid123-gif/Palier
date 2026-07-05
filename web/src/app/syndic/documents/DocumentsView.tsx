@@ -129,7 +129,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       </div>
 
       {/* KPIs */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         <KpiCard label="Documents" value={String(totalDocs)} />
         <KpiCard label="Catégories" value={String(categories.size)} />
         <KpiCard label="Dernier ajout" value={docs.length > 0 ? shortDate(docs[0].date) : "—"} />
@@ -163,7 +163,8 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       {/* Documents table */}
       <Card>
         {filtered.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
@@ -221,6 +222,35 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
               </tbody>
             </table>
           </div>
+
+          {/* Mobile cards */}
+          <div className="divide-y divide-black/[0.04] md:hidden">
+            {filtered.map((doc) => {
+              const cat = getCat(doc.type);
+              return (
+                <div key={doc.id} className="flex items-center gap-3 p-4">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${cat.tint}`}>
+                    <Icon name={cat.icon} className={`h-5 w-5 ${cat.color}`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium text-ink">{doc.title}</p>
+                    <div className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${cat.tint} ${cat.color}`}>{cat.label}</span>
+                      <span>{shortDate(doc.date)}</span>
+                      {doc.size && <span>{doc.size}</span>}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {doc.url && (
+                      <button onClick={() => handleDownload(doc)} className="rounded-md p-1.5 text-ink-soft"><Icon name="Download" className="h-4 w-4" /></button>
+                    )}
+                    <button onClick={() => setShowDelete(doc.id)} className="rounded-md p-1.5 text-ink-soft"><Icon name="Trash2" className="h-4 w-4" /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         ) : (
           <div className="py-10 text-center">
             <Icon name="FileText" className="mx-auto mb-2 h-8 w-8 text-ink-faint" />

@@ -9,6 +9,7 @@ export async function createIncident(input: {
   details: string;
   urgency: Urgency;
   reporter: string;
+  imageUrl?: string;
 }) {
   return supabase.from("incidents").insert({
     building_id: DEMO_BUILDING_ID,
@@ -19,6 +20,7 @@ export async function createIncident(input: {
     details: input.details,
     urgency: input.urgency,
     status: "open",
+    image_url: input.imageUrl ?? null,
   });
 }
 
@@ -31,6 +33,7 @@ export async function createPost(input: {
   category?: string;
   providerName?: string;
   providerPhone?: string;
+  imageUrl?: string;
 }) {
   return supabase.from("posts").insert({
     building_id: DEMO_BUILDING_ID,
@@ -43,6 +46,7 @@ export async function createPost(input: {
     category: input.category ?? null,
     provider_name: input.providerName ?? null,
     provider_phone: input.providerPhone ?? null,
+    image_url: input.imageUrl ?? null,
   });
 }
 
@@ -194,6 +198,10 @@ export async function likeComment(commentId: string) {
   return supabase.rpc("increment_comment_likes", { comment_id_input: commentId });
 }
 
+export async function likePost(postId: string) {
+  return supabase.rpc("increment_like_count", { post_id_input: postId });
+}
+
 export async function recordPayment(items: { id: string; amount: number }[], method: string) {
   await supabase.from("payments").insert(
     items.map((c) => ({ charge_id: c.id, profile_id: DEMO_PROFILE_ID, amount: c.amount, method, status: "paid" })),
@@ -325,6 +333,11 @@ export async function addResident(input: {
   });
 
   return { code };
+}
+
+/** Marquer un incident comme en cours de traitement */
+export async function markIncidentInProgress(incidentId: string) {
+  return supabase.from("incidents").update({ status: "in_progress" }).eq("id", incidentId);
 }
 
 /** Résoudre un incident */

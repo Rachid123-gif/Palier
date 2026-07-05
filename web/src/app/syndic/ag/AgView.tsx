@@ -219,7 +219,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
       </div>
 
       {/* KPIs */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total assemblées</p>
           <p className="text-[28px] font-bold leading-none text-ink">{totalAgs}</p>
@@ -235,12 +235,12 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
       </div>
 
       {/* Status tabs */}
-      <div className="mb-3 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
             <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{counts[tab.key]}</span>
@@ -250,13 +250,13 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
       </div>
 
       {/* Toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1">
+      <div className="mb-3 space-y-2">
+        <div className="relative">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par lieu ou point à l'ordre du jour…"
+            placeholder="Rechercher…"
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -265,9 +265,6 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
             </button>
           )}
         </div>
-        <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
-          <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
-        </button>
       </div>
 
       {/* Table */}
@@ -283,7 +280,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
             )}
           </div>
         ) : (
-          <table className="w-full table-fixed text-left text-[13px]">
+          <>
+          <table className="hidden w-full table-fixed text-left text-[13px] md:table">
             <thead>
               <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                 <th className="w-[22%] px-4 py-2.5">Date</th>
@@ -351,6 +349,48 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
               })}
             </tbody>
           </table>
+
+          {/* Mobile cards */}
+          <div className="divide-y divide-black/[0.04] md:hidden">
+            {filtered.map((ag) => {
+              const upcoming = isUpcoming(ag);
+              const hasResults = ag.quorum > 0 || ag.votes.length > 0;
+              return (
+                <div key={ag.id} className={`p-4 ${isPast(ag) && !hasResults ? "opacity-60" : ""}`}>
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[14px] font-medium text-ink">{longDate(ag.date)}</p>
+                      <p className="mt-0.5 text-[12px] text-ink-soft">{ag.time} · {ag.place || "—"}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${upcoming ? "bg-palier-50 text-palier-700" : "bg-sand/80 text-ink-soft"}`}>
+                      {upcoming ? "À venir" : "Passée"}
+                    </span>
+                  </div>
+                  <div className="mb-2.5 flex items-center gap-3 text-[12px] text-ink-soft">
+                    <span>{ag.agenda.length} point{ag.agenda.length > 1 ? "s" : ""}</span>
+                    {ag.quorum > 0 && <span>Quorum {ag.quorum}%</span>}
+                    {ag.votes.length > 0 && <span>{ag.votes.length} résol.</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setSelected(ag)} className="text-[12px] font-semibold text-palier-600">Détails</button>
+                    {upcoming && (
+                      <>
+                        <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">Notifier</button>
+                        <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-500">Annuler</button>
+                      </>
+                    )}
+                    {!upcoming && !hasResults && (
+                      <button onClick={() => openResults(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">Saisir résultats</button>
+                    )}
+                    {!upcoming && hasResults && (
+                      <button onClick={() => openResults(ag)} className="text-[11px] font-semibold text-ink-soft">Modifier</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 

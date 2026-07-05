@@ -18,7 +18,10 @@ const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: str
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
-export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: { rows: RecouvrementRow[]; building: string; buildingId: string; chargeCalls: ChargeCall[] }) {
+const DEFAULT_CHARGE_CATS = ["Charges courantes", "Travaux", "Fonds de réserve"];
+
+export function RecouvrementTable({ rows, building, buildingId, chargeCalls, chargeCategories, relanceMessage }: { rows: RecouvrementRow[]; building: string; buildingId: string; chargeCalls: ChargeCall[]; chargeCategories?: string[] | null; relanceMessage?: string | null }) {
+  const effectiveChargeCats = chargeCategories?.length ? chargeCategories : DEFAULT_CHARGE_CATS;
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +31,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
   const [emitLabel, setEmitLabel] = useState("");
   const [emitDetail, setEmitDetail] = useState("");
   const [emitAmount, setEmitAmount] = useState("");
-  const [emitCategory, setEmitCategory] = useState("courantes");
+  const defaultCatValue = (effectiveChargeCats[0] ?? "courantes").toLowerCase().replace(/\s+/g, "_");
+  const [emitCategory, setEmitCategory] = useState(defaultCatValue);
   const [emitDueDate, setEmitDueDate] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"tout" | "mois" | "3mois" | "6mois" | "custom">("tout");
   const [periodOpen, setPeriodOpen] = useState(false);
@@ -48,7 +52,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
-  function resetEmit() { setEmitLabel(""); setEmitDetail(""); setEmitAmount(""); setEmitCategory("courantes"); setEmitDueDate(""); }
+  function resetEmit() { setEmitLabel(""); setEmitDetail(""); setEmitAmount(""); setEmitCategory(defaultCatValue); setEmitDueDate(""); }
 
   async function handleEmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +65,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
   }
 
   function relanceBody(r: RecouvrementRow) {
+    if (relanceMessage) return relanceMessage;
     const remaining = r.amount - r.paid;
     return `Votre cotisation de ${remaining.toLocaleString("fr-MA")} MAD pour ${currentPeriod()} à ${building} est en attente. Merci de régulariser votre situation.`;
   }
@@ -176,12 +181,12 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
   return (
     <div>
       {/* View toggle */}
-      <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {([["suivi", "Suivi des paiements"], ["historique", "Historique des appels"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setView(key)}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${view === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${view === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {label}
             {view === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -192,12 +197,12 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
       {view === "suivi" ? (
       <>
       {/* Period filters */}
-      <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {label}
             {periodFilter === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -205,7 +210,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
         ))}
         <button
           onClick={() => setPeriodOpen(true)}
-          className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          className={`relative flex whitespace-nowrap items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
         >
           <Icon name="CalendarDays" className="h-3.5 w-3.5" />
           {customLabel}
@@ -214,7 +219,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
       </div>
 
       {/* KPI Cards */}
-      <div className="mb-4 grid grid-cols-4 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total appelé</p>
           <p className="text-[22px] font-bold leading-none text-ink">{num(totalDue, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
@@ -234,12 +239,12 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
       </div>
 
       {/* Status tabs */}
-      <div className="mb-3 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => { setStatusFilter(tab.key); setPage(0); }}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
             <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{statusCounts[tab.key]}</span>
@@ -249,8 +254,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
       </div>
 
       {/* Toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1">
+      <div className="mb-3 space-y-2">
+        <div className="relative">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
@@ -264,22 +269,24 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
             </button>
           )}
         </div>
-        <button onClick={() => setShowEmit(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
-          <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre un appel
-        </button>
-        <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
-          <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
-        </button>
-        {unpaidFiltered > 0 && (
-          <button
-            onClick={relanceAll}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-50"
-          >
-            <Icon name={busy ? "LoaderCircle" : "Send"} className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-            Relancer ({unpaidFiltered})
+        <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
+          <button onClick={() => setShowEmit(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
+            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre
           </button>
-        )}
+          <button onClick={exportCSV} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
+            <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+          </button>
+          {unpaidFiltered > 0 && (
+            <button
+              onClick={relanceAll}
+              disabled={busy}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-50"
+            >
+              <Icon name={busy ? "LoaderCircle" : "Send"} className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+              Relancer ({unpaidFiltered})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -294,7 +301,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
           </div>
         ) : (
           <>
-            <table className="w-full table-fixed text-left text-[13px]">
+            {/* Desktop table */}
+            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[9%] px-4 py-2.5">Lot</th>
@@ -355,6 +363,45 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
               </tbody>
             </table>
 
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {pageRows.map((r) => {
+                const remaining = r.amount - r.paid;
+                const isPaid = r.status === "paid";
+                const isOverdue = r.dueDate && new Date(r.dueDate) < new Date() && !isPaid;
+                return (
+                  <div key={r.unitId} className={`p-4 ${isPaid ? "opacity-60" : ""}`}>
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: r.avatarColor }}>
+                        {r.ownerName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-medium text-ink">{r.ownerName}</p>
+                          <StatusPill status={r.status} />
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">Lot {r.ref} · {r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-[12px]">
+                        <span className="font-medium text-ink">{mad(r.amount, { decimals: false })}</span>
+                        {r.status === "partial" && <span className="text-blue-600">{mad(remaining, { decimals: false })} restant</span>}
+                        {r.dueDate && (
+                          <span className={isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}>{shortDate(r.dueDate)}</span>
+                        )}
+                      </div>
+                      {!isPaid && (
+                        <button onClick={() => relance(r)} disabled={!r.profileId} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
+                          Relancer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {/* Pagination */}
             <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
               <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
@@ -411,12 +458,12 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
         return (
       <div>
         {/* Period tabs */}
-        <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+        <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
           {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => { setHistPeriod(key); setHistPeriodMonth(""); setHistPeriodYear(""); }}
-              className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+              className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
             >
               {label}
               {histPeriod === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -424,7 +471,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
           ))}
           <button
             onClick={() => setHistPeriodOpen(true)}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative flex whitespace-nowrap items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${histPeriod === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             <Icon name="CalendarDays" className="h-3.5 w-3.5" />
             {histCustomLabel}
@@ -433,13 +480,13 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1">
+        <div className="mb-3 space-y-2">
+          <div className="relative">
             <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
             <input
               value={histSearch}
               onChange={(e) => setHistSearch(e.target.value)}
-              placeholder="Rechercher un appel…"
+              placeholder="Rechercher…"
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
             />
             {histSearch && (
@@ -448,19 +495,21 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
               </button>
             )}
           </div>
+          <div className="flex items-center gap-2">
           {histCategories.length > 1 && (
             <select
               value={histCat}
               onChange={(e) => setHistCat(e.target.value)}
-              className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-medium text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+              className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-medium text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
-              <option value="all">Toutes les catégories</option>
+              <option value="all">Toutes catégories</option>
               {histCategories.map((cat) => <option key={cat} value={cat}>{catLabels[cat] ?? cat}</option>)}
             </select>
           )}
-          <button onClick={() => setShowEmit(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre un appel
+          <button onClick={() => setShowEmit(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700">
+            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre
           </button>
+          </div>
         </div>
 
         <p className="mb-3 text-[12px] text-ink-soft">{filteredCalls.length} appel{filteredCalls.length > 1 ? "s" : ""}</p>
@@ -477,7 +526,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
-            <table className="w-full table-fixed text-left text-[13px]">
+            {/* Desktop table */}
+            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[30%] px-4 py-2.5">Libellé</th>
@@ -511,6 +561,30 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
                 })}
               </tbody>
             </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {filteredCalls.map((c, idx) => {
+                const paidRate = c.lots > 0 ? Math.round((c.paid / c.lots) * 100) : 0;
+                return (
+                  <div key={idx} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-medium text-ink">{c.label}</p>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[c.category] ?? c.category} · {c.dueDate ? shortDate(c.dueDate) : "—"}</p>
+                      </div>
+                      <p className="shrink-0 text-[14px] font-semibold text-ink">{mad(c.amount, { decimals: false })}</p>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sand/50">
+                        <div className="h-full rounded-full bg-palier-600" style={{ width: `${paidRate}%` }} />
+                      </div>
+                      <span className="text-[11px] font-medium text-ink-soft">{c.paid}/{c.lots}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       {/* Hist period picker modal */}
@@ -620,10 +694,9 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls }: {
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Catégorie</label>
                   <select value={emitCategory} onChange={(e) => setEmitCategory(e.target.value)} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20">
-                    <option value="courantes">Courantes</option>
-                    <option value="travaux">Travaux</option>
-                    <option value="provision">Provision</option>
-                    <option value="regularisation">Régularisation</option>
+                    {effectiveChargeCats.map((cat) => (
+                      <option key={cat} value={cat.toLowerCase().replace(/\s+/g, "_")}>{cat}</option>
+                    ))}
                   </select>
                 </div>
               </div>

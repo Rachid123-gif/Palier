@@ -11,10 +11,6 @@ import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import type { Charge } from "@/lib/types";
 
-const catIcon: Record<string, string> = {
-  courantes: "Building2", travaux: "HardHat", provision: "PiggyBank", regularisation: "Droplets",
-};
-
 export default function ChargesScreen() {
   const { charges, chargesHistory } = useData();
   const { lang, i, isAr } = useLang();
@@ -66,7 +62,7 @@ export default function ChargesScreen() {
   return (
     <div className="animate-[fade_0.4s_ease]">
       <StatusBar />
-      <ScreenHeader title={T.title} />
+      <ScreenHeader title={T.title} isAr={isAr} />
 
       <div className="space-y-5 px-4">
 
@@ -273,7 +269,7 @@ function ChargeCard({ c, statusMap, lang, isAr, T, onReceipt }: {
       <div className="flex items-center gap-3">
         <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${isPaid ? "bg-success-soft" : "bg-sand"}`}>
           <Icon
-            name={isPaid ? "CircleCheck" : (catIcon[c.category] ?? "ReceiptText")}
+            name={isPaid ? "CircleCheck" : "ReceiptText"}
             className={`h-5 w-5 ${isPaid ? "text-success" : "text-palier-600"}`}
             strokeWidth={2.2}
           />

@@ -4,19 +4,20 @@ import { NotificationsBell } from "./NotificationsBell";
 
 /** En-tête de page standard : petit label + grand titre, cloche notifications. */
 export function ScreenHeader({
-  label, title, bell = true, back,
+  label, title, bell = true, back, isAr = false,
 }: {
   label?: string;
   title: string;
   bell?: boolean;
   back?: string;
+  isAr?: boolean;
 }) {
   return (
     <header className="flex items-end justify-between px-5 pb-2 pt-3">
       <div className="flex items-center gap-2">
         {back && (
           <Link href={back} className="tap -ml-1 mr-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-card">
-            <Icon name="ChevronLeft" className="h-5 w-5" />
+            <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
           </Link>
         )}
         <div>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { resolveIncident } from "@/lib/actions";
+import { resolveIncident, markIncidentInProgress } from "@/lib/actions";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
@@ -24,12 +24,6 @@ type Inc = {
 
 /* ── Constants ── */
 
-const catIcons: Record<string, string> = {
-  ascenseur: "ArrowUpDown", fuite: "Droplets", electricite: "Zap", securite: "ShieldAlert",
-  proprete: "Trash2", nuisibles: "Bug", nuisance: "Volume2", parking: "Car",
-  communes: "Building", jardinier: "Leaf", autre: "CircleEllipsis",
-};
-
 const catLabels: Record<string, string> = {
   ascenseur: "Ascenseur", fuite: "Fuite d'eau", electricite: "Électricité", securite: "Sécurité",
   proprete: "Propreté", nuisibles: "Nuisibles", nuisance: "Nuisance sonore", parking: "Parking",
@@ -44,9 +38,10 @@ const urgencyColors: Record<string, { bg: string; text: string; dot: string }> =
   high: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
 };
 
-const statusTabs: { key: "all" | "open" | "resolved"; label: string }[] = [
+const statusTabs: { key: "all" | "open" | "in_progress" | "resolved"; label: string }[] = [
   { key: "all", label: "Tous" },
-  { key: "open", label: "Non résolus" },
+  { key: "open", label: "Ouverts" },
+  { key: "in_progress", label: "En cours" },
   { key: "resolved", label: "Résolus" },
 ];
 
@@ -66,7 +61,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   const [periodYear, setPeriodYear] = useState("");
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "in_progress" | "resolved">("all");
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -77,6 +72,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
   const handleResolve = useCallback(async (id: string) => { await resolveIncident(id); flash("Incident marqué comme résolu"); router.refresh(); }, [router, flash]);
+  const handleInProgress = useCallback(async (id: string) => { await markIncidentInProgress(id); flash("Incident marqué en cours"); router.refresh(); }, [router, flash]);
 
   // Years present in data
   const years = useMemo(() => {
@@ -109,7 +105,8 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   }, [incidents, periodFilter, periodMonth, periodYear]);
 
   // KPIs (follow period)
-  const nonResolved = periodFiltered.filter((i) => i.status !== "resolved").length;
+  const openInc = periodFiltered.filter((i) => i.status === "open").length;
+  const inProgressInc = periodFiltered.filter((i) => i.status === "in_progress").length;
   const resolvedInc = periodFiltered.filter((i) => i.status === "resolved").length;
   const urgentOpen = periodFiltered.filter((i) => i.status !== "resolved" && (i.urgency === "urgent" || i.urgency === "high")).length;
 
@@ -122,7 +119,8 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   // Full filtering (period + status + urgency + category + search)
   const filtered = useMemo(() => {
     let rows = [...periodFiltered];
-    if (statusFilter === "open") rows = rows.filter((i) => i.status !== "resolved");
+    if (statusFilter === "open") rows = rows.filter((i) => i.status === "open");
+    else if (statusFilter === "in_progress") rows = rows.filter((i) => i.status === "in_progress");
     else if (statusFilter === "resolved") rows = rows.filter((i) => i.status === "resolved");
     if (urgencyFilter !== "all") rows = rows.filter((i) => i.urgency === urgencyFilter);
     if (catFilter !== "all") rows = rows.filter((i) => i.category === catFilter);
@@ -131,8 +129,9 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       rows = rows.filter((i) => i.title.toLowerCase().includes(q) || i.details?.toLowerCase().includes(q) || i.reporter_name?.toLowerCase().includes(q));
     }
     return rows.sort((a, b) => {
-      const sa = a.status === "resolved" ? 1 : 0;
-      const sb = b.status === "resolved" ? 1 : 0;
+      const statusOrder: Record<string, number> = { open: 0, in_progress: 1, resolved: 2 };
+      const sa = statusOrder[a.status] ?? 0;
+      const sb = statusOrder[b.status] ?? 0;
       if (sa !== sb) return sa - sb;
       const urgOrder: Record<string, number> = { urgent: 0, high: 0, normal: 1, low: 2 };
       const ua = urgOrder[a.urgency] ?? 2;
@@ -151,7 +150,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   function exportCSV() {
     const header = "Date,Titre,Catégorie,Urgence,Statut,Signalé par";
     const csvRows = filtered.map((i) =>
-      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${catLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
+      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${catLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : i.status === "in_progress" ? "En cours" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -181,12 +180,12 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       </div>
 
       {/* Period filters */}
-      <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {label}
             {periodFilter === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -194,7 +193,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
         ))}
         <button
           onClick={() => setPeriodOpen(true)}
-          className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          className={`relative flex whitespace-nowrap items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
         >
           <Icon name="CalendarDays" className="h-3.5 w-3.5" />
           {customLabel}
@@ -203,34 +202,36 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       </div>
 
       {/* KPI Cards */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Non résolus</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{nonResolved}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Ouverts</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{openInc}</p>
+        </div>
+        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <p className="mb-2 text-[12px] font-semibold text-amber-600">En cours</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{inProgressInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Résolus</p>
           <p className="text-[28px] font-bold leading-none text-ink">{resolvedInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Urgents</p>
+          <p className="mb-2 text-[12px] font-semibold text-red-600">Urgents</p>
           <p className="text-[28px] font-bold leading-none text-ink">{urgentOpen}</p>
         </div>
       </div>
 
       {/* Status tabs */}
-      <div className="mb-3 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {statusTabs.map((tab) => {
           const count = tab.key === "all"
             ? periodFiltered.length
-            : tab.key === "open"
-              ? periodFiltered.filter((i) => i.status !== "resolved").length
-              : periodFiltered.filter((i) => i.status === "resolved").length;
+            : periodFiltered.filter((i) => i.status === tab.key).length;
           return (
             <button
               key={tab.key}
               onClick={() => { setStatusFilter(tab.key); setPage(0); }}
-              className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+              className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
             >
               {tab.label}
               <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{count}</span>
@@ -241,13 +242,13 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
       </div>
 
       {/* Toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1">
+      <div className="mb-3 space-y-2">
+        <div className="relative">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher par titre, détails ou signaleur…"
+            placeholder="Rechercher…"
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -256,26 +257,28 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
             </button>
           )}
         </div>
-        <select
-          value={urgencyFilter}
-          onChange={(e) => { setUrgencyFilter(e.target.value); setPage(0); }}
-          className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
-        >
-          <option value="all">Toutes urgences</option>
-          <option value="urgent">Urgent</option>
-          <option value="normal">Normal</option>
-          <option value="low">Faible</option>
-        </select>
-        {usedCategories.length > 1 && (
+        <div className="flex items-center gap-2">
           <select
-            value={catFilter}
-            onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
-            className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+            value={urgencyFilter}
+            onChange={(e) => { setUrgencyFilter(e.target.value); setPage(0); }}
+            className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
           >
-            <option value="all">Toutes catégories</option>
-            {usedCategories.map((c) => <option key={c} value={c}>{catLabels[c] ?? c}</option>)}
+            <option value="all">Toutes urgences</option>
+            <option value="urgent">Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Faible</option>
           </select>
-        )}
+          {usedCategories.length > 1 && (
+            <select
+              value={catFilter}
+              onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
+              className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
+            >
+              <option value="all">Toutes catégories</option>
+              {usedCategories.map((c) => <option key={c} value={c}>{catLabels[c] ?? c}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -290,7 +293,8 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           </div>
         ) : (
           <>
-            <table className="w-full table-fixed text-left text-[13px]">
+            {/* Desktop table */}
+            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[40%] px-4 py-2.5">Incident</th>
@@ -318,6 +322,11 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                             <Icon name="Check" className="h-3 w-3" />
                             Résolu
                           </span>
+                        ) : inc.status === "in_progress" ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                            <Icon name="Clock" className="h-3 w-3" />
+                            En cours
+                          </span>
                         ) : (
                           <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
                             {urgencyLabels[inc.urgency] ?? inc.urgency}
@@ -331,6 +340,9 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                           <button onClick={() => setSelected(inc)} className="rounded-md px-2 py-1 text-[11px] font-semibold text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
                             Détails
                           </button>
+                          {inc.status === "open" && (
+                            <InProgressBtn id={inc.id} onInProgress={handleInProgress} />
+                          )}
                           {!isResolved && (
                             <ResolveBtn id={inc.id} onResolve={handleResolve} />
                           )}
@@ -341,6 +353,47 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                 })}
               </tbody>
             </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {rows.map((inc) => {
+                const urg = urgencyColors[inc.urgency] ?? urgencyColors.normal;
+                const isResolved = inc.status === "resolved";
+                return (
+                  <div key={inc.id} className={`p-4 ${isResolved ? "opacity-60" : ""}`}>
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <button onClick={() => setSelected(inc)} className="min-w-0 flex-1 text-left">
+                        <p className="text-[14px] font-medium text-ink">{inc.title}</p>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[inc.category] ?? inc.category}</p>
+                      </button>
+                      {isResolved ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <Icon name="Check" className="h-3 w-3" />Résolu
+                        </span>
+                      ) : inc.status === "in_progress" ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          <Icon name="Clock" className="h-3 w-3" />En cours
+                        </span>
+                      ) : (
+                        <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
+                          {urgencyLabels[inc.urgency] ?? inc.urgency}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-[12px] text-ink-soft">
+                      <span>{inc.reporter_name}</span>
+                      <span>{shortDate(inc.created_at)}</span>
+                    </div>
+                    {!isResolved && (
+                      <div className="mt-2.5 flex items-center gap-1.5">
+                        {inc.status === "open" && <InProgressBtn id={inc.id} onInProgress={handleInProgress} />}
+                        <ResolveBtn id={inc.id} onResolve={handleResolve} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             {/* Pagination */}
             <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
@@ -371,6 +424,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           incident={selected}
           onClose={() => setSelected(null)}
           onResolve={handleResolve}
+          onInProgress={handleInProgress}
         />
       )}
 
@@ -451,6 +505,19 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
 
 /* ── Sub-components ── */
 
+function InProgressBtn({ id, onInProgress }: { id: string; onInProgress: (id: string) => void }) {
+  const [pending, start] = useTransition();
+  return (
+    <button
+      disabled={pending}
+      onClick={() => start(() => onInProgress(id))}
+      className="rounded-md bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+    >
+      {pending ? "…" : "En cours"}
+    </button>
+  );
+}
+
 function ResolveBtn({ id, onResolve }: { id: string; onResolve: (id: string) => void }) {
   const [pending, start] = useTransition();
   return (
@@ -474,12 +541,14 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
   );
 }
 
-function DetailModal({ incident, onClose, onResolve }: {
-  incident: Inc; onClose: () => void; onResolve: (id: string) => void;
+function DetailModal({ incident, onClose, onResolve, onInProgress }: {
+  incident: Inc; onClose: () => void; onResolve: (id: string) => void; onInProgress: (id: string) => void;
 }) {
   const [rp, startR] = useTransition();
+  const [ip, startI] = useTransition();
   const urg = urgencyColors[incident.urgency] ?? urgencyColors.normal;
   const isResolved = incident.status === "resolved";
+  const isInProgress = incident.status === "in_progress";
 
   return (
     <Overlay onClose={onClose}>
@@ -501,6 +570,7 @@ function DetailModal({ incident, onClose, onResolve }: {
           {urgencyLabels[incident.urgency] ?? incident.urgency}
         </span>
         {isResolved && <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Résolu</span>}
+        {isInProgress && <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"><Icon name="Clock" className="h-3 w-3" />En cours</span>}
       </div>
 
       {/* Details */}
@@ -525,14 +595,26 @@ function DetailModal({ incident, onClose, onResolve }: {
 
       {/* Actions */}
       {!isResolved && (
-        <button
-          disabled={rp}
-          onClick={() => startR(async () => { await onResolve(incident.id); onClose(); })}
-          className="mt-5 w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-        >
-          <Icon name="CircleCheck" className="h-4 w-4" />
-          {rp ? "…" : "Marquer comme résolu"}
-        </button>
+        <div className="mt-5 flex gap-2">
+          {incident.status === "open" && (
+            <button
+              disabled={ip}
+              onClick={() => startI(async () => { await onInProgress(incident.id); onClose(); })}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+            >
+              <Icon name="Clock" className="h-4 w-4" />
+              {ip ? "…" : "En cours"}
+            </button>
+          )}
+          <button
+            disabled={rp}
+            onClick={() => startR(async () => { await onResolve(incident.id); onClose(); })}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <Icon name="CircleCheck" className="h-4 w-4" />
+            {rp ? "…" : "Marquer résolu"}
+          </button>
+        </div>
       )}
 
       {isResolved && (

@@ -18,7 +18,7 @@ export default async function RecouvrementPage() {
           Relancer un résident lui enverra un rappel de paiement directement dans son application Palier. Les résidents voient leur solde et historique de paiement depuis leur application.
         </p>
       </div>
-      <RecouvrementTable rows={d.recouvrement} building={d.building.name} buildingId={d.building.id} chargeCalls={d.chargeCalls} />
+      <RecouvrementTable rows={d.recouvrement} building={d.building.name} buildingId={d.building.id} chargeCalls={d.chargeCalls} chargeCategories={d.settings?.charge_categories ?? null} relanceMessage={d.settings?.relance_message ?? null} />
     </div>
   );
 }

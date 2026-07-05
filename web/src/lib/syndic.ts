@@ -41,6 +41,13 @@ export interface AssemblyRow {
   pvUrl: string;
 }
 
+export interface BuildingSettings {
+  incident_categories?: string[] | null;
+  expense_categories?: string[] | null;
+  charge_categories?: string[] | null;
+  relance_message?: string | null;
+}
+
 export interface SyndicData {
   building: { id: string; name: string; address: string; city: string; lots: number; balance: number; syndic: string };
   kpis: {
@@ -50,14 +57,16 @@ export interface SyndicData {
   recouvrement: RecouvrementRow[];
   chargeCalls: ChargeCall[];
   incidents: any[];
+  posts: any[];
   residents: { id: string; name: string; avatarColor: string; phone: string; unit: string; role: string; status: string; deactivatedAt: string | null }[];
   ledger: any[];
   documents: { id: string; title: string; type: string; date: string; size: string; url: string }[];
   assemblies: AssemblyRow[];
+  settings: BuildingSettings | null;
 }
 
 export async function fetchSyndicData(): Promise<SyndicData> {
-  const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, docRes, agRes] = await Promise.all([
+  const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, docRes, agRes, setRes, postRes] = await Promise.all([
     supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
     supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID),
     supabase.from("memberships").select("*").eq("building_id", DEMO_BUILDING_ID),
@@ -68,6 +77,8 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
     supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
     supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }),
+    supabase.from("building_settings").select("*").eq("building_id", DEMO_BUILDING_ID).single(),
+    supabase.from("posts").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
   ]);
 
   const b = bRes.data;
@@ -158,6 +169,7 @@ export async function fetchSyndicData(): Promise<SyndicData> {
     recouvrement,
     chargeCalls,
     incidents,
+    posts: postRes.data ?? [],
     residents,
     ledger: ledRes.data ?? [],
     documents: (docRes.data ?? []).map((d: any) => ({
@@ -175,5 +187,11 @@ export async function fetchSyndicData(): Promise<SyndicData> {
       summary: ag.summary ?? "",
       pvUrl: ag.pv_url ?? "",
     })),
+    settings: setRes.data ? {
+      incident_categories: setRes.data.incident_categories ?? null,
+      expense_categories: setRes.data.expense_categories ?? null,
+      charge_categories: setRes.data.charge_categories ?? null,
+      relance_message: setRes.data.relance_message ?? null,
+    } : null,
   };
 }

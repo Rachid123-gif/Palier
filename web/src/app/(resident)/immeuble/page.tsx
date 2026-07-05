@@ -9,7 +9,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 
-const LEDGER_LIMIT = 6;
+const LEDGER_LIMIT = 3;
 
 export default function ImmeubleScreen() {
   const { building, buildingKpis, ledger, incidents } = useData();
@@ -140,6 +140,47 @@ export default function ImmeubleScreen() {
           </div>
         </div>
 
+        {/* ═══════ Incidents, AG, Documents ═══════ */}
+        <div className="space-y-2">
+          <Link href="/immeuble/signaler" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-soft">
+              <Icon name="Wrench" className="h-5 w-5 text-danger" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.incidents}</p>
+              {openIncidents.length > 0 ? (
+                <p className="text-[12px] font-medium text-danger">{T.signalementsEnCours(openIncidents.length)}</p>
+              ) : (
+                <p className="text-[12px] text-ink-faint">{T.aucunProbleme}</p>
+              )}
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
+          <Link href="/immeuble/ag" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0e4fb]">
+              <Icon name="Vote" className="h-5 w-5 text-[#7a4ea8]" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.ag}</p>
+              <p className="text-[12px] text-ink-faint">{T.agSub}</p>
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
+          <Link href="/immeuble/documents" className="tap card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-soft">
+              <Icon name="FolderOpen" className="h-5 w-5 text-warning" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{T.documents}</p>
+              <p className="text-[12px] text-ink-faint">{T.documentsSub}</p>
+            </div>
+            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
+          </Link>
+        </div>
+
+        <hr className="border-palier-100" />
+
+        {/* ═══════ Mouvements ═══════ */}
         <div>
           <div className="mb-3 flex items-center justify-between px-1">
             <h2 className="text-[17px] font-bold tracking-tight text-ink">{T.mouvements}</h2>
@@ -178,7 +219,7 @@ export default function ImmeubleScreen() {
               ))}
 
               {filteredLedger.length > ledgerCount && (
-                <button onClick={() => setLedgerCount((v) => v + 6)}
+                <button onClick={() => setLedgerCount(filteredLedger.length)}
                   className="tap flex w-full items-center justify-center gap-1.5 rounded-full border border-palier-100 bg-white py-2.5 text-[13px] font-semibold text-palier-700">
                   {T.voirPlus(filteredLedger.length - ledgerCount)}
                   <Icon name="ChevronDown" className="h-4 w-4" />
@@ -191,44 +232,6 @@ export default function ImmeubleScreen() {
               <p className="text-[13px] text-ink-soft">{T.aucunMouvement}</p>
             </div>
           )}
-        </div>
-
-        {/* ═══════ Incidents, AG, Documents ═══════ */}
-        <div className="space-y-2">
-          <Link href="/immeuble/signaler" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-soft">
-              <Icon name="Wrench" className="h-5 w-5 text-danger" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.incidents}</p>
-              {openIncidents.length > 0 ? (
-                <p className="text-[12px] font-medium text-danger">{T.signalementsEnCours(openIncidents.length)}</p>
-              ) : (
-                <p className="text-[12px] text-ink-faint">{T.aucunProbleme}</p>
-              )}
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
-          <Link href="/immeuble/ag" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0e4fb]">
-              <Icon name="Vote" className="h-5 w-5 text-[#7a4ea8]" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.ag}</p>
-              <p className="text-[12px] text-ink-faint">{T.agSub}</p>
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
-          <Link href="/immeuble/documents" className="tap card flex items-center gap-3 p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-soft">
-              <Icon name="FolderOpen" className="h-5 w-5 text-warning" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-ink">{T.documents}</p>
-              <p className="text-[12px] text-ink-faint">{T.documentsSub}</p>
-            </div>
-            <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
-          </Link>
         </div>
 
         {building.syndic && (

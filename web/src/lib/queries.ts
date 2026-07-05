@@ -49,6 +49,10 @@ const mapPost = (r: any): Post => ({
   emoji: r.emoji, title: r.title, body: r.body,
   reactions: { like: r.like_count ?? 0, love: r.love_count ?? 0, haha: r.haha_count ?? 0, wow: r.wow_count ?? 0 },
   comments: r.comments_count ?? 0,
+  imageUrl: r.image_url ?? undefined,
+  category: r.category ?? undefined,
+  providerName: r.provider_name ?? undefined,
+  providerPhone: r.provider_phone ?? undefined,
 });
 
 const mapLedger = (r: any): LedgerEntry => ({
@@ -113,6 +117,7 @@ export async function fetchAppData(): Promise<AppData> {
     documents: (docRes.data ?? []).map((r: any): DocFile => ({
       id: r.id, title: r.title, type: r.doc_type ?? r.type ?? "", date: r.doc_date ?? r.created_at,
       icon: r.icon ?? "FileText", color: r.color ?? "text-ink-soft", tint: r.tint ?? "bg-cream-card",
+      url: r.url ?? r.file_url ?? undefined,
     })),
     assembly: agRes.data ? {
       id: agRes.data.id, date: agRes.data.date, time: agRes.data.time ?? "18h30",

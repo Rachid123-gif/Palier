@@ -16,17 +16,20 @@ interface Entry {
   signed: boolean;
 }
 
-const CATEGORIES = ["Maintenance", "Personnel", "Fluides", "Fournitures", "Travaux", "Charges", "Assurance", "Autre"];
+const DEFAULT_EXPENSE_CATEGORIES = ["Maintenance", "Personnel", "Fluides", "Fournitures", "Travaux", "Charges", "Assurance", "Autre"];
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
 export function TransparenceView({
   ledger,
   balance,
+  expenseCategories,
 }: {
   ledger: Entry[];
   balance: number;
+  expenseCategories?: string[] | null;
 }) {
+  const CATEGORIES = expenseCategories?.length ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -212,12 +215,12 @@ export function TransparenceView({
       </div>
 
       {/* Period filters */}
-      <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
-            className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {label}
             {periodFilter === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -225,7 +228,7 @@ export function TransparenceView({
         ))}
         <button
           onClick={() => setPeriodOpen(true)}
-          className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          className={`relative flex whitespace-nowrap items-center gap-1.5 pb-2.5 text-[13px] font-semibold transition-colors ${periodFilter === "custom" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
         >
           <Icon name="CalendarDays" className="h-3.5 w-3.5" />
           {customLabel}
@@ -234,7 +237,7 @@ export function TransparenceView({
       </div>
 
       {/* KPIs */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
@@ -272,13 +275,13 @@ export function TransparenceView({
       </div>
 
       {/* Toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1">
+      <div className="mb-3 space-y-2">
+        <div className="relative">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher par libellé ou catégorie…"
+            placeholder="Rechercher…"
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -287,27 +290,29 @@ export function TransparenceView({
             </button>
           )}
         </div>
-        <div className="flex rounded-lg border border-black/[0.08] bg-white p-0.5">
-          {([["all", "Tout"], ["in", "Entrées"], ["out", "Sorties"]] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setTypeFilter(key); setPage(0); }}
-              className={`rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors ${typeFilter === key ? "bg-palier-50 text-palier-700" : "text-ink hover:bg-sand/50"}`}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-black/[0.08] bg-white p-0.5">
+            {([["all", "Tout"], ["in", "Entrées"], ["out", "Sorties"]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { setTypeFilter(key); setPage(0); }}
+                className={`rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors ${typeFilter === key ? "bg-palier-50 text-palier-700" : "text-ink hover:bg-sand/50"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {usedCategories.length > 1 && (
+            <select
+              value={catFilter}
+              onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
+              className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
-              {label}
-            </button>
-          ))}
+              <option value="all">Toutes catégories</option>
+              {usedCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
         </div>
-        {usedCategories.length > 1 && (
-          <select
-            value={catFilter}
-            onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
-            className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
-          >
-            <option value="all">Toutes catégories</option>
-            {usedCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
       </div>
 
 
@@ -323,7 +328,8 @@ export function TransparenceView({
           </div>
         ) : (
           <>
-            <table className="w-full text-left text-[13px]">
+            {/* Desktop table */}
+            <table className="hidden w-full text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-4 py-2.5">Date</th>
@@ -367,6 +373,33 @@ export function TransparenceView({
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {rows.map((l) => (
+                <div key={l.id} className="flex items-center gap-3 p-4">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${l.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
+                    <Icon name={l.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-4 w-4 ${l.type === "in" ? "text-emerald-600" : "text-red-500"}`} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-medium text-ink">{l.label}</p>
+                    <div className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
+                      <span>{shortDate(l.entry_date)}</span>
+                      <span className="rounded-md bg-sand/60 px-1.5 py-0.5 text-[10px] font-medium">{l.category}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-[14px] font-semibold ${l.type === "in" ? "text-emerald-600" : "text-ink"}`} dir="ltr">
+                      {l.type === "in" ? "+" : "−"}{num(Number(l.amount), false)}
+                    </p>
+                    <div className="mt-1 flex items-center justify-end gap-0.5">
+                      <button onClick={() => openEdit(l)} className="rounded-md p-1 text-ink-faint hover:text-blue-600"><Icon name="Pencil" className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => openDelete(l)} className="rounded-md p-1 text-ink-faint hover:text-red-500"><Icon name="Trash2" className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* Footer: pagination + totals */}
             <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">

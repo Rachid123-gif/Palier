@@ -186,7 +186,7 @@ export function ResidentsView({
       </div>
 
       {/* Stats row */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-100">
@@ -220,10 +220,10 @@ export function ResidentsView({
       </div>
 
       {/* Status tabs */}
-      <div className="mb-3 flex items-center gap-3 border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
         <button
           onClick={() => setStatus("active")}
-          className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "active" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+          className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "active" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
         >
           Actifs
           <span className="ml-1.5 rounded-full bg-palier-50 px-1.5 py-0.5 text-[11px] font-bold text-palier-700">{activeResidents.length}</span>
@@ -231,7 +231,7 @@ export function ResidentsView({
         </button>
         <button
           onClick={() => setStatus("inactive")}
-          className={`relative pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "inactive" ? "text-amber-700" : "text-ink-soft hover:text-ink"}`}
+          className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "inactive" ? "text-amber-700" : "text-ink-soft hover:text-ink"}`}
         >
           Désactivés
           {inactiveResidents.length > 0 && (
@@ -242,13 +242,13 @@ export function ResidentsView({
       </div>
 
       {/* Toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1">
+      <div className="mb-3 space-y-2">
+        <div className="relative">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Rechercher par nom, lot ou téléphone…"
+            placeholder="Rechercher…"
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -262,7 +262,7 @@ export function ResidentsView({
             <button
               key={r}
               onClick={() => setFilter(r)}
-              className={`rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors ${roleFilter === r ? "bg-palier-50 text-palier-700" : "text-ink hover:bg-sand/50"}`}
+              className={`flex-1 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors md:flex-none ${roleFilter === r ? "bg-palier-50 text-palier-700" : "text-ink hover:bg-sand/50"}`}
             >
               {r === "all" ? "Tous" : r === "owner" ? "Propriétaires" : "Locataires"}
             </button>
@@ -281,7 +281,8 @@ export function ResidentsView({
           </div>
         ) : (
           <>
-            <table className="w-full text-left text-[13px]">
+            {/* Desktop table */}
+            <table className="hidden w-full text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-4 py-2.5">Lot</th>
@@ -354,6 +355,48 @@ export function ResidentsView({
                 })}
               </tbody>
             </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {rows.map((r) => {
+                const isInactive = (r.status ?? "active") === "inactive";
+                return (
+                  <div key={r.id} className={`p-4 ${isInactive ? "opacity-60" : ""}`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-medium text-white ${isInactive ? "grayscale" : ""}`} style={{ backgroundColor: r.avatarColor }}>
+                        {r.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-medium text-ink">{r.name}</p>
+                          {isInactive && <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Désactivé</span>}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
+                          <span className="font-medium text-ink">Lot {r.unit}</span>
+                          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === "tenant" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
+                            {r.role === "tenant" ? "Locataire" : "Propriétaire"}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">{r.phone}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {isInactive ? (
+                          <button onClick={() => handleReactivate(r)} disabled={isPending} className="inline-flex items-center gap-1 rounded-md bg-palier-50 px-2 py-1.5 text-[11px] font-semibold text-palier-700">
+                            <Icon name="UserPlus" className="h-3.5 w-3.5" />Réactiver
+                          </button>
+                        ) : (
+                          <>
+                            <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
+                            <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
+                            <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             {pages > 1 && (
               <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">

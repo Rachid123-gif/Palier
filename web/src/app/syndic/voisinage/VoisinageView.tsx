@@ -1,0 +1,306 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/syndic/ui";
+import { Icon } from "@/components/ui/Icon";
+import { timeAgo, shortDate } from "@/lib/format";
+
+type Post = {
+  id: string;
+  type: string;
+  author_name: string;
+  role: string;
+  avatar_color: string;
+  created_at: string;
+  pinned: boolean;
+  emoji?: string;
+  title?: string;
+  body: string;
+  like_count?: number;
+  love_count?: number;
+  haha_count?: number;
+  wow_count?: number;
+  comments_count?: number;
+  image_url?: string;
+};
+
+const typeLabels: Record<string, string> = {
+  announcement: "Annonce", event: "Événement", help: "Entraide",
+  found: "Trouvé", general: "Général", service: "Service", recommendation: "Recommandation",
+};
+
+const typeColors: Record<string, string> = {
+  announcement: "bg-palier-50 text-palier-700",
+  event: "bg-blue-50 text-blue-700",
+  help: "bg-amber-50 text-amber-700",
+  found: "bg-yellow-50 text-yellow-700",
+  general: "bg-emerald-50 text-emerald-700",
+  service: "bg-palier-50 text-palier-700",
+  recommendation: "bg-palier-50 text-palier-700",
+};
+
+const PER_PAGE = 15;
+
+export function VoisinageView({ posts, buildingName }: { posts: Post[]; buildingName: string }) {
+  const router = useRouter();
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<Post | null>(null);
+
+  const typeCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of posts) map[p.type] = (map[p.type] ?? 0) + 1;
+    return map;
+  }, [posts]);
+
+  const usedTypes = Object.keys(typeCounts).sort();
+
+  const filtered = useMemo(() => {
+    let rows = [...posts];
+    if (typeFilter !== "all") rows = rows.filter((p) => p.type === typeFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter((p) =>
+        p.body?.toLowerCase().includes(q) ||
+        p.title?.toLowerCase().includes(q) ||
+        p.author_name?.toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }, [posts, typeFilter, search]);
+
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, pages - 1);
+  const rows = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
+
+  const pinnedCount = posts.filter((p) => p.pinned).length;
+
+  return (
+    <div>
+      <PageHeader
+        title="Voisinage"
+        subtitle={`${posts.length} publications · ${pinnedCount} épinglée${pinnedCount !== 1 ? "s" : ""}`}
+      />
+
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+        <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+        <p className="text-[12px] text-ink-soft">
+          Visualisez les publications des résidents de {buildingName}. Vous pouvez modérer le contenu et suivre l&apos;activité communautaire.
+        </p>
+      </div>
+
+      {/* KPIs */}
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Publications</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{posts.length}</p>
+        </div>
+        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Épinglées</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{pinnedCount}</p>
+        </div>
+        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Entraide</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{typeCounts.help ?? 0}</p>
+        </div>
+        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Événements</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{typeCounts.event ?? 0}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-3 space-y-2">
+        <div className="relative">
+          <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            placeholder="Rechercher…"
+            className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+          />
+          {search && (
+            <button onClick={() => { setSearch(""); setPage(0); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink">
+              <Icon name="X" className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
+          className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:w-auto"
+        >
+          <option value="all">Tous les types</option>
+          {usedTypes.map((t) => (
+            <option key={t} value={t}>{typeLabels[t] ?? t} ({typeCounts[t]})</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <Icon name="MessageCircle" className="mx-auto h-8 w-8 text-ink-faint" />
+            <p className="mt-2 text-[13px] text-ink-soft">Aucune publication trouvée</p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
+              <thead>
+                <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                  <th className="w-[45%] px-4 py-2.5">Publication</th>
+                  <th className="w-[12%] px-4 py-2.5">Type</th>
+                  <th className="w-[15%] px-4 py-2.5">Auteur</th>
+                  <th className="w-[10%] px-4 py-2.5">Date</th>
+                  <th className="w-[18%] px-4 py-2.5 text-right">Engagement</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/[0.04]">
+                {rows.map((p) => {
+                  const reactions = (p.like_count ?? 0) + (p.love_count ?? 0) + (p.haha_count ?? 0) + (p.wow_count ?? 0);
+                  return (
+                    <tr key={p.id} className="transition-colors hover:bg-sand/50">
+                      <td className="overflow-hidden px-4 py-2.5">
+                        <button onClick={() => setSelected(p)} className="block w-full text-left">
+                          <div className="flex items-center gap-2">
+                            {p.pinned && <Icon name="Pin" className="h-3 w-3 shrink-0 text-palier-600" />}
+                            <p className="truncate font-medium text-ink hover:text-palier-700 hover:underline">
+                              {p.title || p.body.slice(0, 80)}
+                            </p>
+                          </div>
+                          {p.title && <p className="mt-0.5 truncate text-[11px] text-ink-soft">{p.body.slice(0, 100)}</p>}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
+                          {typeLabels[p.type] ?? p.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: p.avatar_color }}>
+                            {p.author_name?.[0]?.toUpperCase()}
+                          </span>
+                          <span className="truncate text-[12px] text-ink-soft">{p.author_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-[12px] text-ink-soft">{shortDate(p.created_at)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-3 text-[12px] text-ink-soft">
+                          <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3 w-3" />{reactions}</span>
+                          <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-black/[0.04] md:hidden">
+              {rows.map((p) => {
+                const reactions = (p.like_count ?? 0) + (p.love_count ?? 0) + (p.haha_count ?? 0) + (p.wow_count ?? 0);
+                return (
+                  <button key={p.id} onClick={() => setSelected(p)} className="block w-full p-4 text-left">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
+                        {typeLabels[p.type] ?? p.type}
+                      </span>
+                      {p.pinned && <Icon name="Pin" className="h-3 w-3 text-palier-600" />}
+                    </div>
+                    <p className="text-[14px] font-medium text-ink">{p.title || p.body.slice(0, 80)}</p>
+                    {p.title && <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-soft">{p.body.slice(0, 120)}</p>}
+                    <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-soft">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: p.avatar_color }}>
+                          {p.author_name?.[0]?.toUpperCase()}
+                        </span>
+                        <span>{p.author_name}</span>
+                      </div>
+                      <span>{shortDate(p.created_at)}</span>
+                      <span className="ml-auto flex items-center gap-1"><Icon name="ThumbsUp" className="h-3 w-3" />{reactions}</span>
+                      <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
+              <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+              {pages > 1 && (
+                <div className="flex gap-1">
+                  <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
+                    <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
+                  </button>
+                  {Array.from({ length: pages }, (_, i) => (
+                    <button key={i} onClick={() => setPage(i)} className={`rounded-md px-2 py-1 font-medium ${i === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button onClick={() => setPage(Math.min(pages - 1, safePage + 1))} disabled={safePage >= pages - 1} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
+                    <Icon name="ChevronRight" className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Detail modal */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setSelected(null)}>
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-bold text-white" style={{ backgroundColor: selected.avatar_color }}>
+                  {selected.author_name?.[0]?.toUpperCase()}
+                </span>
+                <div>
+                  <p className="text-[14px] font-semibold text-ink">{selected.author_name}</p>
+                  <p className="text-[11px] text-ink-soft">{shortDate(selected.created_at)} · {timeAgo(selected.created_at)}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelected(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+                <Icon name="X" className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[selected.type] ?? "bg-sand text-ink-soft"}`}>
+                {typeLabels[selected.type] ?? selected.type}
+              </span>
+              {selected.pinned && (
+                <span className="flex items-center gap-1 rounded-md bg-palier-50 px-2 py-0.5 text-[11px] font-semibold text-palier-700">
+                  <Icon name="Pin" className="h-3 w-3" />Épinglé
+                </span>
+              )}
+              {selected.role === "syndic" && (
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Syndic</span>
+              )}
+            </div>
+
+            {selected.title && <p className="mb-2 text-[15px] font-bold text-ink">{selected.emoji && <span className="mr-1">{selected.emoji}</span>}{selected.title}</p>}
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">{selected.body}</p>
+
+            {selected.image_url && (
+              <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
+            )}
+
+            <div className="mt-4 flex items-center gap-4 border-t border-black/[0.06] pt-3 text-[12px] text-ink-soft">
+              <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3.5 w-3.5" />{(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)} réactions</span>
+              <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3.5 w-3.5" />{selected.comments_count ?? 0} commentaires</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

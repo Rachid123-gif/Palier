@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { timeAgo } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { createPost, createComment, fetchComments, likeComment } from "@/lib/actions";
+import { createPost, createComment, fetchComments, likeComment, likePost } from "@/lib/actions";
 import type { Post, PostType, Comment } from "@/lib/types";
 
 const POST_LIMIT = 6;
@@ -105,8 +105,12 @@ export default function VoisinageScreen() {
   async function publish() {
     const body = text.trim();
     if (!body) return;
-    // TODO: upload mediaFile to Supabase Storage and get URL
-    await createPost({ author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general" });
+    let imageUrl: string | undefined;
+    if (mediaFile && mediaFile.type.startsWith("image/")) {
+      const { uploadPostImage } = await import("@/lib/storage");
+      imageUrl = await uploadPostImage(mediaFile);
+    }
+    await createPost({ author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl });
     setComposer(false); setText(""); setPostType(null); setToast(true);
     clearMedia();
     router.refresh();
@@ -182,7 +186,7 @@ export default function VoisinageScreen() {
         {filtered.length > 0 ? (
           <div className="space-y-3 pb-2">
             {filtered.slice(0, visibleCount).map((p) => (
-              <PostCard key={p.id} p={p} onComment={() => openComments(p)} typeBadge={typeBadge} lang={lang} T={T} />
+              <PostCard key={p.id} p={p} onComment={() => openComments(p)} onLike={(id) => { if (!likedPosts.has(id)) { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }} typeBadge={typeBadge} lang={lang} T={T} syndicBadge={i.syndicBadge} />
             ))}
             {filtered.length > visibleCount && (
               <button
@@ -333,11 +337,12 @@ export default function VoisinageScreen() {
   );
 }
 
-function PostCard({ p, onComment, typeBadge, lang, T }: {
-  p: Post; onComment: () => void;
+function PostCard({ p, onComment, onLike, typeBadge, lang, T, syndicBadge }: {
+  p: Post; onComment: () => void; onLike: (postId: string) => void;
   typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" }>;
   lang: "fr" | "ar";
   T: typeof import("@/lib/i18n").t.fr.voisinage;
+  syndicBadge: string;
 }) {
   const [liked, setLiked] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -357,7 +362,7 @@ function PostCard({ p, onComment, typeBadge, lang, T }: {
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[14px] font-bold text-ink">{p.author}</span>
-            {p.role === "syndic" && <Badge tone="success" icon="BadgeCheck">{lang === "ar" ? "سنديك" : "Syndic"}</Badge>}
+            {p.role === "syndic" && <Badge tone="success" icon="BadgeCheck">{syndicBadge}</Badge>}
             {p.type !== "general" && <Badge tone={tb.tone}>{tb.label}</Badge>}
           </div>
           <p className="text-[11px] text-ink-faint">{timeAgo(p.createdAt, lang)}</p>
@@ -383,7 +388,7 @@ function PostCard({ p, onComment, typeBadge, lang, T }: {
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <button onClick={() => setLiked((v) => !v)}
+        <button onClick={() => { if (!liked) onLike(p.id); setLiked((v) => !v); }}
           className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${liked ? "bg-palier-100 text-palier-700" : "bg-sand text-ink-soft"}`}>
           <Icon name="ThumbsUp" className="h-4 w-4" /> {totalReactions > 0 ? totalReactions : T.jaime}
         </button>

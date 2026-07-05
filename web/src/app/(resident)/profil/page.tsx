@@ -7,7 +7,9 @@ import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { LangToggle } from "@/components/resident/LangToggle";
 import { whatsappLink } from "@/lib/whatsapp";
+import { Sheet } from "@/components/ui/Sheet";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type NotifKey = "charges" | "incidents" | "voisinage" | "ag" | "syndic";
 
@@ -15,6 +17,8 @@ export default function ProfilPage() {
   const { currentUser, building, charges, chargesHistory, incidents, posts } = useData();
   const { i, isAr } = useLang();
   const p = i.profil;
+  const router = useRouter();
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const roleLabel = currentUser.role === "tenant" ? p.locataire : p.proprietaire;
   const roleCls = currentUser.role === "tenant"
@@ -208,7 +212,7 @@ export default function ProfilPage() {
             </div>
           </div>
           <a
-            href={whatsappLink(currentUser.phone || "", errorMsg)}
+            href={whatsappLink(building.syndicPhone || "", errorMsg)}
             target="_blank"
             rel="noopener"
             className="tap mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-palier-600 py-3 text-[14px] font-semibold text-white"
@@ -218,8 +222,31 @@ export default function ProfilPage() {
           </a>
         </div>
 
+        {/* ═══════ Déconnexion ═══════ */}
+        <button
+          onClick={() => setLogoutOpen(true)}
+          className="tap flex w-full items-center justify-center gap-2 rounded-2xl border border-danger/20 bg-white py-3 text-[14px] font-semibold text-danger"
+        >
+          <Icon name="LogOut" className="h-4 w-4" />
+          {p.deconnexion}
+        </button>
+
         <div className="h-4" />
       </div>
+
+      <Sheet open={logoutOpen} onClose={() => setLogoutOpen(false)} title={p.deconnexion}>
+        <p className="text-[14px] text-ink-soft">{p.deconnexionDesc}</p>
+        <div className="mt-4 flex gap-3">
+          <button onClick={() => setLogoutOpen(false)}
+            className="tap flex-1 rounded-full border border-palier-100 bg-white py-3 text-[13px] font-semibold text-ink-soft">
+            {p.deconnexionAnnuler}
+          </button>
+          <button onClick={() => { localStorage.removeItem("palier_onboarded"); localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); localStorage.removeItem("palier_ag_votes"); router.push("/bienvenue"); }}
+            className="tap flex-1 rounded-full bg-danger py-3 text-[13px] font-semibold text-white">
+            {p.deconnexionConfirm}
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 }

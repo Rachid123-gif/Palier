@@ -30,18 +30,28 @@ export default function DocumentsScreen() {
         </div>
 
         {documents.length > 0 ? (
-          documents.map((d) => (
-            <div key={d.id} className="card flex items-center gap-3 p-3.5">
-              <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${d.tint}`}>
-                <Icon name={d.icon} className={`h-5 w-5 ${d.color}`} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-bold text-ink">{d.title}</p>
-                <p className="text-[12px] text-ink-faint">{d.type} · {shortDate(d.date, lang)}</p>
+          documents.map((d) => {
+            const card = (
+              <div className="card flex items-center gap-3 p-3.5">
+                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${d.tint}`}>
+                  <Icon name={d.icon} className={`h-5 w-5 ${d.color}`} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-bold text-ink">{d.title}</p>
+                  <p className="text-[12px] text-ink-faint">{d.type} · {shortDate(d.date, lang)}</p>
+                </div>
+                {d.url && <Icon name="ExternalLink" className="h-5 w-5 text-ink-faint" />}
               </div>
-              <Icon name="Eye" className="h-5 w-5 text-ink-faint" />
-            </div>
-          ))
+            );
+
+            return d.url ? (
+              <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="block">
+                {card}
+              </a>
+            ) : (
+              <div key={d.id}>{card}</div>
+            );
+          })
         ) : (
           <div className="card flex items-center gap-3 p-4">
             <Icon name="FolderOpen" className="h-5 w-5 text-ink-faint" />

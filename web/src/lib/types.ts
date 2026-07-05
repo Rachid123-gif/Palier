@@ -12,7 +12,7 @@ export interface Charge {
   category: "courantes" | "travaux" | "provision" | "regularisation";
 }
 
-export type IncidentStatus = "open" | "resolved";
+export type IncidentStatus = "open" | "in_progress" | "resolved";
 export type Urgency = "low" | "normal" | "urgent";
 
 export interface Incident {
@@ -116,6 +116,7 @@ export interface DocFile {
   icon: string;
   color: string;
   tint: string;
+  url?: string;
 }
 
 export interface Assembly {

@@ -5,6 +5,9 @@ export const t = {
     // ── Navigation ──
     nav: { accueil: "Accueil", charges: "Charges", immeuble: "Immeuble", voisinage: "Voisinage", services: "Services" },
 
+    // ── Common ──
+    syndicBadge: "Syndic",
+
     // ── Greeting ──
     bonneNuit: "Bonne nuit", bonjour: "Bonjour", bonApresMidi: "Bon après-midi", bonsoir: "Bonsoir",
 
@@ -64,6 +67,10 @@ export const t = {
       signalerErreur: "Signaler une erreur",
       signalerDesc: "Une information est incorrecte ? Prévenez votre syndic pour la corriger.",
       prevenir: "Prévenir le syndic",
+      deconnexion: "Se déconnecter",
+      deconnexionDesc: "Vous serez redirigé vers la page d'accueil.",
+      deconnexionConfirm: "Confirmer",
+      deconnexionAnnuler: "Annuler",
       messageErreur: (name: string, building: string) =>
         `Bonjour,\n\nJe suis ${name}, résident(e) à ${building}.\n\nJe souhaite signaler une erreur dans mes informations sur Palier :\n\n• Détail de l'erreur : [à compléter]\n\nMerci de corriger. Cordialement.`,
     },
@@ -191,7 +198,9 @@ export const t = {
 
     // ── Signaler ──
     signaler: {
-      title: "Signaler",
+      title: "Incidents",
+      tabSignaler: "Signaler",
+      tabSuivi: "Suivi",
       info: "Ascenseur, fuite, panne…",
       infoSuite: "le syndic est notifié immédiatement",
       infoFin: "et vous suivez la résolution en temps réel.",
@@ -202,17 +211,22 @@ export const t = {
       detailsLabel: "Détails",
       optionnel: "optionnel",
       detailsPlaceholder: "Décrivez ce qui se passe en quelques lignes…",
+      ajouterPhoto: "Ajouter une photo",
       envoyerSignalement: "Envoyer le signalement",
+      envoi: "Envoi…",
       signalementsEnCours: "Signalements en cours",
       signalementEnvoye: "Signalement envoyé",
       signalementBody: "Le syndic et les voisins concernés sont notifiés. Vous suivez la résolution en temps réel.",
+      aucunSignalement: "Aucun signalement",
+      aucunSignalementSub: "Tout fonctionne bien dans votre résidence pour le moment.",
       cats: {
         ascenseur: "Ascenseur", fuite: "Fuite d'eau", electricite: "Électricité", securite: "Sécurité",
         proprete: "Propreté", nuisibles: "Nuisibles", nuisance: "Nuisance sonore",
         parking: "Parking", communes: "Parties communes", jardinier: "Jardinage", autre: "Autre",
       },
+      autrePreciser: "Précisez la catégorie…",
       urgencies: { low: "Pas urgent", normal: "Normal", urgent: "Urgent" },
-      statuses: { open: "Ouvert", resolved: "Résolu" },
+      statuses: { open: "Ouvert", in_progress: "En cours", resolved: "Résolu" },
     },
 
     // ── Voisinage ──
@@ -367,6 +381,10 @@ export const t = {
     nav: { accueil: "الرئيسية", charges: "المصاريف", immeuble: "العمارة", voisinage: "الجيران", services: "الخدمات" },
 
     // ── Greeting ──
+    // ── Common ──
+    syndicBadge: "سنديك",
+
+    // ── Greeting ──
     bonneNuit: "تصبح على خير", bonjour: "مرحبا", bonApresMidi: "مساء الخير", bonsoir: "مساء الخير",
 
     // ── Home ──
@@ -425,6 +443,10 @@ export const t = {
       signalerErreur: "الإبلاغ عن خطأ",
       signalerDesc: "معلومة خاطئة؟ أبلغ السنديك لتصحيحها.",
       prevenir: "إبلاغ السنديك",
+      deconnexion: "تسجيل الخروج",
+      deconnexionDesc: "سيتم إعادة توجيهك إلى صفحة الاستقبال.",
+      deconnexionConfirm: "تأكيد",
+      deconnexionAnnuler: "إلغاء",
       messageErreur: (name: string, building: string) =>
         `مرحبا،\n\nأنا ${name}، ساكن(ة) في ${building}.\n\nأريد الإبلاغ عن خطأ في معلوماتي على Palier:\n\n• تفاصيل الخطأ: [يرجى التوضيح]\n\nشكراً.`,
     },
@@ -552,7 +574,9 @@ export const t = {
 
     // ── Signaler ──
     signaler: {
-      title: "إبلاغ",
+      title: "الحوادث",
+      tabSignaler: "إبلاغ",
+      tabSuivi: "المتابعة",
       info: "مصعد، تسرب، عطل…",
       infoSuite: "يتم إخطار السنديك فوراً",
       infoFin: "وتتابع الحل في الوقت الحقيقي.",
@@ -563,17 +587,22 @@ export const t = {
       detailsLabel: "التفاصيل",
       optionnel: "اختياري",
       detailsPlaceholder: "صف ما يحدث في بضعة أسطر…",
+      ajouterPhoto: "إضافة صورة",
       envoyerSignalement: "إرسال البلاغ",
+      envoi: "جاري الإرسال…",
       signalementsEnCours: "البلاغات الجارية",
       signalementEnvoye: "تم إرسال البلاغ",
       signalementBody: "تم إخطار السنديك والجيران المعنيين. تتابع الحل في الوقت الحقيقي.",
+      aucunSignalement: "لا توجد بلاغات",
+      aucunSignalementSub: "كل شيء يعمل بشكل جيد في إقامتك حالياً.",
       cats: {
         ascenseur: "المصعد", fuite: "تسرب مائي", electricite: "كهرباء", securite: "أمن",
         proprete: "نظافة", nuisibles: "حشرات", nuisance: "إزعاج صوتي",
         parking: "موقف", communes: "الأجزاء المشتركة", jardinier: "بستنة", autre: "أخرى",
       },
+      autrePreciser: "حدد الفئة…",
       urgencies: { low: "غير مستعجل", normal: "عادي", urgent: "مستعجل" },
-      statuses: { open: "مفتوح", resolved: "تم الحل" },
+      statuses: { open: "مفتوح", in_progress: "قيد المعالجة", resolved: "تم الحل" },
     },
 
     // ── Voisinage ──

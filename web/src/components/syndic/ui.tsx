@@ -3,9 +3,9 @@ import { cn } from "@/lib/cn";
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3 md:mb-6 md:gap-4">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-ink">{title}</h1>
+        <h1 className="text-[18px] font-bold tracking-tight text-ink md:text-[22px]">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[13px] text-ink-soft">{subtitle}</p>}
       </div>
       {action}
