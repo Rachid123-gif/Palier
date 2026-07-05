@@ -173,6 +173,13 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
         }
       />
 
+      <div className="mb-4 flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
+        <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+        <p className="text-[12px] text-palier-700">
+          Les résidents signalent les incidents depuis leur application. Lorsque vous résolvez un incident ici, le statut est mis à jour dans l&apos;application du résident.
+        </p>
+      </div>
+
       {/* Period filters */}
       <div className="mb-4 flex items-center gap-3 border-b border-black/[0.06]">
         {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (

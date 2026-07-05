@@ -15,11 +15,20 @@ interface BuildingSettings {
   expense_categories?: string[] | null;
   charge_categories?: string[] | null;
   relance_message?: string | null;
+  gardien?: GardienInfo | null;
+}
+
+interface GardienInfo {
+  name: string;
+  phone: string;
+  horaires: Record<string, { de: string; a: string; repos: boolean }>;
+  taches: string[];
 }
 
 /* ── Section navigation ── */
 const sections = [
   { key: "general", label: "Général", icon: "Building2" },
+  { key: "gardien", label: "Gardien", icon: "ShieldCheck" },
   { key: "categories", label: "Catégories", icon: "Tags" },
   { key: "codes", label: "Codes d'accès", icon: "KeyRound" },
   { key: "relance", label: "Relances", icon: "Bell" },
@@ -57,6 +66,26 @@ export function SettingsView({
   const [email, setEmail] = useState(settings?.syndic_email ?? "");
   const [welcome, setWelcome] = useState(settings?.welcome_message ?? "");
 
+  // ── Gardien ──
+  const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const DEFAULT_TACHES = [
+    "Nettoyage parties communes", "Sortie poubelles", "Réception courrier",
+    "Surveillance entrée", "Arrosage plantes", "Petites réparations",
+  ];
+  const defaultHoraires: GardienInfo["horaires"] = {};
+  for (const d of DAYS) defaultHoraires[d] = { de: "08:00", a: "18:00", repos: d === "Dimanche" };
+
+  const savedGardien = settings?.gardien;
+  const [gardienName, setGardienName] = useState(savedGardien?.name ?? "");
+  const [gardienPhone, setGardienPhone] = useState(savedGardien?.phone ?? "");
+  const [gardienHoraires, setGardienHoraires] = useState<GardienInfo["horaires"]>(savedGardien?.horaires ?? defaultHoraires);
+  const [gardienTaches, setGardienTaches] = useState<string[]>(savedGardien?.taches ?? DEFAULT_TACHES);
+  const [newTache, setNewTache] = useState("");
+
+  function setHoraire(day: string, field: "de" | "a" | "repos", value: string | boolean) {
+    setGardienHoraires((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
+  }
+
   // ── Categories ──
   const [incidentCats, setIncidentCats] = useState<string[]>(settings?.incident_categories ?? DEFAULT_INCIDENT_CATS);
   const [expenseCats, setExpenseCats] = useState<string[]>(settings?.expense_categories ?? DEFAULT_EXPENSE_CATS);
@@ -69,6 +98,7 @@ export function SettingsView({
   const [codePhone, setCodePhone] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
 
   // ── Relance ──
   const [relanceMsg, setRelanceMsg] = useState(
@@ -88,6 +118,12 @@ export function SettingsView({
         expense_categories: expenseCats,
         charge_categories: chargeCats,
         relance_message: relanceMsg || undefined,
+        gardien: gardienName.trim() ? {
+          name: gardienName.trim(),
+          phone: gardienPhone.trim(),
+          horaires: gardienHoraires,
+          taches: gardienTaches,
+        } : null,
       } as Record<string, unknown>);
       flash("Configuration sauvegardée");
       router.refresh();
@@ -169,10 +205,10 @@ export function SettingsView({
             ))}
 
             <div className="mt-4 border-t border-black/[0.06] pt-3">
-              <a href="/" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
+              <button onClick={() => setShowLogout(true)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
                 <Icon name="LogOut" className="h-4 w-4" strokeWidth={1.8} />
                 Se déconnecter
-              </a>
+              </button>
             </div>
           </div>
         </nav>
@@ -254,6 +290,141 @@ export function SettingsView({
                   className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
                 />
               </Card>
+            </>
+          )}
+
+          {/* ═══ GARDIEN ═══ */}
+          {activeSection === "gardien" && (
+            <>
+              {/* Identity */}
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                    <Icon name="User" className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Identité du gardien</h2>
+                    <p className="text-[12px] text-ink-soft">Informations visibles par les résidents pour le contacter.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Nom complet</label>
+                    <input value={gardienName} onChange={(e) => setGardienName(e.target.value)} placeholder="Ex: Mohammed" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone / WhatsApp</label>
+                    <input type="tel" value={gardienPhone} onChange={(e) => setGardienPhone(e.target.value)} placeholder="06 XX XX XX XX" className={inputCls} />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Horaires */}
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                    <Icon name="Clock" className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Horaires de travail</h2>
+                    <p className="text-[12px] text-ink-soft">Les résidents verront quand le gardien est disponible.</p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {DAYS.map((day) => {
+                    const h = gardienHoraires[day];
+                    return (
+                      <div key={day} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-sand/30">
+                        <span className="w-[80px] text-[13px] font-medium text-ink">{day}</span>
+                        {h.repos ? (
+                          <span className="flex-1 text-[12px] text-ink-faint">Repos</span>
+                        ) : (
+                          <div className="flex flex-1 items-center gap-1.5">
+                            <input
+                              type="time"
+                              value={h.de}
+                              onChange={(e) => setHoraire(day, "de", e.target.value)}
+                              className="h-8 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400"
+                            />
+                            <span className="text-[11px] text-ink-faint">à</span>
+                            <input
+                              type="time"
+                              value={h.a}
+                              onChange={(e) => setHoraire(day, "a", e.target.value)}
+                              className="h-8 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400"
+                            />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => setHoraire(day, "repos", !h.repos)}
+                          className={`flex h-[22px] w-[40px] items-center rounded-full p-0.5 transition-colors ${h.repos ? "bg-black/10" : "bg-palier-600"}`}
+                          title={h.repos ? "Activer" : "Jour de repos"}
+                        >
+                          <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${h.repos ? "translate-x-0" : "translate-x-[18px]"}`} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Tâches */}
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                    <Icon name="ClipboardList" className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Responsabilités</h2>
+                    <p className="text-[12px] text-ink-soft">Les tâches dont le gardien est responsable, visibles par les résidents.</p>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {gardienTaches.map((t, i) => (
+                    <span key={t} className="inline-flex items-center gap-1 rounded-lg border border-black/[0.06] bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink">
+                      {t}
+                      <button onClick={() => setGardienTaches((prev) => prev.filter((_, j) => j !== i))} className="ml-0.5 rounded p-0.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500">
+                        <Icon name="X" className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {gardienTaches.length === 0 && <p className="text-[12px] text-ink-soft">Aucune tâche définie</p>}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    value={newTache}
+                    onChange={(e) => setNewTache(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = newTache.trim();
+                        if (v && !gardienTaches.includes(v)) { setGardienTaches((prev) => [...prev, v]); setNewTache(""); }
+                      }
+                    }}
+                    placeholder="Ex: Distribution courrier…"
+                    className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                  />
+                  <button
+                    onClick={() => {
+                      const v = newTache.trim();
+                      if (v && !gardienTaches.includes(v)) { setGardienTaches((prev) => [...prev, v]); setNewTache(""); }
+                    }}
+                    disabled={!newTache.trim()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
+                  >
+                    <Icon name="Plus" className="h-3.5 w-3.5" />
+                    Ajouter
+                  </button>
+                </div>
+              </Card>
+
+              <div className="flex items-start gap-2 rounded-xl bg-palier-50 px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+                <p className="text-[12px] text-palier-700">
+                  Ces informations apparaîtront dans l&apos;application des résidents. Ils pourront voir les horaires du gardien et le contacter directement par téléphone ou WhatsApp.
+                </p>
+              </div>
             </>
           )}
 
@@ -415,13 +586,38 @@ export function SettingsView({
 
           {/* ── Déconnexion (mobile) ── */}
           <div className="border-t border-black/[0.06] pt-4 md:hidden">
-            <a href="/" className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
+            <button onClick={() => setShowLogout(true)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
               <Icon name="LogOut" className="h-4 w-4" />
               Se déconnecter
-            </a>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Logout confirmation */}
+      {showLogout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowLogout(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
+                <Icon name="LogOut" className="h-4 w-4 text-red-600" />
+              </div>
+              <h2 className="text-[15px] font-semibold text-ink">Se déconnecter</h2>
+            </div>
+            <p className="mb-4 text-[13px] text-ink-soft">
+              Êtes-vous sûr de vouloir vous déconnecter de l&apos;espace syndic ?
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
+                Annuler
+              </button>
+              <a href="/" className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+                Se déconnecter
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (

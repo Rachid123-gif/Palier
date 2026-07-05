@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -25,6 +26,7 @@ export function SyndicShell({
   children: React.ReactNode;
 }) {
   const path = usePathname();
+  const [showLogout, setShowLogout] = useState(false);
   return (
     <div className="flex min-h-dvh bg-cream text-ink">
       {/* Sidebar */}
@@ -76,7 +78,7 @@ export function SyndicShell({
               {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
             </span>
             <span className="flex-1 truncate text-[13px] font-medium text-ink">{syndicName}</span>
-            <Link href="/" className="text-ink-faint transition-colors hover:text-ink"><Icon name="LogOut" className="h-3.5 w-3.5" /></Link>
+            <button onClick={() => setShowLogout(true)} className="text-ink-faint transition-colors hover:text-ink"><Icon name="LogOut" className="h-3.5 w-3.5" /></button>
           </div>
         </div>
       </aside>
@@ -94,6 +96,30 @@ export function SyndicShell({
         </div>
         <div className="mx-auto w-full max-w-[1060px] flex-1 px-6 py-6 md:px-8 md:py-8">{children}</div>
       </main>
+
+      {showLogout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowLogout(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
+                <Icon name="LogOut" className="h-4 w-4 text-red-600" />
+              </div>
+              <h2 className="text-[15px] font-semibold text-ink">Se déconnecter</h2>
+            </div>
+            <p className="mb-4 text-[13px] text-ink-soft">
+              Êtes-vous sûr de vouloir vous déconnecter de l&apos;espace syndic ?
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
+                Annuler
+              </button>
+              <Link href="/" className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+                Se déconnecter
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
