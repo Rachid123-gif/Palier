@@ -7,17 +7,51 @@ import { Icon } from "@/components/ui/Icon";
 import { LogoMark } from "@/components/brand/Logo";
 import { logout } from "@/lib/auth";
 
-const nav = [
-  { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
-  { href: "/syndic/recouvrement", label: "Recouvrement", icon: "Banknote", badgeKey: "dunning" },
-  { href: "/syndic/incidents", label: "Incidents", icon: "Wrench", badgeKey: "incidents" },
-  { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
-  { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
-  { href: "/syndic/voisinage", label: "Voisinage", icon: "MessageSquare" },
-  { href: "/syndic/ag", label: "Assemblées", icon: "Calendar" },
-  { href: "/syndic/documents", label: "Documents", icon: "FileText" },
-  { href: "/syndic/parametres", label: "Paramètres", icon: "Settings" },
+type NavItem = { href: string; label: string; icon: string; exact?: boolean; badgeKey?: string };
+type NavSection = { title?: string; items: NavItem[] };
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
+    ],
+  },
+  {
+    title: "Gestion",
+    items: [
+      { href: "/syndic/recouvrement", label: "Recouvrement", icon: "Banknote", badgeKey: "dunning" },
+      { href: "/syndic/incidents", label: "Incidents", icon: "Wrench", badgeKey: "incidents" },
+      { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
+      { href: "/syndic/voisinage", label: "Voisinage", icon: "MessageSquare" },
+      { href: "/syndic/travaux-urgents", label: "Travaux urgents", icon: "Hammer" },
+    ],
+  },
+  {
+    title: "Finances",
+    items: [
+      { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
+      { href: "/syndic/budget", label: "Budget", icon: "Calculator" },
+    ],
+  },
+  {
+    title: "Conformité",
+    items: [
+      { href: "/syndic/ag", label: "Assemblées", icon: "Calendar" },
+      { href: "/syndic/reglement", label: "Règlement", icon: "Scale" },
+      { href: "/syndic/assurance", label: "Assurance", icon: "Shield" },
+      { href: "/syndic/mandat", label: "Mandat syndic", icon: "Award" },
+      { href: "/syndic/documents", label: "Documents", icon: "FileText" },
+    ],
+  },
+  {
+    items: [
+      { href: "/syndic/parametres", label: "Paramètres", icon: "Settings" },
+    ],
+  },
 ];
+
+// Flat nav for iteration in mobile/desktop
+const nav = navSections.flatMap((s) => s.items);
 
 export function SyndicShell({
   building, badges, syndicName, children,
@@ -40,34 +74,41 @@ export function SyndicShell({
           <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
         </div>
 
-        <nav className="no-scrollbar flex-1 space-y-px overflow-y-auto">
-          {nav.map((n) => {
-            const active = n.exact ? path === n.href : path.startsWith(n.href);
-            const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
-                  active
-                    ? "bg-palier-600 text-white"
-                    : "text-ink-soft hover:bg-sand/50 hover:text-ink",
-                )}
-              >
-                <Icon name={n.icon} className="h-4 w-4" strokeWidth={1.8} />
-                <span className="flex-1">{n.label}</span>
-                {badge > 0 && (
-                  <span className={cn(
-                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
-                    active ? "bg-white/20 text-white" : "bg-red-500 text-white",
-                  )}>
-                    {badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
+          {navSections.map((section, si) => (
+            <div key={si}>
+              {section.title && (
+                <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{section.title}</p>
+              )}
+              {section.items.map((n) => {
+                const active = n.exact ? path === n.href : path.startsWith(n.href);
+                const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
+                      active
+                        ? "bg-palier-600 text-white"
+                        : "text-ink-soft hover:bg-sand/50 hover:text-ink",
+                    )}
+                  >
+                    <Icon name={n.icon} className="h-4 w-4" strokeWidth={1.8} />
+                    <span className="flex-1">{n.label}</span>
+                    {badge > 0 && (
+                      <span className={cn(
+                        "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
+                        active ? "bg-white/20 text-white" : "bg-red-500 text-white",
+                      )}>
+                        {badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-black/[0.06] pt-3">

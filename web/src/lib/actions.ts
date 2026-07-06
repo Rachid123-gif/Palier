@@ -337,26 +337,35 @@ export async function emitCharges(input: {
   amount: number;
   category: string;
   dueDate: string;
+  distribution?: "flat" | "tantiemes";
 }) {
   const { data: units } = await supabase
     .from("units")
-    .select("id, ref")
+    .select("id, ref, tantiemes")
     .eq("building_id", input.buildingId);
 
   if (!units?.length) return { error: "no_units" };
 
-  const charges = units.map((u) => ({
-    building_id: input.buildingId,
-    unit_id: u.id,
-    label: input.label,
-    detail: input.detail,
-    period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
-    amount: input.amount,
-    paid: 0,
-    due_date: input.dueDate,
-    status: "due",
-    category: input.category,
-  }));
+  const totalTantiemes = units.reduce((s, u: any) => s + (u.tantiemes ?? 0), 0);
+  const useTantiemes = input.distribution === "tantiemes" && totalTantiemes > 0;
+
+  const charges = units.map((u: any) => {
+    const unitAmount = useTantiemes
+      ? Math.round((input.amount * (u.tantiemes ?? 0) / totalTantiemes) * 100) / 100
+      : input.amount;
+    return {
+      building_id: input.buildingId,
+      unit_id: u.id,
+      label: input.label,
+      detail: input.detail,
+      period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+      amount: unitAmount,
+      paid: 0,
+      due_date: input.dueDate,
+      status: "due",
+      category: input.category,
+    };
+  });
 
   return supabase.from("charges").insert(charges);
 }
@@ -582,4 +591,277 @@ export async function fetchMyVotes(assemblyId: string, profileId: string) {
     .eq("assembly_id", assemblyId)
     .eq("profile_id", profileId);
   return data ?? [];
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TANTIEMES
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function updateUnitTantiemes(buildingId: string, updates: { unitId: string; tantiemes: number }[]) {
+  await Promise.all(
+    updates.map((u) => supabase.from("units").update({ tantiemes: u.tantiemes }).eq("id", u.unitId))
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RÉSOLUTIONS AG (3 niveaux de majorité)
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function createResolution(input: {
+  assemblyId: string;
+  number: number;
+  title: string;
+  description?: string;
+  majorityType: "simple" | "trois_quarts" | "unanimite";
+}) {
+  return supabase.from("assembly_resolutions").insert({
+    assembly_id: input.assemblyId,
+    number: input.number,
+    title: input.title,
+    description: input.description ?? null,
+    majority_type: input.majorityType,
+  });
+}
+
+export async function updateResolutionResult(resolutionId: string, input: {
+  result: "adoptee" | "rejetee" | "reportee";
+  pourTantiemes: number;
+  contreTantiemes: number;
+  abstentionTantiemes: number;
+  pourCount: number;
+  contreCount: number;
+  abstentionCount: number;
+}) {
+  return supabase.from("assembly_resolutions").update({
+    result: input.result,
+    pour_tantiemes: input.pourTantiemes,
+    contre_tantiemes: input.contreTantiemes,
+    abstention_tantiemes: input.abstentionTantiemes,
+    pour_count: input.pourCount,
+    contre_count: input.contreCount,
+    abstention_count: input.abstentionCount,
+  }).eq("id", resolutionId);
+}
+
+export async function deleteResolution(resolutionId: string) {
+  return supabase.from("assembly_resolutions").delete().eq("id", resolutionId);
+}
+
+/** Mettre à jour le statut de convocation d'une AG */
+export async function markAssemblyConvoked(assemblyId: string) {
+  return supabase.from("assemblies").update({
+    status: "convoquee",
+    convocation_sent_at: new Date().toISOString(),
+  }).eq("id", assemblyId);
+}
+
+/** Distribuer le PV aux résidents */
+export async function distributePV(assemblyId: string, profileIds: string[], agDate: string) {
+  const title = "Procès-verbal disponible";
+  const body = `Le PV de l'assemblée du ${agDate} est disponible. Consultez-le dans votre application.`;
+  const notifications = profileIds.map((pid) => ({ profile_id: pid, title, body, kind: "ag" }));
+  await supabase.from("notifications").insert(notifications);
+  return supabase.from("assemblies").update({
+    pv_distributed: true,
+    pv_sent_at: new Date().toISOString(),
+    status: "pv_distribue",
+  }).eq("id", assemblyId);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUDGET PRÉVISIONNEL
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function createBudget(input: {
+  buildingId: string;
+  fiscalYear: number;
+  lines: { label: string; category: string; amountBudgeted: number; accountCode?: string }[];
+  reserveFundAmount?: number;
+}) {
+  const total = input.lines.reduce((s, l) => s + l.amountBudgeted, 0);
+  const { data: budget, error } = await supabase.from("budgets").insert({
+    building_id: input.buildingId,
+    fiscal_year: input.fiscalYear,
+    total_amount: total + (input.reserveFundAmount ?? 0),
+    reserve_fund_amount: input.reserveFundAmount ?? 0,
+    status: "draft",
+  }).select().single();
+
+  if (error || !budget) return { error: error?.message ?? "budget_error" };
+
+  if (input.lines.length > 0) {
+    await supabase.from("budget_lines").insert(
+      input.lines.map((l) => ({
+        budget_id: budget.id,
+        label: l.label,
+        category: l.category,
+        amount_budgeted: l.amountBudgeted,
+        account_code: l.accountCode ?? null,
+      }))
+    );
+  }
+  return { data: budget };
+}
+
+export async function updateBudgetStatus(budgetId: string, status: "draft" | "vote" | "approved" | "closed", assemblyId?: string) {
+  const update: Record<string, any> = { status, updated_at: new Date().toISOString() };
+  if (status === "approved") {
+    update.approved_at = new Date().toISOString();
+    if (assemblyId) update.approved_assembly_id = assemblyId;
+  }
+  return supabase.from("budgets").update(update).eq("id", budgetId);
+}
+
+export async function addBudgetLine(budgetId: string, input: { label: string; category: string; amountBudgeted: number; accountCode?: string }) {
+  return supabase.from("budget_lines").insert({
+    budget_id: budgetId,
+    label: input.label,
+    category: input.category,
+    amount_budgeted: input.amountBudgeted,
+    account_code: input.accountCode ?? null,
+  });
+}
+
+export async function updateBudgetLine(lineId: string, input: { label?: string; category?: string; amountBudgeted?: number; amountActual?: number }) {
+  return supabase.from("budget_lines").update(input).eq("id", lineId);
+}
+
+export async function deleteBudgetLine(lineId: string) {
+  return supabase.from("budget_lines").delete().eq("id", lineId);
+}
+
+export async function deleteBudget(budgetId: string) {
+  return supabase.from("budgets").delete().eq("id", budgetId);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ASSURANCE
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function createInsurancePolicy(input: {
+  buildingId: string;
+  insurer: string;
+  policyNumber?: string;
+  coverageType?: string;
+  premiumAmount: number;
+  startDate: string;
+  endDate: string;
+  renewalAlertDays?: number;
+  fileUrl?: string;
+  notes?: string;
+}) {
+  return supabase.from("insurance_policies").insert({
+    building_id: input.buildingId,
+    insurer: input.insurer,
+    policy_number: input.policyNumber ?? null,
+    coverage_type: input.coverageType ?? "multirisque",
+    premium_amount: input.premiumAmount,
+    start_date: input.startDate,
+    end_date: input.endDate,
+    renewal_alert_days: input.renewalAlertDays ?? 30,
+    file_url: input.fileUrl ?? null,
+    notes: input.notes ?? null,
+  });
+}
+
+export async function updateInsurancePolicy(id: string, input: Record<string, any>) {
+  return supabase.from("insurance_policies").update(input).eq("id", id);
+}
+
+export async function deleteInsurancePolicy(id: string) {
+  return supabase.from("insurance_policies").delete().eq("id", id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MANDAT SYNDIC
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function createMandate(input: {
+  buildingId: string;
+  syndicName: string;
+  syndicType: "benevole" | "professionnel";
+  deputyName?: string;
+  electedAt: string;
+  mandateEnd: string;
+  remuneration?: number;
+  contractUrl?: string;
+  assemblyId?: string;
+}) {
+  return supabase.from("syndic_mandates").insert({
+    building_id: input.buildingId,
+    syndic_name: input.syndicName,
+    syndic_type: input.syndicType,
+    deputy_name: input.deputyName ?? null,
+    elected_at: input.electedAt,
+    mandate_end: input.mandateEnd,
+    remuneration: input.remuneration ?? null,
+    contract_url: input.contractUrl ?? null,
+    elected_assembly_id: input.assemblyId ?? null,
+  });
+}
+
+export async function updateMandate(id: string, input: Record<string, any>) {
+  return supabase.from("syndic_mandates").update(input).eq("id", id);
+}
+
+export async function deleteMandate(id: string) {
+  return supabase.from("syndic_mandates").delete().eq("id", id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TRAVAUX URGENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function createUrgentWork(input: {
+  buildingId: string;
+  title: string;
+  description?: string;
+  estimatedCost?: number;
+  justification: string;
+  supplier?: string;
+  incidentId?: string;
+}) {
+  return supabase.from("urgent_works").insert({
+    building_id: input.buildingId,
+    title: input.title,
+    description: input.description ?? null,
+    estimated_cost: input.estimatedCost ?? null,
+    justification: input.justification,
+    supplier: input.supplier ?? null,
+    incident_id: input.incidentId ?? null,
+  });
+}
+
+export async function updateUrgentWorkStatus(id: string, status: "declared" | "approved" | "in_progress" | "completed", actualCost?: number) {
+  const update: Record<string, any> = { status };
+  if (status === "completed") update.completed_at = new Date().toISOString();
+  if (actualCost !== undefined) update.actual_cost = actualCost;
+  return supabase.from("urgent_works").update(update).eq("id", id);
+}
+
+export async function deleteUrgentWork(id: string) {
+  return supabase.from("urgent_works").delete().eq("id", id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RÈGLEMENT DE COPROPRIÉTÉ
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function upsertCoproprieteRule(input: {
+  buildingId: string;
+  title?: string;
+  fileUrl?: string;
+  annexes?: { title: string; url: string; type: string }[];
+  adoptedAt?: string;
+  notes?: string;
+}) {
+  return supabase.from("copropriete_rules").upsert({
+    building_id: input.buildingId,
+    title: input.title ?? "Règlement de copropriété",
+    file_url: input.fileUrl ?? null,
+    annexes: input.annexes ?? [],
+    adopted_at: input.adoptedAt ?? null,
+    notes: input.notes ?? null,
+    last_modified_at: new Date().toISOString().slice(0, 10),
+  }, { onConflict: "building_id" });
 }

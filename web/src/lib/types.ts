@@ -130,6 +130,93 @@ export interface Assembly {
   votes: { id: string; q: string; options: string[]; closesAt: string }[];
 }
 
+export type MajorityType = "simple" | "trois_quarts" | "unanimite";
+
+export interface Resolution {
+  id: string;
+  assemblyId: string;
+  number: number;
+  title: string;
+  description?: string;
+  majorityType: MajorityType;
+  result?: "adoptee" | "rejetee" | "reportee";
+  pourTantiemes: number;
+  contreTantiemes: number;
+  abstentionTantiemes: number;
+  pourCount: number;
+  contreCount: number;
+  abstentionCount: number;
+}
+
+export interface Budget {
+  id: string;
+  buildingId: string;
+  fiscalYear: number;
+  status: "draft" | "vote" | "approved" | "closed";
+  totalAmount: number;
+  reserveFundAmount: number;
+  lines: BudgetLine[];
+  approvedAt?: string;
+}
+
+export interface BudgetLine {
+  id: string;
+  accountCode?: string;
+  label: string;
+  category: string;
+  amountBudgeted: number;
+  amountActual: number;
+  notes?: string;
+}
+
+export interface InsurancePolicy {
+  id: string;
+  policyNumber?: string;
+  insurer: string;
+  coverageType: string;
+  premiumAmount: number;
+  startDate: string;
+  endDate: string;
+  renewalAlertDays: number;
+  fileUrl?: string;
+  notes?: string;
+}
+
+export interface SyndicMandate {
+  id: string;
+  syndicName: string;
+  syndicType: "benevole" | "professionnel";
+  deputyName?: string;
+  electedAt: string;
+  mandateEnd: string;
+  remuneration?: number;
+  contractUrl?: string;
+}
+
+export interface UrgentWork {
+  id: string;
+  incidentId?: string;
+  title: string;
+  description?: string;
+  estimatedCost?: number;
+  actualCost?: number;
+  status: "declared" | "approved" | "in_progress" | "completed";
+  declaredAt: string;
+  completedAt?: string;
+  justification: string;
+  supplier?: string;
+  invoiceUrl?: string;
+}
+
+export interface CoproprieteRule {
+  id: string;
+  title: string;
+  fileUrl?: string;
+  annexes: { title: string; url: string; type: string }[];
+  adoptedAt?: string;
+  notes?: string;
+}
+
 export interface BuildingKpis {
   balance: number;
   paymentRate: number;
@@ -140,6 +227,8 @@ export interface CurrentUser {
   name: string;
   phone: string;
   unit: string;
+  unitId: string;
+  tantiemes: number;
   role: string;
   building: string;
   city: string;

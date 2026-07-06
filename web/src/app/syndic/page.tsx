@@ -242,6 +242,53 @@ export default async function SyndicDashboard() {
         </Card>
       </div>
 
+      {/* ═══════ Alertes conformité ═══════ */}
+      {(() => {
+        const alerts: { icon: string; label: string; href: string; tone: "red" | "amber" }[] = [];
+
+        // Insurance expiry
+        const expiringPolicies = d.insurancePolicies.filter((p) => {
+          const daysLeft = Math.ceil((new Date(p.endDate).getTime() - Date.now()) / 86400000);
+          return daysLeft <= p.renewalAlertDays;
+        });
+        if (expiringPolicies.length > 0) alerts.push({ icon: "Shield", label: `Assurance: ${expiringPolicies.length} police${expiringPolicies.length > 1 ? "s" : ""} à renouveler`, href: "/syndic/assurance", tone: "amber" });
+
+        // Mandate expiry
+        if (d.mandate) {
+          const daysLeft = Math.ceil((new Date(d.mandate.mandateEnd).getTime() - Date.now()) / 86400000);
+          if (daysLeft <= 0) alerts.push({ icon: "Award", label: "Mandat syndic expiré", href: "/syndic/mandat", tone: "red" });
+          else if (daysLeft <= 90) alerts.push({ icon: "Award", label: `Mandat syndic expire dans ${daysLeft}j`, href: "/syndic/mandat", tone: "amber" });
+        } else {
+          alerts.push({ icon: "Award", label: "Aucun mandat syndic enregistré", href: "/syndic/mandat", tone: "amber" });
+        }
+
+        // Prescription alerts
+        if (k.prescriptionAlerts > 0) alerts.push({ icon: "Clock", label: `${k.prescriptionAlerts} créance${k.prescriptionAlerts > 1 ? "s" : ""} proche${k.prescriptionAlerts > 1 ? "s" : ""} de la prescription (5 ans)`, href: "/syndic/recouvrement", tone: "red" });
+
+        // Règlement
+        if (!d.coproprieteRule) alerts.push({ icon: "Scale", label: "Règlement de copropriété non enregistré", href: "/syndic/reglement", tone: "amber" });
+
+        // Urgent works pending
+        const pendingWorks = d.urgentWorks.filter((w) => w.status !== "completed").length;
+        if (pendingWorks > 0) alerts.push({ icon: "Hammer", label: `${pendingWorks} travaux urgent${pendingWorks > 1 ? "s" : ""} en cours`, href: "/syndic/travaux-urgents", tone: "amber" });
+
+        if (alerts.length === 0) return null;
+        return (
+          <div className="mt-5">
+            <h2 className="mb-2 text-[14px] font-semibold text-ink">Alertes conformité</h2>
+            <div className="space-y-2">
+              {alerts.map((a, i) => (
+                <Link key={i} href={a.href} className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-sand/50 ${a.tone === "red" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+                  <Icon name={a.icon} className={`h-4 w-4 ${a.tone === "red" ? "text-red-600" : "text-amber-600"}`} />
+                  <span className={`flex-1 text-[13px] font-medium ${a.tone === "red" ? "text-red-800" : "text-amber-800"}`}>{a.label}</span>
+                  <Icon name="ChevronRight" className={`h-3.5 w-3.5 ${a.tone === "red" ? "text-red-400" : "text-amber-400"}`} />
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ═══════ Row 4: Prochaine AG + Derniers documents ═══════ */}
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
 
