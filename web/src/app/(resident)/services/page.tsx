@@ -19,7 +19,7 @@ const BODY_LIMIT = 160;
 type Tab = "recos" | "demandes";
 
 export default function ServicesScreen() {
-  const { posts, currentUser } = useData();
+  const { posts, currentUser, buildingId } = useData();
   const { lang, i } = useLang();
   const T = i.services;
   const router = useRouter();
@@ -86,6 +86,7 @@ export default function ServicesScreen() {
     if (!name || !body) return;
 
     await createPost({
+      buildingId: buildingId!,
       author: currentUser.name,
       avatarColor: currentUser.avatarColor,
       type: "recommendation",
@@ -104,7 +105,7 @@ export default function ServicesScreen() {
   async function publishDemande() {
     const body = demandeText.trim();
     if (!body) return;
-    await createPost({ author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: "service" });
+    await createPost({ buildingId: buildingId!, author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: "service" });
     setDemandeSheet(false); setDemandeText("");
     setToast({ title: T.demandePubliee, body: T.demandePublieeBody });
     router.refresh();

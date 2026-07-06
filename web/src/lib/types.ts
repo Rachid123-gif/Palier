@@ -25,6 +25,7 @@ export interface Incident {
   reporter: string;
   createdAt: string;
   messages: number;
+  imageUrl?: string;
 }
 
 export type PostType = "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";

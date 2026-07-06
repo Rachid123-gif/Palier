@@ -1,4 +1,4 @@
-import { supabase, DEMO_BUILDING_ID } from "./supabase";
+import { supabase } from "./supabase";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -65,20 +65,20 @@ export interface SyndicData {
   settings: BuildingSettings | null;
 }
 
-export async function fetchSyndicData(): Promise<SyndicData> {
+export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
   const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, docRes, agRes, setRes, postRes] = await Promise.all([
-    supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
-    supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID),
-    supabase.from("memberships").select("*").eq("building_id", DEMO_BUILDING_ID),
+    supabase.from("buildings").select("*").eq("id", buildingId).single(),
+    supabase.from("units").select("*").eq("building_id", buildingId),
+    supabase.from("memberships").select("*").eq("building_id", buildingId),
     supabase.from("profiles").select("*"),
-    supabase.from("charges").select("*").eq("building_id", DEMO_BUILDING_ID),
-    supabase.from("dunning_logs").select("unit_id, sent_at").eq("building_id", DEMO_BUILDING_ID).order("sent_at", { ascending: false }),
-    supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
-    supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
-    supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
-    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }),
-    supabase.from("building_settings").select("*").eq("building_id", DEMO_BUILDING_ID).single(),
-    supabase.from("posts").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
+    supabase.from("charges").select("*").eq("building_id", buildingId),
+    supabase.from("dunning_logs").select("unit_id, sent_at").eq("building_id", buildingId).order("sent_at", { ascending: false }),
+    supabase.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabase.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
+    supabase.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabase.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
+    supabase.from("building_settings").select("*").eq("building_id", buildingId).single(),
+    supabase.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
   ]);
 
   const b = bRes.data;

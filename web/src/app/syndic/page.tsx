@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { fetchSyndicData } from "@/lib/syndic";
+import { requireSyndicSession } from "@/lib/auth";
 import { PageHeader, KpiCard, Card, StatusPill } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { num, mad, timeAgo, currentPeriod, shortDate } from "@/lib/format";
 
 export default async function SyndicDashboard() {
-  const d = await fetchSyndicData();
+  const session = await requireSyndicSession();
+  const d = await fetchSyndicData(session.buildingId);
   const k = d.kpis;
 
   /* ── Recouvrement segments ── */

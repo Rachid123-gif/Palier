@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, useMemo, useCallback } from "react";
+import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { resolveIncident, markIncidentInProgress } from "@/lib/actions";
+import { resolveIncident, markIncidentInProgress, fetchIncidentComments, createIncidentComment, type IncidentComment } from "@/lib/actions";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
@@ -20,6 +20,7 @@ type Inc = {
   unit_id: string;
   created_at: string;
   messages_count: number;
+  image_url?: string;
 };
 
 /* ── Constants ── */
@@ -548,6 +549,33 @@ function DetailModal({ incident, onClose, onResolve, onInProgress }: {
   const isResolved = incident.status === "resolved";
   const isInProgress = incident.status === "in_progress";
 
+  // Comments
+  const [comments, setComments] = useState<IncidentComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [sendingComment, setSendingComment] = useState(false);
+
+  useEffect(() => {
+    setLoadingComments(true);
+    fetchIncidentComments(incident.id).then((c) => { setComments(c); setLoadingComments(false); });
+  }, [incident.id]);
+
+  async function handleSendComment() {
+    if (!commentText.trim()) return;
+    setSendingComment(true);
+    await createIncidentComment({
+      incidentId: incident.id,
+      author: "Syndic",
+      avatarColor: "#1e5b50",
+      body: commentText.trim(),
+      role: "syndic",
+    });
+    const updated = await fetchIncidentComments(incident.id);
+    setComments(updated);
+    setCommentText("");
+    setSendingComment(false);
+  }
+
   return (
     <Overlay onClose={onClose}>
       {/* Header */}
@@ -578,6 +606,20 @@ function DetailModal({ incident, onClose, onResolve, onInProgress }: {
           <p className="text-[13px] leading-relaxed text-ink">{incident.details || "Aucun détail fourni."}</p>
         </div>
 
+        {/* Photo */}
+        {incident.image_url && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">Photo</p>
+            <img
+              src={incident.image_url}
+              alt="Photo de l'incident"
+              className="w-full cursor-pointer rounded-xl object-cover"
+              style={{ maxHeight: 240 }}
+              onClick={() => window.open(incident.image_url!, "_blank")}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-black/10 bg-white p-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Signalé par</p>
@@ -588,6 +630,48 @@ function DetailModal({ incident, onClose, onResolve, onInProgress }: {
             <p className="mt-1 text-[13px] font-medium text-ink">{shortDate(incident.created_at)}</p>
             <p className="text-[11px] text-ink-soft">{timeAgo(incident.created_at)}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Comments / Discussion */}
+      <div className="mt-4">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-soft">Discussion ({comments.length})</p>
+        <div className="space-y-2">
+          {loadingComments ? (
+            <p className="text-[12px] text-ink-faint">Chargement…</p>
+          ) : comments.length === 0 ? (
+            <p className="text-[12px] text-ink-faint">Aucun message pour le moment.</p>
+          ) : (
+            comments.map((c) => (
+              <div key={c.id} className="rounded-xl border border-black/5 bg-white p-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: c.avatarColor }}>
+                    {c.author[0]?.toUpperCase()}
+                  </span>
+                  <span className="text-[12px] font-semibold text-ink">{c.author}</span>
+                  {c.role === "syndic" && <span className="rounded bg-palier-50 px-1.5 py-0.5 text-[9px] font-bold text-palier-700">Syndic</span>}
+                  <span className="ml-auto text-[10px] text-ink-faint">{timeAgo(c.createdAt)}</span>
+                </div>
+                <p className="text-[12px] leading-relaxed text-ink-soft">{c.body}</p>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="mt-2 flex gap-2">
+          <input
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder="Écrire un message…"
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendComment()}
+            className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30"
+          />
+          <button
+            onClick={handleSendComment}
+            disabled={!commentText.trim() || sendingComment}
+            className="rounded-lg bg-palier-600 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-40"
+          >
+            <Icon name="Send" className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 

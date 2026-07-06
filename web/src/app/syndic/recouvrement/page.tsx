@@ -1,11 +1,13 @@
 import { fetchSyndicData } from "@/lib/syndic";
+import { requireSyndicSession } from "@/lib/auth";
 import { currentPeriod } from "@/lib/format";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { RecouvrementTable } from "@/components/syndic/RecouvrementTable";
 
 export default async function RecouvrementPage() {
-  const d = await fetchSyndicData();
+  const session = await requireSyndicSession();
+  const d = await fetchSyndicData(session.buildingId);
   return (
     <div>
       <PageHeader

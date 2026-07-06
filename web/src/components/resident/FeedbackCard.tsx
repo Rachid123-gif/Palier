@@ -4,12 +4,12 @@ import { Icon } from "@/components/ui/Icon";
 import { Sheet } from "@/components/ui/Sheet";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { supabase, DEMO_BUILDING_ID } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type FeedbackType = "bug" | "suggestion" | "autre";
 
 export function FeedbackCard() {
-  const { currentUser, building } = useData();
+  const { currentUser, building, buildingId } = useData();
   const { i } = useLang();
   const T = i.feedback;
 
@@ -25,7 +25,7 @@ export function FeedbackCard() {
     if (!msg.trim()) return;
     setSending(true);
     await supabase.from("feedback").insert({
-      building_id: DEMO_BUILDING_ID,
+      building_id: buildingId,
       type,
       message: msg.trim(),
       sender_name: currentUser.name,

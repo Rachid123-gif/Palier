@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
+import { deletePost, togglePinPost } from "@/lib/actions";
 
 type Post = {
   id: string;
@@ -48,6 +49,28 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Post | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [isPinning, startPinning] = useTransition();
+
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+
+  async function handleDelete(postId: string) {
+    await deletePost(postId);
+    setShowDeleteConfirm(null);
+    setSelected(null);
+    flash("Publication supprimée");
+    router.refresh();
+  }
+
+  function handleTogglePin(post: Post) {
+    startPinning(async () => {
+      await togglePinPost(post.id, !post.pinned);
+      setSelected(null);
+      flash(post.pinned ? "Publication désépinglée" : "Publication épinglée");
+      router.refresh();
+    });
+  }
 
   const typeCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -298,9 +321,56 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
               <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3.5 w-3.5" />{(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)} réactions</span>
               <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3.5 w-3.5" />{selected.comments_count ?? 0} commentaires</span>
             </div>
+
+            {/* Moderation actions */}
+            <div className="mt-3 flex gap-2 border-t border-black/[0.06] pt-3">
+              <button
+                onClick={() => handleTogglePin(selected)}
+                disabled={isPinning}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-sand/50 disabled:opacity-50"
+              >
+                <Icon name="Pin" className="h-3.5 w-3.5" />
+                {selected.pinned ? "Désépingler" : "Épingler"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(selected.id)}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2.5 text-[12px] font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
+                <Icon name="Trash2" className="h-3.5 w-3.5" />
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Delete confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
+                <Icon name="Trash2" className="h-4 w-4 text-red-600" />
+              </div>
+              <h2 className="text-[15px] font-semibold text-ink">Supprimer la publication</h2>
+            </div>
+            <p className="mb-4 text-[13px] text-ink-soft">
+              Cette action est irréversible. La publication et ses commentaires seront définitivement supprimés.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
+                Annuler
+              </button>
+              <button onClick={() => handleDelete(showDeleteConfirm)} className="flex-1 rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 animate-[rise_0.25s_ease] rounded-lg bg-palier-600 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg">{toast}</div>}
     </div>
   );
 }

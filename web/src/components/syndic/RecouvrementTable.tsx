@@ -73,6 +73,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
   async function relance(r: RecouvrementRow) {
     if (!r.profileId) return;
     await sendRelance({
+      buildingId,
       unitId: r.unitId,
       profileId: r.profileId,
       title: `Rappel de cotisation — ${currentPeriod()}`,
@@ -87,6 +88,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
     if (targets.length === 0) return;
     setBusy(true);
     await Promise.all(targets.map((r) => sendRelance({
+      buildingId,
       unitId: r.unitId,
       profileId: r.profileId!,
       title: `Rappel de cotisation — ${currentPeriod()}`,

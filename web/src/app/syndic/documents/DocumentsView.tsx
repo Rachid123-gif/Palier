@@ -3,7 +3,7 @@ import { useState, useRef, useMemo } from "react";
 import { PageHeader, KpiCard, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
-import { supabase, DEMO_BUILDING_ID } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type Doc = { id: string; title: string; type: string; date: string; size: string; url: string };
 

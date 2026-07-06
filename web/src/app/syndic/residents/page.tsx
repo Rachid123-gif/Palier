@@ -1,8 +1,10 @@
 import { fetchSyndicData } from "@/lib/syndic";
+import { requireSyndicSession } from "@/lib/auth";
 import { ResidentsView } from "./ResidentsView";
 
 export default async function SyndicResidents() {
-  const d = await fetchSyndicData();
+  const session = await requireSyndicSession();
+  const d = await fetchSyndicData(session.buildingId);
   return (
     <ResidentsView
       residents={d.residents}

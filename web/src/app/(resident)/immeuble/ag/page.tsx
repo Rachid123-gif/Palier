@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
@@ -8,19 +8,24 @@ import { Toast } from "@/components/ui/Sheet";
 import { longDate, daysUntil } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
+import { castVote, fetchMyVotes } from "@/lib/actions";
 
 export default function AgScreen() {
-  const { building, assembly } = useData();
+  const { building, assembly, profileId } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.ag;
-  const [choice, setChoice] = useState<Record<string, string>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const saved = localStorage.getItem("palier_ag_votes");
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  const [choice, setChoice] = useState<Record<string, string>>({});
   const [toast, setToast] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!assembly || !profileId) return;
+    fetchMyVotes(assembly.id, profileId).then((votes) => {
+      const map: Record<string, string> = {};
+      for (const v of votes) map[v.vote_id] = v.choice;
+      setChoice(map);
+    });
+  }, [assembly, profileId]);
 
   if (!assembly) {
     return (
@@ -101,7 +106,15 @@ export default function AgScreen() {
                     return (
                       <button
                         key={o}
-                        onClick={() => { setChoice((c) => { const next = { ...c, [v.id]: o }; localStorage.setItem("palier_ag_votes", JSON.stringify(next)); return next; }); setToast(true); }}
+                        disabled={isPending}
+                        onClick={() => {
+                          if (!profileId) return;
+                          setChoice((c) => ({ ...c, [v.id]: o }));
+                          setToast(true);
+                          startTransition(() => {
+                            castVote({ assemblyId: assembly.id, voteId: v.id, profileId, choice: o });
+                          });
+                        }}
                         className={`tap flex w-full items-center justify-between rounded-2xl border p-3 ${active ? "border-palier-500 bg-palier-50" : "border-black/5 bg-white"}`}
                       >
                         <span className="text-[14px] font-semibold text-ink">{o}</span>

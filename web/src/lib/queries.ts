@@ -1,10 +1,14 @@
-import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID, DEMO_UNIT_ID } from "./supabase";
+import { supabase } from "./supabase";
 import type {
   Charge, Incident, Post, LedgerEntry, Provider, CurrentUser, BuildingKpis,
   DocFile, Assembly,
 } from "./types";
 
 export interface AppData {
+  /** IDs for write operations (passed to actions) */
+  buildingId: string;
+  profileId: string | null;
+  unitId: string | null;
   currentUser: CurrentUser;
   building: { name: string; address: string; city: string; lots: number; syndic: string; syndicPhone: string };
   buildingKpis: BuildingKpis;
@@ -41,6 +45,7 @@ const mapIncident = (r: any): Incident => ({
   id: r.id, category: r.category, title: r.title, details: r.details,
   urgency: r.urgency, status: r.status, reporter: r.reporter_name,
   createdAt: r.created_at, messages: r.messages_count ?? 0,
+  imageUrl: r.image_url ?? undefined,
 });
 
 const mapPost = (r: any): Post => ({
@@ -61,38 +66,41 @@ const mapLedger = (r: any): LedgerEntry => ({
 });
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
-export async function fetchAppData(): Promise<AppData> {
+export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null): Promise<AppData> {
   const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
-    supabase.from("buildings").select("*").eq("id", DEMO_BUILDING_ID).single(),
-    supabase.from("profiles").select("*").eq("id", DEMO_PROFILE_ID).single(),
-    supabase.from("units").select("*").eq("building_id", DEMO_BUILDING_ID).limit(1).single(),
-    supabase.from("memberships").select("role, status").eq("profile_id", DEMO_PROFILE_ID).eq("building_id", DEMO_BUILDING_ID).single(),
-    supabase.from("charges").select("*").eq("unit_id", DEMO_UNIT_ID),
-    supabase.from("ledger_entries").select("*").eq("building_id", DEMO_BUILDING_ID).order("entry_date", { ascending: false }),
-    supabase.from("incidents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
-    supabase.from("posts").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
+    supabase.from("buildings").select("*").eq("id", buildingId).single(),
+    profileId ? supabase.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
+    unitId ? supabase.from("units").select("*").eq("id", unitId).single() : supabase.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
+    profileId ? supabase.from("memberships").select("role, status").eq("profile_id", profileId).eq("building_id", buildingId).single() : Promise.resolve({ data: null }),
+    unitId ? supabase.from("charges").select("*").eq("unit_id", unitId) : Promise.resolve({ data: [] }),
+    supabase.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
+    supabase.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabase.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabase.from("providers").select("*").eq("active", true),
-    supabase.from("notifications").select("*").eq("profile_id", DEMO_PROFILE_ID).order("created_at", { ascending: false }),
-    supabase.from("documents").select("*").eq("building_id", DEMO_BUILDING_ID).order("created_at", { ascending: false }),
-    supabase.from("assemblies").select("*").eq("building_id", DEMO_BUILDING_ID).order("date", { ascending: false }).limit(1).single(),
+    profileId ? supabase.from("notifications").select("*").eq("profile_id", profileId).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    supabase.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabase.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).single(),
   ]);
 
   const b = bRes.data;
   const p = pRes.data;
   const u = uRes.data;
-  const allCharges = (chRes.data ?? []).map(mapCharge);
+  const allCharges = ((chRes as any).data ?? []).map(mapCharge);
   const incidents = (incRes.data ?? []).map(mapIncident);
 
-  const charges = allCharges.filter((c) => c.status !== "paid");
-  const chargesHistory = allCharges.filter((c) => c.status === "paid");
+  const charges = allCharges.filter((c: Charge) => c.status !== "paid");
+  const chargesHistory = allCharges.filter((c: Charge) => c.status === "paid");
 
   return {
+    buildingId,
+    profileId,
+    unitId: unitId ?? u?.id ?? null,
     currentUser: {
       name: p?.full_name ?? "Résident",
       phone: p?.phone ?? "",
       unit: u?.ref ?? "—",
-      role: memRes.data?.role ?? "owner",
-      membershipStatus: (memRes.data?.status ?? "active") as "active" | "inactive",
+      role: (memRes as any).data?.role ?? "owner",
+      membershipStatus: ((memRes as any).data?.status ?? "active") as "active" | "inactive",
       building: b?.name ?? "Mon immeuble",
       city: (b?.city ?? "Casablanca").toLowerCase(),
       cityName: b?.city ?? "Casablanca",
@@ -109,7 +117,7 @@ export async function fetchAppData(): Promise<AppData> {
     },
     charges,
     chargesHistory,
-    totalDue: charges.reduce((s, c) => s + (c.amount - c.paid), 0),
+    totalDue: charges.reduce((s: number, c: Charge) => s + (c.amount - c.paid), 0),
     ledger: (ledRes.data ?? []).map(mapLedger),
     incidents,
     posts: (postRes.data ?? []).map(mapPost),
@@ -125,6 +133,6 @@ export async function fetchAppData(): Promise<AppData> {
       buildingName: b?.name ?? "",
       agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
     } : null,
-    notifications: notifRes.data ?? [],
+    notifications: (notifRes as any).data ?? [],
   };
 }

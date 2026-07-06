@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark } from "@/components/brand/Logo";
+import { logout } from "@/lib/auth";
 
 const nav = [
   { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
@@ -182,9 +183,9 @@ export function SyndicShell({
               <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
                 Annuler
               </button>
-              <Link href="/" className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+              <button onClick={async () => { await logout(); window.location.href = "/bienvenue"; }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
                 Se déconnecter
-              </Link>
+              </button>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { Sheet } from "@/components/ui/Sheet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { logout } from "@/lib/auth";
 
 type NotifKey = "charges" | "incidents" | "voisinage" | "ag" | "syndic";
 
@@ -241,7 +242,7 @@ export default function ProfilPage() {
             className="tap flex-1 rounded-full border border-palier-100 bg-white py-3 text-[13px] font-semibold text-ink-soft">
             {p.deconnexionAnnuler}
           </button>
-          <button onClick={() => { localStorage.removeItem("palier_onboarded"); localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); localStorage.removeItem("palier_ag_votes"); router.push("/bienvenue"); }}
+          <button onClick={async () => { localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); await logout(); window.location.href = "/bienvenue"; }}
             className="tap flex-1 rounded-full bg-danger py-3 text-[13px] font-semibold text-white">
             {p.deconnexionConfirm}
           </button>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { validateAccessCode } from "@/lib/actions";
+import { loginWithCode } from "@/lib/auth";
 
 type Lang = "fr" | "ar";
 
@@ -126,14 +126,12 @@ export default function BienvenuePage() {
     setCodeError("");
 
     try {
-      const result = await validateAccessCode(code.trim().toUpperCase(), role ?? "resident");
+      const selectedRole = role ?? "resident";
+      const result = await loginWithCode(code.trim().toUpperCase(), selectedRole);
 
-      if (result.valid) {
-        localStorage.setItem("palier_onboarded", "1");
+      if (result.ok) {
         localStorage.setItem("palier_lang", lang);
-        localStorage.setItem("palier_role", result.role!);
-        if (result.buildingId) localStorage.setItem("palier_building_id", result.buildingId);
-        router.push(result.role === "syndic" ? "/syndic" : "/");
+        router.push(selectedRole === "syndic" ? "/syndic" : "/");
       } else {
         const errorMessages: Record<string, string> = lang === "fr" ? {
           code_not_found: "Code introuvable. Vérifiez le code et réessayez.",
@@ -148,7 +146,7 @@ export default function BienvenuePage() {
             ? "هذا الرمز مخصص للسكان. استخدم رمز السنديك الخاص بك."
             : "هذا الرمز مخصص للسنديك. اطلب رمز ساكن من السنديك.",
         };
-        setCodeError(errorMessages[result.error!] ?? (role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident));
+        setCodeError(errorMessages[result.error] ?? (role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident));
       }
     } catch {
       setCodeError(role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident);

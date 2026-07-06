@@ -19,7 +19,7 @@ const urgencyColors: Record<string, { bg: string; text: string }> = {
 };
 
 export default function SignalerScreen() {
-  const { incidents, currentUser } = useData();
+  const { incidents, currentUser, buildingId, unitId } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.signaler;
   const router = useRouter();
@@ -60,7 +60,7 @@ export default function SignalerScreen() {
       const { uploadIncidentPhoto } = await import("@/lib/storage");
       imageUrl = await uploadIncidentPhoto(photo);
     }
-    await createIncident({ category: finalCat, title, details, urgency: urg as Urgency, reporter, imageUrl });
+    await createIncident({ buildingId: buildingId!, unitId: unitId!, category: finalCat, title, details, urgency: urg as Urgency, reporter, imageUrl });
     setToast(true);
     setCat(""); setCustomCat(""); setTitle(""); setDetails(""); setUrg("normal");
     if (photoPreview) URL.revokeObjectURL(photoPreview);

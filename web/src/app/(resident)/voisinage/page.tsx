@@ -29,7 +29,7 @@ function filterByTime(posts: Post[], period: TimePeriod): Post[] {
 }
 
 export default function VoisinageScreen() {
-  const { posts, currentUser } = useData();
+  const { posts, currentUser, buildingId } = useData();
   const { lang, i } = useLang();
   const T = i.voisinage;
   const router = useRouter();
@@ -110,7 +110,7 @@ export default function VoisinageScreen() {
       const { uploadPostImage } = await import("@/lib/storage");
       imageUrl = await uploadPostImage(mediaFile);
     }
-    await createPost({ author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl });
+    await createPost({ buildingId: buildingId!, author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl });
     setComposer(false); setText(""); setPostType(null); setToast(true);
     clearMedia();
     router.refresh();

@@ -1,9 +1,11 @@
 import { fetchSyndicData } from "@/lib/syndic";
+import { requireSyndicSession } from "@/lib/auth";
 import { VoisinageView } from "./VoisinageView";
 
 export const dynamic = "force-dynamic";
 
 export default async function VoisinageSyndicPage() {
-  const d = await fetchSyndicData();
+  const session = await requireSyndicSession();
+  const d = await fetchSyndicData(session.buildingId);
   return <VoisinageView posts={d.posts} buildingName={d.building.name} />;
 }

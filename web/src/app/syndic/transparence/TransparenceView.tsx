@@ -23,10 +23,12 @@ const PER_PAGE = 15;
 export function TransparenceView({
   ledger,
   balance,
+  buildingId,
   expenseCategories,
 }: {
   ledger: Entry[];
   balance: number;
+  buildingId: string;
   expenseCategories?: string[] | null;
 }) {
   const CATEGORIES = expenseCategories?.length ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES;
@@ -130,7 +132,7 @@ export function TransparenceView({
     const amount = parseFloat(form.amount);
     if (isNaN(amount) || amount <= 0) { setFormError("Le montant doit être supérieur à 0."); return; }
     startTransition(async () => {
-      const res = await createLedgerEntry({ type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
+      const res = await createLedgerEntry({ buildingId, type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
       if (res.error) { setFormError("Erreur lors de l'enregistrement. Réessayez."); }
       else { flash("Opération enregistrée"); setModal(null); router.refresh(); }
     });

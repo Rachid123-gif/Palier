@@ -1,9 +1,11 @@
-import { supabase, DEMO_BUILDING_ID, DEMO_PROFILE_ID, DEMO_UNIT_ID } from "./supabase";
+import { supabase } from "./supabase";
 import type { Urgency, Comment } from "./types";
 
 /** Écritures résident → Supabase (le backoffice syndic les exploite). */
 
 export async function createIncident(input: {
+  buildingId: string;
+  unitId: string;
   category: string;
   title: string;
   details: string;
@@ -12,8 +14,8 @@ export async function createIncident(input: {
   imageUrl?: string;
 }) {
   return supabase.from("incidents").insert({
-    building_id: DEMO_BUILDING_ID,
-    unit_id: DEMO_UNIT_ID,
+    building_id: input.buildingId,
+    unit_id: input.unitId,
     reporter_name: input.reporter,
     category: input.category,
     title: input.title,
@@ -25,6 +27,7 @@ export async function createIncident(input: {
 }
 
 export async function createPost(input: {
+  buildingId: string;
   author: string;
   avatarColor: string;
   body: string;
@@ -36,7 +39,7 @@ export async function createPost(input: {
   imageUrl?: string;
 }) {
   return supabase.from("posts").insert({
-    building_id: DEMO_BUILDING_ID,
+    building_id: input.buildingId,
     author_name: input.author,
     avatar_color: input.avatarColor,
     role: "resident",
@@ -52,14 +55,16 @@ export async function createPost(input: {
 
 export async function createBooking(input: {
   providerId: string;
+  profileId: string;
+  buildingId: string;
   categorySlug: string;
   whenType: "now" | "today" | "scheduled";
   priceEstimate: number;
 }) {
   return supabase.from("bookings").insert({
     provider_id: input.providerId,
-    profile_id: DEMO_PROFILE_ID,
-    building_id: DEMO_BUILDING_ID,
+    profile_id: input.profileId,
+    building_id: input.buildingId,
     category_slug: input.categorySlug,
     when_type: input.whenType,
     price_estimate: input.priceEstimate,
@@ -69,12 +74,13 @@ export async function createBooking(input: {
 }
 
 export async function createServiceRequest(input: {
+  profileId: string;
   categorySlug: string;
   citySlug: string;
   details?: string;
 }) {
   return supabase.from("service_requests").insert({
-    profile_id: DEMO_PROFILE_ID,
+    profile_id: input.profileId,
     category_slug: input.categorySlug,
     city_slug: input.citySlug,
     details: input.details ?? null,
@@ -83,6 +89,7 @@ export async function createServiceRequest(input: {
 }
 
 export async function createLedgerEntry(input: {
+  buildingId: string;
   type: "in" | "out";
   label: string;
   amount: number;
@@ -90,7 +97,7 @@ export async function createLedgerEntry(input: {
   date: string;
 }) {
   return supabase.from("ledger_entries").insert({
-    building_id: DEMO_BUILDING_ID,
+    building_id: input.buildingId,
     type: input.type,
     label: input.label,
     amount: input.amount,
@@ -121,12 +128,13 @@ export async function deleteLedgerEntry(id: string) {
 }
 
 export async function logDunning(input: {
+  buildingId: string;
   unitId: string;
   channel: "push" | "sms" | "whatsapp" | "app";
   message: string;
 }) {
   return supabase.from("dunning_logs").insert({
-    building_id: DEMO_BUILDING_ID,
+    building_id: input.buildingId,
     unit_id: input.unitId,
     channel: input.channel,
     message: input.message,
@@ -135,6 +143,7 @@ export async function logDunning(input: {
 
 /** Envoyer une relance in-app (notification + dunning log) */
 export async function sendRelance(input: {
+  buildingId: string;
   unitId: string;
   profileId: string;
   title: string;
@@ -148,7 +157,7 @@ export async function sendRelance(input: {
       kind: "charge",
     }),
     supabase.from("dunning_logs").insert({
-      building_id: DEMO_BUILDING_ID,
+      building_id: input.buildingId,
       unit_id: input.unitId,
       channel: "app",
       message: input.body,
@@ -202,9 +211,9 @@ export async function likePost(postId: string) {
   return supabase.rpc("increment_like_count", { post_id_input: postId });
 }
 
-export async function recordPayment(items: { id: string; amount: number }[], method: string) {
+export async function recordPayment(profileId: string, items: { id: string; amount: number }[], method: string) {
   await supabase.from("payments").insert(
-    items.map((c) => ({ charge_id: c.id, profile_id: DEMO_PROFILE_ID, amount: c.amount, method, status: "paid" })),
+    items.map((c) => ({ charge_id: c.id, profile_id: profileId, amount: c.amount, method, status: "paid" })),
   );
   await Promise.all(
     items.map((c) => supabase.from("charges").update({ status: "paid", paid: c.amount }).eq("id", c.id)),
@@ -240,33 +249,6 @@ export async function listAccessCodes(buildingId: string) {
     .eq("role", "resident")
     .order("created_at", { ascending: false });
   return data ?? [];
-}
-
-/** Valider un code d'accès (onboarding) */
-export async function validateAccessCode(code: string, selectedRole: "resident" | "syndic") {
-  // Bypass local pour démo (à retirer quand la migration Supabase est exécutée)
-  const upper = code.trim().toUpperCase();
-  if (upper === "DEMO") {
-    return { valid: true, buildingId: DEMO_BUILDING_ID, role: selectedRole };
-  }
-
-  const { data } = await supabase
-    .from("access_codes")
-    .select("*")
-    .eq("code", upper)
-    .single();
-
-  if (!data) return { valid: false, error: "code_not_found" as const };
-  if (data.used_at) return { valid: false, error: "code_already_used" as const };
-  if (data.role !== selectedRole) return { valid: false, error: "wrong_role" as const, expectedRole: data.role };
-
-  // Marquer comme utilisé
-  await supabase
-    .from("access_codes")
-    .update({ used_at: new Date().toISOString() })
-    .eq("id", data.id);
-
-  return { valid: true, buildingId: data.building_id, role: data.role };
 }
 
 /** Supprimer un code non utilisé */
@@ -322,7 +304,7 @@ export async function addResident(input: {
 
   if (memberErr) return { error: "membership_error" };
 
-  // 5. Auto-generate unique access code
+  // 5. Auto-generate unique access code linked to profile
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   await supabase.from("access_codes").insert({
@@ -330,6 +312,7 @@ export async function addResident(input: {
     code,
     role: "resident",
     label: `${input.unit.trim().toUpperCase()} – ${input.name}`,
+    used_by: profile.id, // Link code to the profile
   });
 
   return { code };
@@ -506,4 +489,97 @@ export async function fetchResidentHistory(profileId: string, buildingId: string
     incidents: incRes.data ?? [],
     posts: postsRes.data ?? [],
   };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VOISINAGE — Modération syndic
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Supprimer un post (modération syndic) */
+export async function deletePost(postId: string) {
+  return supabase.from("posts").delete().eq("id", postId);
+}
+
+/** Épingler / Désépingler un post */
+export async function togglePinPost(postId: string, pinned: boolean) {
+  return supabase.from("posts").update({ pinned }).eq("id", postId);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INCIDENTS — Commentaires / discussion
+   ═══════════════════════════════════════════════════════════════ */
+
+export interface IncidentComment {
+  id: string;
+  incidentId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+  role: "resident" | "syndic";
+  createdAt: string;
+}
+
+export async function createIncidentComment(input: {
+  incidentId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+  role: "resident" | "syndic";
+}) {
+  const { error } = await supabase.from("incident_comments").insert({
+    incident_id: input.incidentId,
+    author_name: input.author,
+    avatar_color: input.avatarColor,
+    body: input.body,
+    role: input.role,
+  });
+  if (!error) {
+    await supabase.rpc("increment_incident_messages", { incident_id_input: input.incidentId });
+  }
+  return { error };
+}
+
+export async function fetchIncidentComments(incidentId: string): Promise<IncidentComment[]> {
+  const { data } = await supabase
+    .from("incident_comments")
+    .select("*")
+    .eq("incident_id", incidentId)
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    incidentId: r.incident_id as string,
+    author: r.author_name as string,
+    avatarColor: r.avatar_color as string,
+    body: r.body as string,
+    role: (r.role as "resident" | "syndic") ?? "resident",
+    createdAt: r.created_at as string,
+  }));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AG — Votes persistés en DB
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function castVote(input: {
+  assemblyId: string;
+  voteId: string;
+  profileId: string;
+  choice: string;
+}) {
+  return supabase.from("assembly_votes").upsert({
+    assembly_id: input.assemblyId,
+    vote_id: input.voteId,
+    profile_id: input.profileId,
+    choice: input.choice,
+  }, { onConflict: "assembly_id,vote_id,profile_id" });
+}
+
+export async function fetchMyVotes(assemblyId: string, profileId: string) {
+  const { data } = await supabase
+    .from("assembly_votes")
+    .select("vote_id, choice")
+    .eq("assembly_id", assemblyId)
+    .eq("profile_id", profileId);
+  return data ?? [];
 }
