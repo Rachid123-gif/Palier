@@ -99,6 +99,91 @@ export async function loginWithCode(
   return { ok: true };
 }
 
+/* ─── Register syndic (self-service) ─── */
+
+export async function registerSyndic(input: {
+  fullName: string;
+  phone: string;
+  buildingName: string;
+  city: string;
+  lotsCount: number;
+}): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+  const rl = checkRateLimit(`register:${ip}`, RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
+
+  const name = input.fullName.trim();
+  const phone = input.phone.trim();
+  const buildingName = input.buildingName.trim();
+  const city = input.city.trim();
+  const lots = Math.max(1, Math.min(500, input.lotsCount));
+
+  if (!name || !phone || !buildingName || !city) {
+    return { ok: false, error: "missing_fields" };
+  }
+
+  // 1. Create building
+  const { data: building, error: bErr } = await supabaseAdmin
+    .from("buildings")
+    .insert({
+      name: buildingName,
+      address: "",
+      city,
+      lots_count: lots,
+      syndic_name: name,
+      syndic_phone: phone,
+      balance: 0,
+      payment_rate: 0,
+    })
+    .select("id")
+    .single();
+  if (bErr || !building) return { ok: false, error: "creation_failed" };
+
+  // 2. Create profile
+  const { data: profile, error: pErr } = await supabaseAdmin
+    .from("profiles")
+    .insert({ full_name: name, phone })
+    .select("id")
+    .single();
+  if (pErr || !profile) return { ok: false, error: "creation_failed" };
+
+  // 3. Create membership
+  await supabaseAdmin.from("memberships").insert({
+    profile_id: profile.id,
+    building_id: building.id,
+    role: "syndic",
+    status: "active",
+  });
+
+  // 4. Generate access code
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "SYN-";
+  for (let j = 0; j < 5; j++) code += chars[Math.floor(Math.random() * chars.length)];
+
+  await supabaseAdmin.from("access_codes").insert({
+    building_id: building.id,
+    code,
+    role: "syndic",
+    label: `Syndic — ${name}`,
+    used_by: profile.id,
+    used_at: new Date().toISOString(),
+  });
+
+  // 5. Set session cookie (auto-login)
+  const session: SessionData = {
+    profileId: profile.id,
+    buildingId: building.id,
+    unitId: null,
+    role: "syndic",
+  };
+  const cookieStore = await cookies();
+  const token = await encodeSession(session);
+  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+
+  return { ok: true, accessCode: code };
+}
+
 /* ─── Switch building (multi-immeuble) ─── */
 
 export async function switchBuilding(buildingId: string) {

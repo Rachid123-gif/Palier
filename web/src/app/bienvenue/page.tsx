@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { loginWithCode } from "@/lib/auth";
+import { loginWithCode, registerSyndic } from "@/lib/auth";
 
 type Lang = "fr" | "ar";
 
@@ -48,6 +48,24 @@ const t = {
     roleResidentDesc: "Suivez vos charges, la vie de l'immeuble et trouvez des services.",
     roleSyndic: "Syndic",
     roleSyndicDesc: "Gérez la copropriété, le recouvrement et les incidents.",
+    // Syndic choice step
+    syndicChoiceTitle: "Espace syndic",
+    syndicChoiceDesc: "Déjà inscrit ou première visite ?",
+    syndicHasCode: "J'ai déjà un compte",
+    syndicHasCodeDesc: "Je me connecte avec mon code d'accès.",
+    syndicRegister: "C'est ma première fois",
+    syndicRegisterDesc: "Je m'inscris pour gérer mon immeuble sur Palier.",
+    // Register step
+    registerTitle: "Créer votre espace",
+    registerDesc: "Remplissez ces informations pour commencer à gérer votre immeuble.",
+    registerName: "Votre nom complet",
+    registerPhone: "Numéro de téléphone",
+    registerBuilding: "Nom de la résidence",
+    registerCity: "Ville",
+    registerLots: "Nombre de lots",
+    registerBtn: "Créer mon espace",
+    registerError: "Une erreur est survenue. Veuillez réessayer.",
+    registerSuccess: "Espace créé ! Redirection en cours…",
   },
   ar: {
     langLabel: "Français",
@@ -61,39 +79,63 @@ const t = {
       {
         icon: "Users",
         title: "جيرانك،\nمتصلون.",
-        desc: "إعلانات، تعاون، أحداث. ابق على اطلاع بحياة عمارتك.",
+        desc: "إعلانات، تعاون، أحداث. ابقَ على اطلاع بحياة عمارتك.",
       },
       {
         icon: "Wrench",
         title: "توصيات\nجيرانك.",
-        desc: "سباك، عاملة نظافة، كهربائي أو غيرهم. اكتشف المهنيين اللي جيرانك كيوصيو بهم.",
+        desc: "سباك، عاملة نظافة، كهربائي أو غيرهم. اكتشف المهنيين الذين يوصي بهم جيرانك.",
       },
     ],
     next: "التالي",
     start: "ابدأ",
     skip: "تخطي المقدمة",
     codeTitle: "رمز الدخول",
-    codeDescResident: "أدخل الرمز الذي أعطاك إياه السنديك للوصول إلى إقامتك.",
-    codeDescSyndic: "أدخل رمز التفعيل الذي توصلت به عند تسجيلك في بالييه.",
+    codeDescResident: "أدخل الرمز الذي منحك إياه السنديك للوصول إلى إقامتك.",
+    codeDescSyndic: "أدخل رمز التفعيل الذي تلقيته عند تسجيلك في بالييه.",
     codePlaceholder: "",
-    codeErrorResident: "رمز غير صحيح. تحقق من السنديك.",
+    codeErrorResident: "رمز غير صحيح. تحقق لدى السنديك.",
     codeErrorSyndic: "رمز غير صحيح. تحقق من بريدك الإلكتروني.",
-    codeInfoResident: "كل ساكن كيتوصل برمز خاص بيه من عند السنديك. إلا ما توصلتيش بيه، تواصل مع السنديك ديالك.",
-    codeInfoSyndic: "هاد الرمز توصلتي بيه من بالييه ملي تسجلتي. كل رمز كيتستعمل مرة وحدة.",
-    syndicWebNote: "لمزيد من الراحة، يمكنك أيضاً الوصول إلى مساحة السنديك من الكمبيوتر على ",
+    codeInfoResident: "كل ساكن يتلقى رمزاً خاصاً به من السنديك. إذا لم تتلقه، تواصل مع السنديك.",
+    codeInfoSyndic: "هذا الرمز أُرسل إليك من بالييه عند تسجيلك. كل رمز يُستخدم مرة واحدة.",
+    syndicWebNote: "لمزيد من الراحة، يمكنك أيضاً الوصول إلى مساحة السنديك من الحاسوب على ",
     codeBtn: "تأكيد الرمز",
     roleTitle: "أنت…",
     roleDesc: "اختر ملفك الشخصي للوصول إلى المساحة المناسبة.",
     roleResident: "ساكن",
     roleResidentDesc: "تابع مصاريفك، حياة العمارة، واعثر على خدمات.",
     roleSyndic: "سنديك",
-    roleSyndicDesc: "سيّر الملكية المشتركة، التحصيل والحوادث.",
+    roleSyndicDesc: "أدِر الملكية المشتركة، التحصيل والحوادث.",
+    // Syndic choice step
+    syndicChoiceTitle: "مساحة السنديك",
+    syndicChoiceDesc: "مسجّل أم أول مرة؟",
+    syndicHasCode: "لديّ حساب",
+    syndicHasCodeDesc: "أدخل برمز الوصول الخاص بي.",
+    syndicRegister: "هذه أول مرة",
+    syndicRegisterDesc: "أسجّل لإدارة عمارتي على بالييه.",
+    // Register step
+    registerTitle: "أنشئ مساحتك",
+    registerDesc: "املأ هذه المعلومات لبدء إدارة عمارتك.",
+    registerName: "الاسم الكامل",
+    registerPhone: "رقم الهاتف",
+    registerBuilding: "اسم الإقامة",
+    registerCity: "المدينة",
+    registerLots: "عدد الشقق",
+    registerBtn: "إنشاء مساحتي",
+    registerError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    registerSuccess: "تم الإنشاء! جارٍ التحويل…",
   },
 };
 
 const slideColors = ["bg-palier-600", "bg-[#c5604f]", "bg-[#d9961f]"];
 
-type Step = "lang" | "welcome" | "role" | "code";
+const cities = [
+  "Casablanca", "Rabat", "Marrakech", "Tanger", "Fès", "Agadir", "Meknès",
+  "Oujda", "Kénitra", "Tétouan", "Salé", "Mohammedia", "El Jadida",
+  "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
+];
+
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register";
 
 export default function BienvenuePage() {
   const router = useRouter();
@@ -108,6 +150,15 @@ export default function BienvenuePage() {
 
   const [role, setRole] = useState<"resident" | "syndic" | null>(null);
 
+  // Registration form state
+  const [regName, setRegName] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regBuilding, setRegBuilding] = useState("");
+  const [regCity, setRegCity] = useState("");
+  const [regLots, setRegLots] = useState("");
+  const [regError, setRegError] = useState("");
+  const [registering, setRegistering] = useState(false);
+
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
     else setStep("role");
@@ -115,7 +166,11 @@ export default function BienvenuePage() {
 
   function pickRole(r: "resident" | "syndic") {
     setRole(r);
-    setStep("code");
+    if (r === "syndic") {
+      setStep("syndic-choice");
+    } else {
+      setStep("code");
+    }
   }
 
   const [validating, setValidating] = useState(false);
@@ -155,14 +210,49 @@ export default function BienvenuePage() {
     }
   }
 
+  async function handleRegister() {
+    if (!regName.trim() || !regPhone.trim() || !regBuilding.trim() || !regCity || !regLots) return;
+    setRegistering(true);
+    setRegError("");
+
+    try {
+      const result = await registerSyndic({
+        fullName: regName.trim(),
+        phone: regPhone.trim(),
+        buildingName: regBuilding.trim(),
+        city: regCity,
+        lotsCount: parseInt(regLots) || 1,
+      });
+
+      if (result.ok) {
+        localStorage.setItem("palier_lang", lang);
+        router.push("/syndic");
+      } else {
+        setRegError(i.registerError);
+      }
+    } catch {
+      setRegError(i.registerError);
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && regCity && regLots;
+
   // Bouton de langue (coin haut droit)
   const langBtn = (
     <button
-      onClick={() => { setLang(i.langSwitch); setCodeError(""); }}
+      onClick={() => { setLang(i.langSwitch); setCodeError(""); setRegError(""); }}
       className="tap flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-soft shadow-sm"
     >
       <Icon name="Globe" className="h-3.5 w-3.5" />
       {lang === "fr" ? <span style={{ fontFamily: "var(--font-cairo), sans-serif" }}>{i.langLabel}</span> : i.langLabel}
+    </button>
+  );
+
+  const backBtn = (onBack: () => void) => (
+    <button onClick={onBack} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
+      <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
     </button>
   );
 
@@ -277,6 +367,213 @@ export default function BienvenuePage() {
     );
   }
 
+  // ─── SÉLECTION DU RÔLE ──────────────────────────────────
+  if (step === "role") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => { setStep("welcome"); setSlide(i.slides.length - 1); })}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="Users" className="h-8 w-8 text-palier-600" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.roleTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{i.roleDesc}</p>
+
+          <div className="mt-8 space-y-3">
+            <button
+              onClick={() => pickRole("resident")}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-100">
+                <Icon name="Building2" className="h-7 w-7 text-palier-600" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[17px] font-bold text-ink">{i.roleResident}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.roleResidentDesc}</p>
+              </div>
+              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
+            </button>
+
+            <button
+              onClick={() => pickRole("syndic")}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fbf0d8]">
+                <Icon name="ShieldCheck" className="h-7 w-7 text-[#d9961f]" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[17px] font-bold text-ink">{i.roleSyndic}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.roleSyndicDesc}</p>
+              </div>
+              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── CHOIX SYNDIC : code existant ou inscription ──────────
+  if (step === "syndic-choice") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => setStep("role"))}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fbf0d8]">
+            <Icon name="ShieldCheck" className="h-8 w-8 text-[#d9961f]" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.syndicChoiceTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{i.syndicChoiceDesc}</p>
+
+          <div className="mt-8 space-y-3">
+            {/* Option 1 : J'ai un code */}
+            <button
+              onClick={() => setStep("code")}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-100">
+                <Icon name="KeyRound" className="h-7 w-7 text-palier-600" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[17px] font-bold text-ink">{i.syndicHasCode}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.syndicHasCodeDesc}</p>
+              </div>
+              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
+            </button>
+
+            {/* Option 2 : Inscrire mon immeuble */}
+            <button
+              onClick={() => setStep("register")}
+              className="tap flex w-full items-center gap-4 rounded-2xl border-2 border-palier-200 bg-palier-50/50 p-4 text-start shadow-card"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-600">
+                <Icon name="CirclePlus" className="h-7 w-7 text-white" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[17px] font-bold text-ink">{i.syndicRegister}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.syndicRegisterDesc}</p>
+              </div>
+              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── INSCRIPTION SYNDIC ────────────────────────────────────
+  if (step === "register") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => setStep("syndic-choice"))}
+          {langBtn}
+        </div>
+
+        <div className="no-scrollbar flex-1 overflow-y-auto px-6 pb-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="Building2" className="h-7 w-7 text-palier-600" />
+          </div>
+
+          <h1 className="mt-4 text-[22px] font-bold tracking-tight text-ink">{i.registerTitle}</h1>
+          <p className="mt-1 text-[13px] leading-snug text-ink-soft">{i.registerDesc}</p>
+
+          <div className="mt-6 space-y-3">
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerName}</label>
+              <input
+                type="text"
+                value={regName}
+                onChange={(e) => setRegName(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerPhone}</label>
+              <input
+                type="tel"
+                value={regPhone}
+                onChange={(e) => setRegPhone(e.target.value)}
+                placeholder="06XXXXXXXX"
+                dir="ltr"
+                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerBuilding}</label>
+              <input
+                type="text"
+                value={regBuilding}
+                onChange={(e) => setRegBuilding(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerCity}</label>
+              <select
+                value={regCity}
+                onChange={(e) => setRegCity(e.target.value)}
+                className="w-full appearance-none rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+              >
+                <option value="">—</option>
+                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerLots}</label>
+              <input
+                type="number"
+                value={regLots}
+                onChange={(e) => setRegLots(e.target.value)}
+                min="1"
+                max="500"
+                dir="ltr"
+                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+              />
+            </div>
+          </div>
+
+          {regError && (
+            <p className="mt-3 flex items-center gap-1.5 text-[13px] text-red-500">
+              <Icon name="CircleAlert" className="h-4 w-4" /> {regError}
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 pb-10 pt-2">
+          <button
+            onClick={handleRegister}
+            disabled={!regFormValid || registering}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!regFormValid || registering ? "opacity-50" : ""}`}
+          >
+            {registering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
+            {registering ? i.registerSuccess : i.registerBtn}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── CODE D'ACCÈS ────────────────────────────────────────
   if (step === "code") {
     return (
@@ -284,9 +581,7 @@ export default function BienvenuePage() {
         <StatusBar />
 
         <div className="flex items-center justify-between px-6 pt-6">
-          <button onClick={() => setStep("role")} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-            <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
-          </button>
+          {backBtn(() => setStep(role === "syndic" ? "syndic-choice" : "role"))}
           {langBtn}
         </div>
 
@@ -336,63 +631,6 @@ export default function BienvenuePage() {
           >
             {validating ? <><Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> </> : null}{i.codeBtn}
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── SÉLECTION DU RÔLE ──────────────────────────────────
-  if (step === "role") {
-    return (
-      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
-
-        <div className="flex items-center justify-between px-6 pt-6">
-          <button onClick={() => { setStep("welcome"); setSlide(i.slides.length - 1); }} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
-            <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
-          </button>
-          {langBtn}
-        </div>
-
-        <div className="flex flex-1 flex-col justify-center px-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
-            <Icon name="Users" className="h-8 w-8 text-palier-600" />
-          </div>
-
-          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.roleTitle}</h1>
-          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{i.roleDesc}</p>
-
-          <div className="mt-8 space-y-3">
-            {/* Résident */}
-            <button
-              onClick={() => pickRole("resident")}
-              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-100">
-                <Icon name="Building2" className="h-7 w-7 text-palier-600" strokeWidth={1.8} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[17px] font-bold text-ink">{i.roleResident}</p>
-                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.roleResidentDesc}</p>
-              </div>
-              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
-            </button>
-
-            {/* Syndic */}
-            <button
-              onClick={() => pickRole("syndic")}
-              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fbf0d8]">
-                <Icon name="ShieldCheck" className="h-7 w-7 text-[#d9961f]" strokeWidth={1.8} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[17px] font-bold text-ink">{i.roleSyndic}</p>
-                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.roleSyndicDesc}</p>
-              </div>
-              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
-            </button>
-          </div>
         </div>
       </div>
     );
