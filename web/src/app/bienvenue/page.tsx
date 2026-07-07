@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { loginWithCode, registerSyndic } from "@/lib/auth";
+import { loginWithCode, registerSyndic, recoverSyndicAccess } from "@/lib/auth";
 
 type Lang = "fr" | "ar";
 
@@ -66,6 +66,14 @@ const t = {
     registerBtn: "Créer mon espace",
     registerError: "Une erreur est survenue. Veuillez réessayer.",
     registerSuccess: "Espace créé ! Redirection en cours…",
+    // Recover step
+    recoverLink: "Code oublié ?",
+    recoverTitle: "Récupérer mon accès",
+    recoverDesc: "Entrez le numéro de téléphone utilisé lors de votre inscription.",
+    recoverPhone: "Numéro de téléphone",
+    recoverBtn: "Me connecter",
+    recoverError: "Aucun compte syndic trouvé avec ce numéro.",
+    recoverSuccess: "Compte trouvé ! Redirection…",
   },
   ar: {
     langLabel: "Français",
@@ -124,6 +132,14 @@ const t = {
     registerBtn: "إنشاء مساحتي",
     registerError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
     registerSuccess: "تم الإنشاء! جارٍ التحويل…",
+    // Recover step
+    recoverLink: "نسيت الرمز؟",
+    recoverTitle: "استرجاع الوصول",
+    recoverDesc: "أدخل رقم الهاتف الذي استخدمته عند التسجيل.",
+    recoverPhone: "رقم الهاتف",
+    recoverBtn: "تسجيل الدخول",
+    recoverError: "لم يُعثر على حساب سنديك بهذا الرقم.",
+    recoverSuccess: "تم العثور على الحساب! جارٍ التحويل…",
   },
 };
 
@@ -135,7 +151,7 @@ const cities = [
   "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
 ];
 
-type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register";
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "recover";
 
 export default function BienvenuePage() {
   const router = useRouter();
@@ -159,6 +175,11 @@ export default function BienvenuePage() {
   const [regLots, setRegLots] = useState("");
   const [regError, setRegError] = useState("");
   const [registering, setRegistering] = useState(false);
+
+  // Recovery state
+  const [recoverPhone, setRecoverPhone] = useState("");
+  const [recoverError, setRecoverError] = useState("");
+  const [recovering, setRecovering] = useState(false);
 
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
@@ -235,6 +256,25 @@ export default function BienvenuePage() {
       setRegError(i.registerError);
     } finally {
       setRegistering(false);
+    }
+  }
+
+  async function handleRecover() {
+    if (!recoverPhone.trim()) return;
+    setRecovering(true);
+    setRecoverError("");
+    try {
+      const result = await recoverSyndicAccess(recoverPhone.trim());
+      if (result.ok) {
+        localStorage.setItem("palier_lang", lang);
+        router.push("/syndic");
+      } else {
+        setRecoverError(i.recoverError);
+      }
+    } catch {
+      setRecoverError(i.recoverError);
+    } finally {
+      setRecovering(false);
     }
   }
 
@@ -652,6 +692,65 @@ export default function BienvenuePage() {
             className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!code.trim() || validating ? "opacity-50" : ""}`}
           >
             {validating ? <><Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> </> : null}{i.codeBtn}
+          </button>
+          {role === "syndic" && (
+            <button
+              onClick={() => { setRecoverPhone(""); setRecoverError(""); setStep("recover"); }}
+              className="tap mt-3 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
+            >
+              {i.recoverLink}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── RÉCUPÉRATION SYNDIC ───────────────────────────────────
+  if (step === "recover") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => setStep("code"))}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="Phone" className="h-8 w-8 text-palier-600" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.recoverTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{i.recoverDesc}</p>
+
+          <div className="mt-6">
+            <input
+              type="tel"
+              value={recoverPhone}
+              onChange={(e) => { setRecoverPhone(e.target.value); setRecoverError(""); }}
+              placeholder="06XXXXXXXX"
+              autoFocus
+              dir="ltr"
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.1em] text-ink outline-none placeholder:text-[14px] placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400"
+            />
+            {recoverError && (
+              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
+                <Icon name="CircleAlert" className="h-4 w-4" /> {recoverError}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={handleRecover}
+            disabled={!recoverPhone.trim() || recovering}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!recoverPhone.trim() || recovering ? "opacity-50" : ""}`}
+          >
+            {recovering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
+            {recovering ? i.recoverSuccess : i.recoverBtn}
           </button>
         </div>
       </div>

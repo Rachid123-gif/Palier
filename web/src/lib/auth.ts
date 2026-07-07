@@ -184,6 +184,52 @@ export async function registerSyndic(input: {
   return { ok: true, accessCode: code };
 }
 
+/* ─── Recover syndic access (forgot code) ─── */
+
+export async function recoverSyndicAccess(
+  phone: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+  const rl = checkRateLimit(`recover:${ip}`, RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
+
+  const cleaned = phone.trim();
+  if (!cleaned) return { ok: false, error: "missing_phone" };
+
+  // Find profile by phone
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("phone", cleaned)
+    .single();
+  if (!profile) return { ok: false, error: "not_found" };
+
+  // Check syndic membership
+  const { data: membership } = await supabaseAdmin
+    .from("memberships")
+    .select("building_id, unit_id")
+    .eq("profile_id", profile.id)
+    .eq("role", "syndic")
+    .eq("status", "active")
+    .limit(1)
+    .single();
+  if (!membership) return { ok: false, error: "not_found" };
+
+  // Auto-login: set session
+  const session: SessionData = {
+    profileId: profile.id,
+    buildingId: membership.building_id,
+    unitId: membership.unit_id,
+    role: "syndic",
+  };
+  const cookieStore = await cookies();
+  const token = await encodeSession(session);
+  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+
+  return { ok: true };
+}
+
 /* ─── Switch building (multi-immeuble) ─── */
 
 export async function switchBuilding(buildingId: string) {

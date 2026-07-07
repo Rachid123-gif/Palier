@@ -427,6 +427,55 @@ export async function addResident(input: {
   return { code };
 }
 
+/** Régénérer le code d'accès d'un résident (invalide l'ancien) */
+export async function regenerateResidentCode(profileId: string): Promise<{ error?: string; code?: string }> {
+  const session = await requireAuth({ role: "syndic" });
+
+  // Verify resident belongs to this building
+  const { data: membership } = await supabaseAdmin
+    .from("memberships")
+    .select("unit_id")
+    .eq("profile_id", profileId)
+    .eq("building_id", session.buildingId)
+    .eq("status", "active")
+    .single();
+  if (!membership) return { error: "not_found" };
+
+  // Get resident name for label
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", profileId)
+    .single();
+
+  // Get unit ref
+  const { data: unit } = membership.unit_id
+    ? await supabaseAdmin.from("units").select("ref").eq("id", membership.unit_id).single()
+    : { data: null };
+
+  // Invalidate all existing unused codes for this resident in this building
+  await supabaseAdmin
+    .from("access_codes")
+    .update({ used_at: new Date().toISOString() })
+    .eq("building_id", session.buildingId)
+    .eq("used_by", profileId)
+    .eq("role", "resident")
+    .is("used_at", null);
+
+  // Generate new code
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  await supabaseAdmin.from("access_codes").insert({
+    building_id: session.buildingId,
+    code,
+    role: "resident",
+    label: `${unit?.ref ?? "—"} – ${profile?.full_name ?? "Résident"}`,
+    used_by: profileId,
+  });
+
+  return { code };
+}
+
 /** Marquer un incident comme en cours de traitement */
 export async function markIncidentInProgress(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
