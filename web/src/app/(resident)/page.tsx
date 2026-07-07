@@ -78,15 +78,29 @@ export default function HomeScreen() {
             </div>
           </Link>
         ) : (
-          <div className="flex items-center gap-3 rounded-3xl border border-success/20 bg-success-soft p-5">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15">
-              <Icon name="CircleCheck" className="h-6 w-6 text-success" strokeWidth={2.2} />
-            </span>
-            <div>
-              <p className="text-[17px] font-bold text-ink">{i.home.vousEtesAJour}</p>
-              <p className="text-[13px] text-ink-soft">{i.home.aucuneCharge}</p>
+          <Link href="/charges" className="tap block">
+            <div className="bg-paywall relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
+              <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
+              <div className="absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-white/5" />
+              <div className="relative">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+                  <Icon name="CircleCheck" className="h-3.5 w-3.5" /> {i.home.vousEtesAJour}
+                </span>
+                <div className="mt-3">
+                  <span className="inline-flex items-end gap-1.5" dir="ltr">
+                    <span className="text-[44px] font-bold leading-none tracking-tight">0</span>
+                    <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+                  </span>
+                </div>
+                <p className="mt-1 text-[13px] opacity-80">
+                  {i.home.aucuneCharge}
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700">
+                  {i.home.voirCharges} <Icon name={isAr ? "ArrowLeft" : "ArrowRight"} className="h-4 w-4" />
+                </div>
+              </div>
             </div>
-          </div>
+          </Link>
         )}
 
         {/* ═══════ Transparence financière ═══════ */}
@@ -167,11 +181,12 @@ export default function HomeScreen() {
             )}
 
             {openIncidents.length === 0 && !latestAnnouncement && !nextEvent && (
-              <div className="flex items-center gap-3 p-3.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-success-soft">
-                  <Icon name="CheckCircle" className="h-[18px] w-[18px] text-success" strokeWidth={2.3} />
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                  <Icon name="Smile" className="h-6 w-6 text-emerald-600" strokeWidth={2} />
                 </span>
-                <p className="text-sm font-medium text-ink-soft">{i.home.toutEstCalme}</p>
+                <p className="text-[15px] font-semibold text-ink">{i.home.toutEstCalme}</p>
+                <p className="text-[12px] text-ink-faint">{i.home.toutEstCalmeSub}</p>
               </div>
             )}
           </div>

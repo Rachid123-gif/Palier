@@ -156,7 +156,7 @@ export async function registerSyndic(input: {
     status: "active",
   });
 
-  // 4. Generate access code
+  // 4. Generate access code (best-effort — table may not exist yet)
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "SYN-";
   for (let j = 0; j < 5; j++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -168,7 +168,7 @@ export async function registerSyndic(input: {
     label: `Syndic — ${name}`,
     used_by: profile.id,
     used_at: new Date().toISOString(),
-  });
+  }).then(() => {}, () => {});
 
   // 5. Set session cookie (auto-login)
   const session: SessionData = {

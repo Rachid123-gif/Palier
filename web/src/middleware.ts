@@ -35,6 +35,8 @@ export async function middleware(request: NextRequest) {
 
   // API routes — require valid session (except internal server-to-server)
   if (pathname.startsWith("/api/")) {
+    // Dev-login bypass (disabled in production by the route itself)
+    if (pathname === "/api/dev-login") return NextResponse.next();
     const internalSecret = process.env.INTERNAL_API_SECRET;
     const requestSecret = request.headers.get("x-internal-secret");
     if (internalSecret && requestSecret === internalSecret) {
