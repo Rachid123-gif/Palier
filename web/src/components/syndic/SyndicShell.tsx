@@ -6,6 +6,8 @@ import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark } from "@/components/brand/Logo";
 import { logout } from "@/lib/auth";
+import { BuildingSwitcher } from "./BuildingSwitcher";
+import type { UserBuilding } from "@/lib/queries";
 
 type NavItem = { href: string; label: string; icon: string; exact?: boolean; badgeKey?: string };
 type NavSection = { title?: string; items: NavItem[] };
@@ -31,6 +33,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
       { href: "/syndic/budget", label: "Budget", icon: "Calculator" },
+      { href: "/syndic/comptabilite", label: "Comptabilité", icon: "Receipt" },
     ],
   },
   {
@@ -54,11 +57,13 @@ const navSections: NavSection[] = [
 const nav = navSections.flatMap((s) => s.items);
 
 export function SyndicShell({
-  building, badges, syndicName, children,
+  building, badges, syndicName, buildings, currentBuildingId, children,
 }: {
   building: { name: string; city: string };
   badges: { dunning: number; incidents: number };
   syndicName: string;
+  buildings: UserBuilding[];
+  currentBuildingId: string;
   children: React.ReactNode;
 }) {
   const path = usePathname();
@@ -66,15 +71,16 @@ export function SyndicShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <div className="flex min-h-dvh bg-cream text-ink">
+      <a href="#main-content" className="skip-link">Aller au contenu principal</a>
       {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-[244px] shrink-0 flex-col border-r border-black/[0.06] bg-cream-card px-3 py-4 md:flex">
+      <aside aria-label="Navigation syndic" className="sticky top-0 hidden h-dvh w-[244px] shrink-0 flex-col border-r border-black/[0.06] bg-cream-card px-3 py-4 md:flex">
         <div className="flex items-center gap-2 px-2 pb-4">
           <LogoMark size={28} />
           <span className="text-[14px] font-semibold text-ink">Palier</span>
           <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
         </div>
 
-        <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
+        <nav aria-label="Menu principal" className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
           {navSections.map((section, si) => (
             <div key={si}>
               {section.title && (
@@ -112,11 +118,7 @@ export function SyndicShell({
         </nav>
 
         <div className="border-t border-black/[0.06] pt-3">
-          <div className="rounded-lg bg-black/[0.03] px-2.5 py-2">
-            <p className="text-[11px] font-medium text-ink-soft">Résidence</p>
-            <p className="text-[13px] font-semibold text-ink">{building.name}</p>
-            <p className="text-[11px] text-ink-soft">{building.city}</p>
-          </div>
+          <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />
           <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
               {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -140,12 +142,12 @@ export function SyndicShell({
                 <span className="text-[14px] font-semibold text-ink">Palier</span>
                 <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
+              <button onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
                 <Icon name="X" className="h-5 w-5" strokeWidth={1.8} />
               </button>
             </div>
 
-            <nav className="no-scrollbar flex-1 space-y-px overflow-y-auto px-3">
+            <nav aria-label="Menu mobile" className="no-scrollbar flex-1 space-y-px overflow-y-auto px-3">
               {nav.map((n) => {
                 const active = n.exact ? path === n.href : path.startsWith(n.href);
                 const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
@@ -177,11 +179,7 @@ export function SyndicShell({
             </nav>
 
             <div className="border-t border-black/[0.06] px-3 pt-3 pb-4">
-              <div className="rounded-lg bg-black/[0.03] px-2.5 py-2">
-                <p className="text-[11px] font-medium text-ink-soft">Résidence</p>
-                <p className="text-[13px] font-semibold text-ink">{building.name}</p>
-                <p className="text-[11px] text-ink-soft">{building.city}</p>
-              </div>
+              <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />
               <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
                   {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -195,13 +193,13 @@ export function SyndicShell({
       )}
 
       {/* Main */}
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main id="main-content" className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-between border-b border-black/[0.06] bg-cream-card px-4 py-2.5 md:hidden">
           <div className="flex items-center gap-2">
             <LogoMark size={24} />
             <span className="text-[14px] font-semibold text-ink">Palier</span>
           </div>
-          <button onClick={() => setMobileOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
+          <button onClick={() => setMobileOpen(true)} aria-label="Ouvrir le menu" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
             <Icon name="Menu" className="h-5 w-5" strokeWidth={1.8} />
           </button>
         </div>

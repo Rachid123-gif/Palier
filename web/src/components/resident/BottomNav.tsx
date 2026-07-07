@@ -17,7 +17,7 @@ export function BottomNav() {
   const path = usePathname();
   const { i } = useLang();
   return (
-    <nav className="safe-bottom absolute inset-x-0 bottom-0 z-40 border-t border-black/5 bg-cream-card/95 px-2 pt-2 backdrop-blur-xl">
+    <nav aria-label="Navigation principale" role="navigation" className="safe-bottom absolute inset-x-0 bottom-0 z-40 border-t border-black/5 bg-cream-card/95 px-2 pt-2 backdrop-blur-xl">
       <ul className="flex items-stretch justify-between">
         {tabKeys.map((t) => {
           const active = t.href === "/" ? path === "/" : path.startsWith(t.href);

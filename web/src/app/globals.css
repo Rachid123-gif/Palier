@@ -112,6 +112,74 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE — Overrides via .dark class (next-themes)
+   ═══════════════════════════════════════════════════════════════ */
+
+.dark {
+  color-scheme: dark;
+
+  --color-cream: #0f1714;
+  --color-cream-card: #1a2420;
+  --color-sand: #243029;
+
+  --color-ink: #e8ede9;
+  --color-ink-soft: #9aaba3;
+  --color-ink-faint: #5f7169;
+
+  --color-palier-50: #0d2a22;
+  --color-palier-100: #133830;
+  --color-palier-600: #45937e;
+  --color-palier-700: #71b3a0;
+
+  --color-success-soft: #0d2a1e;
+  --color-warning-soft: #2a2210;
+  --color-danger-soft: #2a1210;
+  --color-info-soft: #10192a;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 8px 30px -8px rgba(0, 0, 0, 0.6);
+  --shadow-hero: 0 24px 48px -20px rgba(0, 0, 0, 0.8);
+}
+
+.dark body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+/* Dark mode skeleton */
+.dark .skeleton {
+  background: linear-gradient(90deg, #1a2420 0px, #243029 200px, #1a2420 400px);
+  background-size: 800px 100%;
+}
+
+/* Dark card override */
+.dark .card {
+  background: var(--color-cream-card);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode borders */
+.dark [class*="border-black/"] {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode bg overrides for common patterns */
+.dark .bg-cream { background-color: var(--color-cream); }
+.dark .bg-cream-card { background-color: var(--color-cream-card); }
+.dark .bg-sand { background-color: var(--color-sand); }
+
+/* Dark mode text overrides */
+.dark .text-ink { color: var(--color-ink); }
+.dark .text-ink-soft { color: var(--color-ink-soft); }
+.dark .text-ink-faint { color: var(--color-ink-faint); }
+
+/* Dark mode for bg-black/[0.0x] patterns (used extensively) */
+.dark [class*="bg-black/[0.0"] { background-color: rgba(255, 255, 255, 0.06); }
+.dark [class*="bg-black/[0.03]"] { background-color: rgba(255, 255, 255, 0.04); }
+.dark [class*="bg-black/[0.04]"] { background-color: rgba(255, 255, 255, 0.06); }
+.dark [class*="bg-black/[0.06]"] { background-color: rgba(255, 255, 255, 0.08); }
+
 /* Arabic: utiliser Cairo pour un rendu lisible et cohérent */
 [dir="rtl"] {
   font-family: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
@@ -282,4 +350,47 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .orb-a, .orb-b, .orb-c, .orb-rotor, .watermark, .shimmer::after, .cta-breathe, .glow-halo { animation: none !important; }
   .hero-in, .page-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* =========================================================================
+   ACCESSIBILITÉ — Focus visible, skip navigation, semantic helpers
+   ========================================================================= */
+
+/* Focus ring visible uniquement au clavier (pas au clic) */
+:focus-visible {
+  outline: 2px solid var(--color-palier-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip-to-content link (sr-only until focused) */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--color-palier-600);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
+/* Screen reader only — visible to assistive tech */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

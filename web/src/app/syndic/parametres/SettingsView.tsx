@@ -3,8 +3,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { saveBuildingSettings, generateAccessCode } from "@/lib/actions";
-import { supabase } from "@/lib/supabase";
+import { submitFeedback } from "@/lib/actions";
 
 interface BuildingSettings {
   enabled_categories: string[] | null;
@@ -33,6 +34,7 @@ const sections = [
   { key: "categories", label: "Catégories", icon: "Tags" },
   { key: "codes", label: "Codes d'accès", icon: "KeyRound" },
   { key: "relance", label: "Relances", icon: "Bell" },
+  { key: "apparence", label: "Apparence", icon: "Palette" },
   { key: "feedback", label: "Retours", icon: "MessageCircle" },
 ] as const;
 
@@ -594,6 +596,15 @@ export function SettingsView({
             </Card>
           )}
 
+          {/* ═══ APPARENCE ═══ */}
+          {activeSection === "apparence" && (
+            <Card>
+              <h3 className="mb-1 text-[14px] font-semibold text-ink">Mode d&apos;affichage</h3>
+              <p className="mb-4 text-[12px] text-ink-soft">Choisissez le thème visuel de l&apos;interface.</p>
+              <ThemeToggle />
+            </Card>
+          )}
+
           {/* ═══ RETOURS & SUGGESTIONS ═══ */}
           {activeSection === "feedback" && (
             <>
@@ -722,15 +733,15 @@ export function SettingsView({
                       onClick={async () => {
                         if (!feedbackMsg.trim()) return;
                         setFeedbackSending(true);
-                        await supabase.from("feedback").insert({
-                          building_id: building.id,
+                        await submitFeedback({
+                          buildingId: building.id,
                           type: feedbackType,
                           message: feedbackMsg.trim(),
-                          sender_name: building.syndic || "Syndic",
-                          sender_phone: feedbackContact === "phone" ? (phone || null) : null,
-                          sender_email: feedbackContact === "email" ? (email || null) : null,
-                          contact_preference: feedbackContact,
-                          building_name: building.name,
+                          senderName: building.syndic || "Syndic",
+                          senderPhone: feedbackContact === "phone" ? (phone || null) : null,
+                          senderEmail: feedbackContact === "email" ? (email || null) : null,
+                          contactPreference: feedbackContact,
+                          buildingName: building.name,
                         });
                         setFeedbackSending(false);
                         setFeedbackSent(true);

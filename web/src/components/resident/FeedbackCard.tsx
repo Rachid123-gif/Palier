@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Sheet } from "@/components/ui/Sheet";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { supabase } from "@/lib/supabase";
+import { submitFeedback } from "@/lib/actions";
 
 type FeedbackType = "bug" | "suggestion" | "autre";
 
@@ -24,16 +24,16 @@ export function FeedbackCard() {
   async function handleSend() {
     if (!msg.trim()) return;
     setSending(true);
-    await supabase.from("feedback").insert({
-      building_id: buildingId,
+    await submitFeedback({
+      buildingId,
       type,
       message: msg.trim(),
-      sender_name: currentUser.name,
-      sender_phone: contact === "phone" ? (contactValue || null) : null,
-      sender_email: contact === "email" ? (contactValue || null) : null,
-      contact_preference: contact,
-      building_name: building.name,
-      sender_role: "resident",
+      senderName: currentUser.name,
+      senderPhone: contact === "phone" ? (contactValue || null) : null,
+      senderEmail: contact === "email" ? (contactValue || null) : null,
+      contactPreference: contact,
+      buildingName: building.name,
+      senderRole: "resident",
     });
     setSending(false);
     setSent(true);

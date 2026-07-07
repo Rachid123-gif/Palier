@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase-server";
 import type { Resolution, Budget, BudgetLine, InsurancePolicy, SyndicMandate, UrgentWork, CoproprieteRule } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -86,24 +86,32 @@ export interface SyndicData {
 export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
   const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, docRes, agRes, setRes, postRes,
     budgetRes, insRes, mandateRes, uwRes, ruleRes, resolutionRes] = await Promise.all([
-    supabase.from("buildings").select("*").eq("id", buildingId).single(),
-    supabase.from("units").select("*").eq("building_id", buildingId),
-    supabase.from("memberships").select("*").eq("building_id", buildingId),
-    supabase.from("profiles").select("*"),
-    supabase.from("charges").select("*").eq("building_id", buildingId),
-    supabase.from("dunning_logs").select("unit_id, sent_at").eq("building_id", buildingId).order("sent_at", { ascending: false }),
-    supabase.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
-    supabase.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
-    supabase.from("building_settings").select("*").eq("building_id", buildingId).single(),
-    supabase.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("budgets").select("*").eq("building_id", buildingId).order("fiscal_year", { ascending: false }),
-    supabase.from("insurance_policies").select("*").eq("building_id", buildingId).order("end_date", { ascending: false }),
-    supabase.from("syndic_mandates").select("*").eq("building_id", buildingId).order("elected_at", { ascending: false }).limit(1).single(),
-    supabase.from("urgent_works").select("*").eq("building_id", buildingId).order("declared_at", { ascending: false }),
-    supabase.from("copropriete_rules").select("*").eq("building_id", buildingId).single(),
-    supabase.from("assembly_resolutions").select("*").order("number", { ascending: true }),
+    supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
+    supabaseAdmin.from("units").select("*").eq("building_id", buildingId),
+    supabaseAdmin.from("memberships").select("*").eq("building_id", buildingId),
+    supabaseAdmin.from("memberships").select("profile_id").eq("building_id", buildingId).then(async (mRes) => {
+      const pids = (mRes.data ?? []).map((m: any) => m.profile_id).filter(Boolean);
+      if (!pids.length) return { data: [] };
+      return supabaseAdmin.from("profiles").select("*").in("id", pids);
+    }),
+    supabaseAdmin.from("charges").select("*").eq("building_id", buildingId),
+    supabaseAdmin.from("dunning_logs").select("unit_id, sent_at").eq("building_id", buildingId).order("sent_at", { ascending: false }),
+    supabaseAdmin.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
+    supabaseAdmin.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
+    supabaseAdmin.from("building_settings").select("*").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("budgets").select("*").eq("building_id", buildingId).order("fiscal_year", { ascending: false }),
+    supabaseAdmin.from("insurance_policies").select("*").eq("building_id", buildingId).order("end_date", { ascending: false }),
+    supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("elected_at", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("urgent_works").select("*").eq("building_id", buildingId).order("declared_at", { ascending: false }),
+    supabaseAdmin.from("copropriete_rules").select("*").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("assemblies").select("id").eq("building_id", buildingId).then(async (aRes) => {
+      const aids = (aRes.data ?? []).map((a: any) => a.id);
+      if (!aids.length) return { data: [] };
+      return supabaseAdmin.from("assembly_resolutions").select("*").in("assembly_id", aids).order("number", { ascending: true });
+    }),
   ]);
 
   const b = bRes.data;
@@ -186,23 +194,29 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
     })
     .filter(Boolean) as SyndicData["residents"];
 
-  // Map budgets with lines (fetch lines per budget)
+  // Map budgets with lines (single query instead of N+1)
   const budgetsRaw = budgetRes.data ?? [];
-  const budgets: Budget[] = [];
-  for (const bg of budgetsRaw) {
-    const { data: lines } = await supabase.from("budget_lines").select("*").eq("budget_id", bg.id).order("created_at", { ascending: true });
-    budgets.push({
-      id: bg.id, buildingId: bg.building_id, fiscalYear: bg.fiscal_year,
-      status: bg.status, totalAmount: Number(bg.total_amount),
-      reserveFundAmount: Number(bg.reserve_fund_amount),
-      approvedAt: bg.approved_at ?? undefined,
-      lines: (lines ?? []).map((l: any) => ({
-        id: l.id, accountCode: l.account_code ?? undefined, label: l.label,
-        category: l.category, amountBudgeted: Number(l.amount_budgeted),
-        amountActual: Number(l.amount_actual), notes: l.notes ?? undefined,
-      })),
+  const budgetIds = budgetsRaw.map((b: any) => b.id);
+  const { data: allBudgetLines } = budgetIds.length > 0
+    ? await supabaseAdmin.from("budget_lines").select("*").in("budget_id", budgetIds).order("created_at", { ascending: true })
+    : { data: [] };
+  const linesByBudget = new Map<string, BudgetLine[]>();
+  for (const l of (allBudgetLines ?? []) as any[]) {
+    const list = linesByBudget.get(l.budget_id) ?? [];
+    list.push({
+      id: l.id, accountCode: l.account_code ?? undefined, label: l.label,
+      category: l.category, amountBudgeted: Number(l.amount_budgeted),
+      amountActual: Number(l.amount_actual), notes: l.notes ?? undefined,
     });
+    linesByBudget.set(l.budget_id, list);
   }
+  const budgets: Budget[] = budgetsRaw.map((bg: any) => ({
+    id: bg.id, buildingId: bg.building_id, fiscalYear: bg.fiscal_year,
+    status: bg.status, totalAmount: Number(bg.total_amount),
+    reserveFundAmount: Number(bg.reserve_fund_amount),
+    approvedAt: bg.approved_at ?? undefined,
+    lines: linesByBudget.get(bg.id) ?? [],
+  }));
 
   // Map resolutions by assembly
   const resolutionsByAssembly = new Map<string, Resolution[]>();

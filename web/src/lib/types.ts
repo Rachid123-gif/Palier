@@ -208,6 +208,16 @@ export interface UrgentWork {
   invoiceUrl?: string;
 }
 
+export interface IncidentComment {
+  id: string;
+  incidentId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+  role: "resident" | "syndic";
+  createdAt: string;
+}
+
 export interface CoproprieteRule {
   id: string;
   title: string;

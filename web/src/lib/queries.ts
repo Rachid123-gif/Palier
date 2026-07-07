@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase-server";
 import type {
   Charge, Incident, Post, LedgerEntry, Provider, CurrentUser, BuildingKpis,
   DocFile, Assembly,
@@ -22,6 +22,8 @@ export interface AppData {
   documents: DocFile[];
   assembly: Assembly | null;
   notifications: { id: string; title: string; body: string; created_at: string; kind: string }[];
+  /** Multi-building: all buildings user has access to */
+  buildings: UserBuilding[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -65,21 +67,58 @@ const mapLedger = (r: any): LedgerEntry => ({
   date: r.entry_date, category: r.category, signed: r.signed,
 });
 
+/* ─── Multi-building: list all buildings a user has access to ─── */
+
+export interface UserBuilding {
+  buildingId: string;
+  name: string;
+  city: string;
+  role: "resident" | "syndic";
+  unitId: string | null;
+}
+
+export async function getUserBuildings(profileId: string): Promise<UserBuilding[]> {
+  const { data: memberships } = await supabaseAdmin
+    .from("memberships")
+    .select("building_id, role, unit_id")
+    .eq("profile_id", profileId)
+    .eq("status", "active");
+  if (!memberships || memberships.length === 0) return [];
+
+  const buildingIds = memberships.map((m) => m.building_id);
+  const { data: buildings } = await supabaseAdmin
+    .from("buildings")
+    .select("id, name, city")
+    .in("id", buildingIds);
+
+  const buildingMap = new Map((buildings ?? []).map((b) => [b.id, b]));
+  return memberships.map((m) => {
+    const b = buildingMap.get(m.building_id);
+    return {
+      buildingId: m.building_id,
+      name: b?.name ?? "Immeuble",
+      city: b?.city ?? "",
+      role: m.role as "resident" | "syndic",
+      unitId: m.unit_id,
+    };
+  });
+}
+
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
-export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null): Promise<AppData> {
+export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null, buildings?: UserBuilding[]): Promise<AppData> {
   const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
-    supabase.from("buildings").select("*").eq("id", buildingId).single(),
-    profileId ? supabase.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
-    unitId ? supabase.from("units").select("*").eq("id", unitId).single() : supabase.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
-    profileId ? supabase.from("memberships").select("role, status").eq("profile_id", profileId).eq("building_id", buildingId).single() : Promise.resolve({ data: null }),
-    unitId ? supabase.from("charges").select("*").eq("unit_id", unitId) : Promise.resolve({ data: [] }),
-    supabase.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
-    supabase.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("providers").select("*").eq("active", true),
-    profileId ? supabase.from("notifications").select("*").eq("profile_id", profileId).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
-    supabase.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabase.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
+    profileId ? supabaseAdmin.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
+    unitId ? supabaseAdmin.from("units").select("*").eq("id", unitId).single() : supabaseAdmin.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
+    profileId ? supabaseAdmin.from("memberships").select("role, status").eq("profile_id", profileId).eq("building_id", buildingId).single() : Promise.resolve({ data: null }),
+    unitId ? supabaseAdmin.from("charges").select("*").eq("unit_id", unitId) : Promise.resolve({ data: [] }),
+    supabaseAdmin.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
+    supabaseAdmin.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("providers").select("*").eq("active", true),
+    profileId ? supabaseAdmin.from("notifications").select("*").eq("profile_id", profileId).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    supabaseAdmin.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).single(),
   ]);
 
   const b = bRes.data;
@@ -136,5 +175,6 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
     } : null,
     notifications: (notifRes as any).data ?? [],
+    buildings: buildings ?? [],
   };
 }

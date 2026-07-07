@@ -1,8 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase-server";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
@@ -10,6 +10,7 @@ import {
   decodeSession,
   type SessionData,
 } from "./session";
+import { checkRateLimit, RATE_LIMITS } from "./rate-limit";
 
 /* ─── Read session (server components + actions) ─── */
 
@@ -38,10 +39,16 @@ export async function loginWithCode(
   code: string,
   selectedRole: "resident" | "syndic",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Rate limit login attempts by IP
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+  const rl = checkRateLimit(`login:${ip}`, RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
+
   const upper = code.trim().toUpperCase();
   if (!upper) return { ok: false, error: "code_not_found" };
 
-  const { data } = await supabase
+  const { data } = await supabaseAdmin
     .from("access_codes")
     .select("*")
     .eq("code", upper)
@@ -58,7 +65,7 @@ export async function loginWithCode(
   if (data.used_by) {
     // Code pre-linked to a profile (created by addResident)
     profileId = data.used_by;
-    const { data: mem } = await supabase
+    const { data: mem } = await supabaseAdmin
       .from("memberships")
       .select("unit_id")
       .eq("profile_id", profileId)
@@ -66,20 +73,13 @@ export async function loginWithCode(
       .single();
     unitId = mem?.unit_id ?? null;
   } else if (selectedRole === "resident") {
-    // Legacy code without profile link — find first active membership
-    const { data: mem } = await supabase
-      .from("memberships")
-      .select("profile_id, unit_id")
-      .eq("building_id", data.building_id)
-      .eq("status", "active")
-      .limit(1)
-      .single();
-    profileId = mem?.profile_id ?? null;
-    unitId = mem?.unit_id ?? null;
+    // Legacy code without profile link — reject for security.
+    // Codes must be pre-linked to a profile via addResident().
+    return { ok: false, error: "code_not_linked" };
   }
 
   // Mark code as used
-  await supabase
+  await supabaseAdmin
     .from("access_codes")
     .update({ used_at: new Date().toISOString(), used_by: profileId })
     .eq("id", data.id);
@@ -93,9 +93,38 @@ export async function loginWithCode(
   };
 
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, encodeSession(session), SESSION_COOKIE_OPTIONS);
+  const token = await encodeSession(session);
+  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
 
   return { ok: true };
+}
+
+/* ─── Switch building (multi-immeuble) ─── */
+
+export async function switchBuilding(buildingId: string) {
+  const session = await getSession();
+  if (!session || !session.profileId) throw new Error("unauthorized");
+
+  const { data: membership } = await supabaseAdmin
+    .from("memberships")
+    .select("unit_id, role")
+    .eq("profile_id", session.profileId)
+    .eq("building_id", buildingId)
+    .eq("status", "active")
+    .single();
+
+  if (!membership) throw new Error("forbidden");
+
+  const newSession: SessionData = {
+    profileId: session.profileId,
+    buildingId,
+    unitId: membership.unit_id,
+    role: membership.role as "resident" | "syndic",
+  };
+
+  const cookieStore = await cookies();
+  const token = await encodeSession(newSession);
+  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
 }
 
 /* ─── Logout ─── */

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { resolveIncident, markIncidentInProgress, fetchIncidentComments, createIncidentComment, type IncidentComment } from "@/lib/actions";
+import { resolveIncident, markIncidentInProgress, fetchIncidentComments, createIncidentComment } from "@/lib/actions";
+import type { IncidentComment } from "@/lib/types";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";

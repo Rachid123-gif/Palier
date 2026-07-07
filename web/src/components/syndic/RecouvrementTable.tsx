@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
 import { mad, num, timeAgo, currentPeriod, shortDate } from "@/lib/format";
-import { sendRelance, emitCharges } from "@/lib/actions";
+import { sendRelance, emitCharges, logDunning } from "@/lib/actions";
+import { dunningMessage } from "@/lib/whatsapp";
 import type { RecouvrementRow, ChargeCall } from "@/lib/syndic";
 
 const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: string }[] = [
@@ -79,7 +80,26 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
       title: `Rappel de cotisation — ${currentPeriod()}`,
       body: relanceBody(r),
     });
-    flash("Relance envoyée");
+    flash("Relance envoyée (in-app)");
+    router.refresh();
+  }
+
+  async function relanceWhatsApp(r: RecouvrementRow) {
+    if (!r.phone) return;
+    const remaining = r.amount - r.paid;
+    const msg = dunningMessage({
+      name: r.ownerName.split(" ")[0],
+      amount: remaining,
+      period: currentPeriod(),
+      building,
+    });
+    // Log the dunning in DB
+    await logDunning({ buildingId, unitId: r.unitId, channel: "whatsapp", message: msg });
+    // Open WhatsApp deeplink
+    const digits = r.phone.replace(/[^0-9]/g, "");
+    const waDigits = digits.startsWith("0") ? "212" + digits.slice(1) : digits;
+    window.open(`https://wa.me/${waDigits}?text=${encodeURIComponent(msg)}`, "_blank");
+    flash("WhatsApp ouvert");
     router.refresh();
   }
 
@@ -95,7 +115,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
       body: relanceBody(r),
     })));
     setBusy(false);
-    flash(`${targets.length} résidents relancés`);
+    flash(`${targets.length} résidents relancés (in-app)`);
     router.refresh();
   }
 
@@ -349,13 +369,24 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
                           {isPaid ? (
                             <span className="text-[11px] font-medium text-ink-faint">À jour</span>
                           ) : (
-                            <button
-                              onClick={() => relance(r)}
-                              disabled={!r.profileId}
-                              className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-40"
-                            >
-                              Relancer
-                            </button>
+                            <>
+                              <button
+                                onClick={() => relance(r)}
+                                disabled={!r.profileId}
+                                className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-40"
+                                title="Relance in-app"
+                              >
+                                <Icon name="Bell" className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => relanceWhatsApp(r)}
+                                disabled={!r.phone}
+                                className="rounded-md bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#1da851] disabled:opacity-40"
+                                title="Relance WhatsApp"
+                              >
+                                <Icon name="MessageCircle" className="h-3 w-3" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -394,9 +425,14 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
                         )}
                       </div>
                       {!isPaid && (
-                        <button onClick={() => relance(r)} disabled={!r.profileId} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
-                          Relancer
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => relance(r)} disabled={!r.profileId} className="rounded-md bg-palier-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40" title="In-app">
+                            <Icon name="Bell" className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => relanceWhatsApp(r)} disabled={!r.phone} className="rounded-md bg-[#25D366] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40" title="WhatsApp">
+                            <Icon name="MessageCircle" className="h-3 w-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

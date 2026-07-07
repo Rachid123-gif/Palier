@@ -6,6 +6,7 @@ import { FeedbackCard } from "@/components/resident/FeedbackCard";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { LangToggle } from "@/components/resident/LangToggle";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { whatsappLink } from "@/lib/whatsapp";
 import { Sheet } from "@/components/ui/Sheet";
 import Link from "next/link";
@@ -155,6 +156,12 @@ export default function ProfilPage() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* ═══════ Apparence ═══════ */}
+        <div className="card p-4">
+          <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-ink-soft">Apparence</p>
+          <ThemeToggle />
         </div>
 
         {/* ═══════ Votre avis ═══════ */}

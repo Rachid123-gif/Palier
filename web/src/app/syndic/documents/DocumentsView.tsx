@@ -4,6 +4,7 @@ import { PageHeader, KpiCard, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
+import { insertDocument, deleteDocument } from "@/lib/actions";
 
 type Doc = { id: string; title: string; type: string; date: string; size: string; url: string };
 
@@ -68,16 +69,14 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       const sizeKB = Math.round(upFile.size / 1024);
       const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
 
-      const { data: inserted, error: insertErr } = await supabase.from("documents").insert({
-        building_id: buildingId,
+      const inserted = await insertDocument({
+        buildingId,
         title: upTitle.trim(),
-        doc_type: upCategory,
-        doc_date: new Date().toISOString().slice(0, 10),
+        docType: upCategory,
+        docDate: new Date().toISOString().slice(0, 10),
         size: sizeLabel,
         url: fileUrl,
-      }).select().single();
-
-      if (insertErr) throw insertErr;
+      });
 
       setDocs((prev) => [{
         id: inserted.id,
@@ -93,8 +92,8 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       setUpCategory("autre");
       setUpFile(null);
       setShowUpload(false);
-    } catch (err) {
-      console.error("Upload error:", err);
+    } catch {
+      // Upload failed
     } finally {
       setUploading(false);
     }
@@ -102,7 +101,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
 
   // Delete handler
   async function handleDelete(id: string) {
-    await supabase.from("documents").delete().eq("id", id);
+    await deleteDocument(id, buildingId);
     setDocs((prev) => prev.filter((d) => d.id !== id));
     setShowDelete(null);
   }

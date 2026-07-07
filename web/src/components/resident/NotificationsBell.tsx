@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
+import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 
 type NotifKind = "incident" | "charge" | "post" | "ag";
 
@@ -40,12 +41,25 @@ function getNotifPrefs(): Record<string, boolean> {
 }
 
 export function NotificationsBell({ dark = false }: { dark?: boolean }) {
-  const { notifications: rawNotifs } = useData();
+  const { notifications: rawNotifs, profileId } = useData();
   const { lang, i } = useLang();
   const [open, setOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const pushPrompted = useRef(false);
 
   useEffect(() => { setReadIds(getReadIds()); }, []);
+
+  // Prompt for push notifications on first bell open
+  useEffect(() => {
+    if (open && !pushPrompted.current && profileId) {
+      pushPrompted.current = true;
+      if ("Notification" in window && Notification.permission === "default") {
+        requestNotificationPermission().then((perm) => {
+          if (perm === "granted") subscribeToPush(profileId);
+        });
+      }
+    }
+  }, [open, profileId]);
 
   // Filter by user preferences
   const prefs = getNotifPrefs();
@@ -76,6 +90,7 @@ export function NotificationsBell({ dark = false }: { dark?: boolean }) {
     <>
       <button
         onClick={handleOpen}
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} non lues)` : ""}`}
         className={`tap relative flex h-10 w-10 items-center justify-center rounded-full ${dark ? "bg-white/15 text-white" : "bg-white text-ink shadow-card"}`}
       >
         <Icon name="Bell" className="h-[18px] w-[18px]" strokeWidth={2.2} />

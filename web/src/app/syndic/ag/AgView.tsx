@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { longDate, shortDate } from "@/lib/format";
 import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly } from "@/lib/actions";
 import { supabase } from "@/lib/supabase";
+import { upsertDocument } from "@/lib/actions";
 import type { AssemblyRow } from "@/lib/syndic";
 
 const statusTabs: { key: "all" | "upcoming" | "past"; label: string }[] = [
@@ -142,15 +143,15 @@ export function AgView({ assemblies, buildingId, residentProfileIds }: {
       // Also register in documents table so it appears in Documents page
       const sizeKB = Math.round(resPvFile.size / 1024);
       const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-      await supabase.from("documents").upsert({
-        building_id: buildingId,
+      await upsertDocument({
+        buildingId,
         title: `PV Assemblée du ${longDate(showResults.date)}`,
-        doc_type: "pv",
-        doc_date: showResults.date,
+        docType: "pv",
+        docDate: showResults.date,
         size: sizeLabel,
         url: pvUrl,
-        ref_id: showResults.id,
-      }, { onConflict: "ref_id" });
+        refId: showResults.id,
+      });
     }
     const votes = resVotes
       .filter((v) => v.pour || v.contre || v.abst)
