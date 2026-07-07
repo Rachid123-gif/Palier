@@ -38,7 +38,7 @@ const t = {
     codePlaceholder: "",
     codeErrorResident: "Code incorrect. Vérifiez auprès de votre syndic.",
     codeErrorSyndic: "Code incorrect. Vérifiez dans votre email d'inscription.",
-    codeInfoResident: "Chaque résident reçoit un code à usage unique de la part du syndic. Si vous ne l'avez pas reçu, contactez votre syndic.",
+    codeInfoResident: "Chaque résident reçoit un code à usage unique de la part du syndic. En cas d'oubli ou si vous ne l'avez pas reçu, contactez votre syndic pour le régénérer.",
     codeInfoSyndic: "Ce code vous a été envoyé par Palier lors de la création de votre espace.",
     syndicWebNote: "Pour plus de confort, vous pouvez aussi accéder à votre espace syndic depuis un ordinateur sur ",
     codeBtn: "Valider le code",
@@ -62,7 +62,7 @@ const t = {
     registerPhone: "Numéro de téléphone",
     registerBuilding: "Nom de la résidence",
     registerCity: "Ville",
-    registerLots: "Nombre de lots",
+    registerLots: "Nombre d'appartements",
     registerBtn: "Créer mon espace",
     registerError: "Une erreur est survenue. Veuillez réessayer.",
     registerSuccess: "Espace créé ! Redirection en cours…",
@@ -96,7 +96,7 @@ const t = {
     codePlaceholder: "",
     codeErrorResident: "رمز غير صحيح. تحقق لدى السنديك.",
     codeErrorSyndic: "رمز غير صحيح. تحقق من بريدك الإلكتروني.",
-    codeInfoResident: "كل ساكن يتلقى رمزاً خاصاً به من السنديك. إذا لم تتلقه، تواصل مع السنديك.",
+    codeInfoResident: "كل ساكن يتلقى رمزاً خاصاً به من السنديك. في حالة نسيانه أو عدم تلقيه، تواصل مع السنديك لإعادة توليده.",
     codeInfoSyndic: "هذا الرمز أُرسل إليك من بالييه عند تسجيلك. كل رمز يُستخدم مرة واحدة.",
     syndicWebNote: "لمزيد من الراحة، يمكنك أيضاً الوصول إلى مساحة السنديك من الحاسوب على ",
     codeBtn: "تأكيد الرمز",
@@ -155,6 +155,7 @@ export default function BienvenuePage() {
   const [regPhone, setRegPhone] = useState("");
   const [regBuilding, setRegBuilding] = useState("");
   const [regCity, setRegCity] = useState("");
+  const [regCityCustom, setRegCityCustom] = useState("");
   const [regLots, setRegLots] = useState("");
   const [regError, setRegError] = useState("");
   const [registering, setRegistering] = useState(false);
@@ -220,7 +221,7 @@ export default function BienvenuePage() {
         fullName: regName.trim(),
         phone: regPhone.trim(),
         buildingName: regBuilding.trim(),
-        city: regCity,
+        city: resolvedCity,
         lotsCount: parseInt(regLots) || 1,
       });
 
@@ -237,7 +238,8 @@ export default function BienvenuePage() {
     }
   }
 
-  const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && regCity && regLots;
+  const resolvedCity = regCity === "__other__" ? regCityCustom.trim() : regCity;
+  const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && resolvedCity && regLots;
 
   // Bouton de langue (coin haut droit)
   const langBtn = (
@@ -486,7 +488,7 @@ export default function BienvenuePage() {
           {langBtn}
         </div>
 
-        <div className="no-scrollbar flex-1 overflow-y-auto px-6 pb-4">
+        <div className="no-scrollbar flex-1 overflow-y-auto px-6 pb-4 pt-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-100">
             <Icon name="Building2" className="h-7 w-7 text-palier-600" />
           </div>
@@ -494,7 +496,7 @@ export default function BienvenuePage() {
           <h1 className="mt-4 text-[22px] font-bold tracking-tight text-ink">{i.registerTitle}</h1>
           <p className="mt-1 text-[13px] leading-snug text-ink-soft">{i.registerDesc}</p>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-5 space-y-4">
             <div>
               <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerName}</label>
               <input
@@ -529,14 +531,34 @@ export default function BienvenuePage() {
 
             <div>
               <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{i.registerCity}</label>
-              <select
-                value={regCity}
-                onChange={(e) => setRegCity(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
-              >
-                <option value="">—</option>
-                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {regCity !== "__other__" ? (
+                <select
+                  value={regCity}
+                  onChange={(e) => setRegCity(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+                >
+                  <option value="">—</option>
+                  {cities.filter((c) => c !== "Autre").map((c) => <option key={c} value={c}>{c}</option>)}
+                  <option value="__other__">{lang === "fr" ? "Autre…" : "أخرى…"}</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={regCityCustom}
+                    onChange={(e) => setRegCityCustom(e.target.value)}
+                    placeholder={lang === "fr" ? "Nom de la ville" : "اسم المدينة"}
+                    autoFocus
+                    className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+                  />
+                  <button
+                    onClick={() => { setRegCity(""); setRegCityCustom(""); }}
+                    className="shrink-0 rounded-xl border border-black/10 px-3 text-ink-soft hover:bg-sand/50"
+                  >
+                    <Icon name="X" className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
