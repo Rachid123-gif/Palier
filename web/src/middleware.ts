@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes — always accessible
-  if (pathname === "/bienvenue" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+  if (pathname === "/bienvenue" || pathname === "/site" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
     // If already authenticated and visiting /bienvenue, redirect to home
     if (pathname === "/bienvenue" && session) {
       const dest = session.role === "syndic" ? "/syndic" : "/";
@@ -48,9 +48,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // No session → redirect to onboarding
+  // No session → redirect to landing page
   if (!session) {
-    return NextResponse.redirect(new URL("/bienvenue", request.url));
+    return NextResponse.redirect(new URL("/site", request.url));
   }
 
   // Syndic routes require syndic role

@@ -7,7 +7,7 @@ type Theme = "light" | "dark" | "system";
 const ThemeContext = createContext<{
   theme: Theme;
   setTheme: (t: Theme) => void;
-}>({ theme: "system", setTheme: () => {} });
+}>({ theme: "light", setTheme: () => {} });
 
 export function useTheme() {
   return useContext(ThemeContext);
@@ -24,19 +24,19 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("theme") as Theme | null;
-    const initial = stored ?? "system";
+    const initial = stored ?? "light";
     setThemeState(initial);
     applyTheme(initial);
     setMounted(true);
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      if ((localStorage.getItem("theme") ?? "system") === "system") {
+      if (localStorage.getItem("theme") === "system") {
         applyTheme("system");
       }
     };

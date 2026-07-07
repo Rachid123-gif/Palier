@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { loginWithCode, registerSyndic, recoverSyndicAccess } from "@/lib/auth";
+import { useTheme } from "@/lib/ThemeProvider";
 
 type Lang = "fr" | "ar";
 
@@ -159,6 +160,7 @@ type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" 
 
 export default function BienvenuePage() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [lang, setLang] = useState<Lang>("fr");
   const [step, setStep] = useState<Step>("lang");
   const [slide, setSlide] = useState(0);
@@ -307,10 +309,21 @@ export default function BienvenuePage() {
   );
 
   // ─── LANGUAGE SELECTION ─────────────────────────────────
+  const themeToggle = (
+    <button
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="tap flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-ink-soft transition-colors"
+      aria-label="Changer le thème"
+    >
+      <Icon name={theme === "dark" ? "Sun" : "Moon"} className="h-4 w-4" />
+    </button>
+  );
+
   if (step === "lang") {
     return (
       <div className="flex h-full flex-col">
         <StatusBar />
+        <div className="flex justify-end px-4 pt-1">{themeToggle}</div>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6">
           <LogoMark size={56} />
