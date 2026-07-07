@@ -72,9 +72,9 @@ export async function loginWithCode(
       .eq("building_id", data.building_id)
       .single();
     unitId = mem?.unit_id ?? null;
-  } else if (selectedRole === "resident") {
-    // Legacy code without profile link — reject for security.
-    // Codes must be pre-linked to a profile via addResident().
+  } else {
+    // Code without profile link — reject for both roles.
+    // Codes must be pre-linked to a profile.
     return { ok: false, error: "code_not_linked" };
   }
 

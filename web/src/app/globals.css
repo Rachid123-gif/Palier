@@ -119,27 +119,38 @@ body {
 .dark {
   color-scheme: dark;
 
-  --color-cream: #0f1714;
-  --color-cream-card: #1a2420;
-  --color-sand: #243029;
+  /* ── Surfaces — neutral charcoal, no green tint ── */
+  --color-cream: #141414;
+  --color-cream-card: #1c1c1e;
+  --color-sand: #2c2c2e;
 
-  --color-ink: #e8ede9;
-  --color-ink-soft: #9aaba3;
-  --color-ink-faint: #5f7169;
+  /* ── Text — warm whites ── */
+  --color-ink: #f0ede8;
+  --color-ink-soft: #a8a29e;
+  --color-ink-faint: #8a847e;
 
-  --color-palier-50: #0d2a22;
-  --color-palier-100: #133830;
-  --color-palier-600: #45937e;
-  --color-palier-700: #71b3a0;
+  /* ── Brand — brighter for dark bg readability ── */
+  --color-palier-50: #162e28;
+  --color-palier-100: #1d3b33;
+  --color-palier-200: #2a5448;
+  --color-palier-600: #4ea88e;
+  --color-palier-700: #71c4a8;
+  --color-palier-800: #a7d1c2;
 
-  --color-success-soft: #0d2a1e;
-  --color-warning-soft: #2a2210;
-  --color-danger-soft: #2a1210;
-  --color-info-soft: #10192a;
+  /* ── Semantic soft bgs ── */
+  --color-success: #3cb97e;
+  --color-success-soft: #162e22;
+  --color-warning: #e5a832;
+  --color-warning-soft: #2a2414;
+  --color-danger: #e85650;
+  --color-danger-soft: #2e1816;
+  --color-info: #4a90d9;
+  --color-info-soft: #161e2e;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
-  --shadow-float: 0 8px 30px -8px rgba(0, 0, 0, 0.6);
-  --shadow-hero: 0 24px 48px -20px rgba(0, 0, 0, 0.8);
+  /* ── Shadows — deeper for dark surfaces ── */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 8px 30px -8px rgba(0, 0, 0, 0.7);
+  --shadow-hero: 0 24px 48px -20px rgba(0, 0, 0, 0.85);
 }
 
 .dark body {
@@ -147,38 +158,87 @@ body {
   color: var(--color-ink);
 }
 
-/* Dark mode skeleton */
+/* ── Dark: skeleton ── */
 .dark .skeleton {
-  background: linear-gradient(90deg, #1a2420 0px, #243029 200px, #1a2420 400px);
+  background: linear-gradient(90deg, #1c1c1e 0px, #2c2c2e 200px, #1c1c1e 400px);
   background-size: 800px 100%;
 }
 
-/* Dark card override */
+/* ── Dark: cards ── */
 .dark .card {
   background: var(--color-cream-card);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Dark mode borders */
-.dark [class*="border-black/"] {
-  border-color: rgba(255, 255, 255, 0.08);
-}
+/* ── Dark: borders ── */
+.dark [class*="border-black/"] { border-color: rgba(255, 255, 255, 0.08); }
+.dark [class*="border-success"] { border-color: rgba(60, 185, 126, 0.3); }
+.dark [class*="border-danger"] { border-color: rgba(232, 86, 80, 0.3); }
+.dark [class*="border-palier"] { border-color: rgba(78, 168, 142, 0.3); }
 
-/* Dark mode bg overrides for common patterns */
+/* ── Dark: surface overrides ── */
 .dark .bg-cream { background-color: var(--color-cream); }
 .dark .bg-cream-card { background-color: var(--color-cream-card); }
 .dark .bg-sand { background-color: var(--color-sand); }
+.dark .bg-white { background-color: var(--color-cream-card); }
 
-/* Dark mode text overrides */
+/* ── Dark: text overrides ── */
 .dark .text-ink { color: var(--color-ink); }
 .dark .text-ink-soft { color: var(--color-ink-soft); }
 .dark .text-ink-faint { color: var(--color-ink-faint); }
 
-/* Dark mode for bg-black/[0.0x] patterns (used extensively) */
+/* ── Dark: bg-black opacity → bg-white opacity ── */
 .dark [class*="bg-black/[0.0"] { background-color: rgba(255, 255, 255, 0.06); }
 .dark [class*="bg-black/[0.03]"] { background-color: rgba(255, 255, 255, 0.04); }
 .dark [class*="bg-black/[0.04]"] { background-color: rgba(255, 255, 255, 0.06); }
 .dark [class*="bg-black/[0.06]"] { background-color: rgba(255, 255, 255, 0.08); }
+.dark [class*="bg-black/10"] { background-color: rgba(255, 255, 255, 0.1); }
+
+/* ── Dark: Tailwind semantic color backgrounds ── */
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1); }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15); }
+.dark .bg-emerald-600 { background-color: #059669; }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.15); }
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1); }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.15); }
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1); }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.15); }
+.dark .bg-red-600 { background-color: #dc2626; }
+.dark .bg-gray-50 { background-color: rgba(255, 255, 255, 0.06); }
+.dark .bg-gray-100 { background-color: rgba(255, 255, 255, 0.08); }
+.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.15); }
+.dark .text-purple-600 { color: #c084fc; }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.15); }
+.dark .text-orange-600 { color: #fb923c; }
+.dark .bg-slate-50 { background-color: rgba(148, 163, 184, 0.1); }
+.dark .text-slate-600 { color: #94a3b8; }
+.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.3); }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.3); }
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3); }
+
+/* ── Dark: Tailwind semantic text colors (on light backgrounds) ── */
+.dark .text-emerald-700 { color: #6ee7b7; }
+.dark .text-emerald-600 { color: #6ee7b7; }
+.dark .text-amber-700 { color: #fcd34d; }
+.dark .text-amber-600 { color: #fcd34d; }
+.dark .text-blue-700 { color: #93c5fd; }
+.dark .text-blue-600 { color: #93c5fd; }
+.dark .text-red-700 { color: #fca5a5; }
+.dark .text-red-600 { color: #fca5a5; }
+
+/* ── Dark: hardcoded page backgrounds ── */
+.dark .bg-\[\#e7e1d6\] { background-color: #0e0e0e; }
+
+/* ── Dark: form inputs ── */
+.dark input, .dark textarea, .dark select {
+  background-color: var(--color-sand);
+  color: var(--color-ink);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark input::placeholder, .dark textarea::placeholder {
+  color: var(--color-ink-faint);
+}
 
 /* Arabic: utiliser Cairo pour un rendu lisible et cohérent */
 [dir="rtl"] {

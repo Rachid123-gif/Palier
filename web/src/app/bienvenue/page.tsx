@@ -65,6 +65,7 @@ const t = {
     registerLots: "Nombre d'appartements",
     registerBtn: "Créer mon espace",
     registerError: "Une erreur est survenue. Veuillez réessayer.",
+    registerLoading: "Création en cours…",
     registerSuccess: "Espace créé ! Redirection en cours…",
     // Recover step
     recoverLink: "Code oublié ?",
@@ -73,6 +74,7 @@ const t = {
     recoverPhone: "Numéro de téléphone",
     recoverBtn: "Me connecter",
     recoverError: "Aucun compte syndic trouvé avec ce numéro.",
+    recoverLoading: "Recherche en cours…",
     recoverSuccess: "Compte trouvé ! Redirection…",
   },
   ar: {
@@ -131,6 +133,7 @@ const t = {
     registerLots: "عدد الشقق",
     registerBtn: "إنشاء مساحتي",
     registerError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    registerLoading: "جارٍ الإنشاء…",
     registerSuccess: "تم الإنشاء! جارٍ التحويل…",
     // Recover step
     recoverLink: "نسيت الرمز؟",
@@ -139,6 +142,7 @@ const t = {
     recoverPhone: "رقم الهاتف",
     recoverBtn: "تسجيل الدخول",
     recoverError: "لم يُعثر على حساب سنديك بهذا الرقم.",
+    recoverLoading: "جارٍ البحث…",
     recoverSuccess: "تم العثور على الحساب! جارٍ التحويل…",
   },
 };
@@ -213,12 +217,16 @@ export default function BienvenuePage() {
         const errorMessages: Record<string, string> = lang === "fr" ? {
           code_not_found: "Code introuvable. Vérifiez le code et réessayez.",
           code_already_used: "Ce code a déjà été utilisé.",
+          code_not_linked: "Ce code n'est pas encore associé à un compte. Contactez votre syndic.",
+          too_many_attempts: "Trop de tentatives. Veuillez réessayer dans quelques minutes.",
           wrong_role: role === "syndic"
             ? "Ce code est réservé aux résidents. Utilisez votre code syndic."
             : "Ce code est réservé au syndic. Demandez un code résident à votre syndic.",
         } : {
           code_not_found: "الرمز غير موجود. تحقق من الرمز وأعد المحاولة.",
           code_already_used: "هذا الرمز تم استخدامه من قبل.",
+          code_not_linked: "هذا الرمز غير مرتبط بحساب بعد. تواصل مع السنديك.",
+          too_many_attempts: "محاولات كثيرة. يرجى إعادة المحاولة بعد بضع دقائق.",
           wrong_role: role === "syndic"
             ? "هذا الرمز مخصص للسكان. استخدم رمز السنديك الخاص بك."
             : "هذا الرمز مخصص للسنديك. اطلب رمز ساكن من السنديك.",
@@ -629,7 +637,7 @@ export default function BienvenuePage() {
             className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!regFormValid || registering ? "opacity-50" : ""}`}
           >
             {registering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
-            {registering ? i.registerSuccess : i.registerBtn}
+            {registering ? i.registerLoading : i.registerBtn}
           </button>
         </div>
       </div>
@@ -750,7 +758,7 @@ export default function BienvenuePage() {
             className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!recoverPhone.trim() || recovering ? "opacity-50" : ""}`}
           >
             {recovering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
-            {recovering ? i.recoverSuccess : i.recoverBtn}
+            {recovering ? i.recoverLoading : i.recoverBtn}
           </button>
         </div>
       </div>

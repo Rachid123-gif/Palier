@@ -134,7 +134,7 @@ export default function ProfilPage() {
             </div>
             <button
               onClick={() => toggleAll(!allOn)}
-              className={`tap shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${allOn ? "bg-palier-50 text-palier-700" : "bg-sand text-ink-soft"}`}
+              className={`tap shrink-0 rounded-xl border px-3 py-1.5 text-[12px] font-semibold transition-colors ${allOn ? "border-palier-200 bg-palier-50 text-palier-700" : "border-black/[0.08] bg-white text-ink-soft"}`}
             >
               {allOn ? p.notifToutDesactiver : p.notifToutActiver}
             </button>
@@ -163,9 +163,6 @@ export default function ProfilPage() {
           <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-ink-soft">Apparence</p>
           <ThemeToggle />
         </div>
-
-        {/* ═══════ Votre avis ═══════ */}
-        <FeedbackCard />
 
         {/* ═══════ Export des données ═══════ */}
         <div className="card p-4">
@@ -229,6 +226,9 @@ export default function ProfilPage() {
             {p.prevenir}
           </a>
         </div>
+
+        {/* ═══════ Votre avis ═══════ */}
+        <FeedbackCard />
 
         {/* ═══════ Déconnexion ═══════ */}
         <button

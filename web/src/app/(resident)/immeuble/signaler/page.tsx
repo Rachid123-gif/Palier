@@ -12,10 +12,10 @@ import { useLang } from "@/lib/LangProvider";
 import { createIncident } from "@/lib/actions";
 import type { Urgency } from "@/lib/types";
 
-const urgencyColors: Record<string, { bg: string; text: string }> = {
-  low: { bg: "bg-slate-50", text: "text-slate-600" },
-  normal: { bg: "bg-blue-50", text: "text-blue-700" },
-  urgent: { bg: "bg-red-50", text: "text-red-700" },
+const urgencyColors: Record<string, { bg: string; text: string; border: string }> = {
+  low: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  normal: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  urgent: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 };
 
 export default function SignalerScreen() {
@@ -124,10 +124,11 @@ export default function SignalerScreen() {
             <div className="grid grid-cols-3 gap-2">
               {urgKeys.map((key) => {
                 const uc = urgencyColors[key] ?? urgencyColors.normal;
+                const selected = urg === key;
                 return (
                   <button key={key} onClick={() => setUrg(key)}
-                    className={`tap rounded-2xl border p-3 text-center ${urg === key ? "border-palier-500 bg-palier-50" : "border-black/5 bg-cream-card"}`}>
-                    <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold ${uc.bg} ${uc.text}`}>{T.urgencies[key]}</span>
+                    className={`tap rounded-2xl border p-3 text-center text-[13px] font-semibold transition-colors ${selected ? `${uc.bg} ${uc.text} ${uc.border}` : "border-black/5 bg-cream-card text-ink-soft"}`}>
+                    {T.urgencies[key]}
                   </button>
                 );
               })}
@@ -202,7 +203,7 @@ export default function SignalerScreen() {
                                 <Icon name="Clock" className="h-3 w-3" />{T.statuses.in_progress}
                               </span>
                             ) : (
-                              <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${uc.bg} ${uc.text}`}>{T.urgencies[inc.urgency as keyof typeof T.urgencies] ?? inc.urgency}</span>
+                              <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${uc.bg} ${uc.text} ${uc.border}`}>{T.urgencies[inc.urgency as keyof typeof T.urgencies] ?? inc.urgency}</span>
                             )}
                           </div>
                           <p className="mt-1 text-[12px] text-ink-soft">{T.cats[inc.category as keyof typeof T.cats] ?? inc.category}{inc.details ? ` · ${inc.details}` : ""}</p>

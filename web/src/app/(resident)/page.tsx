@@ -65,10 +65,10 @@ export default function HomeScreen() {
                 <div className="mt-3">
                   <span className="inline-flex items-end gap-1.5" dir="ltr">
                     <span className="text-[44px] font-bold leading-none tracking-tight">{num(totalDue)}</span>
-                    <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+                    <span className="mb-1.5 text-sm font-semibold text-white/90">MAD</span>
                   </span>
                 </div>
-                <p className="mt-1 text-[13px] opacity-80">
+                <p className="mt-1 text-[13px] text-white/90">
                   {i.home.chargeNonPayee(charges.length)}
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700">
@@ -89,10 +89,10 @@ export default function HomeScreen() {
                 <div className="mt-3">
                   <span className="inline-flex items-end gap-1.5" dir="ltr">
                     <span className="text-[44px] font-bold leading-none tracking-tight">0</span>
-                    <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+                    <span className="mb-1.5 text-sm font-semibold text-white/90">MAD</span>
                   </span>
                 </div>
-                <p className="mt-1 text-[13px] opacity-80">
+                <p className="mt-1 text-[13px] text-white/90">
                   {i.home.aucuneCharge}
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-palier-700">

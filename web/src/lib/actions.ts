@@ -332,12 +332,31 @@ export async function recordPayment(profileId: string, items: { id: string; amou
    SYNDIC — Actions backoffice
    ═══════════════════════════════════════════════════════════════ */
 
-/** Générer un code d'accès résident */
+/** Générer un code d'accès résident (crée un profil + membership pour que le code soit utilisable) */
 export async function generateAccessCode(input: {
   buildingId: string;
+  phone?: string;
   label?: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+
+  // Create a minimal profile so the code is linked
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .insert({ full_name: input.label || "Résident", phone: input.phone ?? "" })
+    .select("id")
+    .single();
+  if (!profile) return { data: null, error: "profile_creation_failed", code: "" };
+
+  // Create membership
+  await supabaseAdmin.from("memberships").insert({
+    profile_id: profile.id,
+    building_id: input.buildingId,
+    role: "resident",
+    status: "active",
+  });
+
+  // Generate and link the code
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   const { data, error } = await supabaseAdmin.from("access_codes").insert({
@@ -345,6 +364,7 @@ export async function generateAccessCode(input: {
     code,
     role: "resident",
     label: input.label ?? null,
+    used_by: profile.id,
   }).select().single();
   return { data, error, code };
 }

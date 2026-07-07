@@ -67,13 +67,20 @@ export default function ChargesScreen() {
       <div className="space-y-5 px-4">
 
         {charges.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-3xl border border-success/20 bg-success-soft p-5">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15">
-              <Icon name="CircleCheck" className="h-6 w-6 text-success" strokeWidth={2.2} />
-            </span>
-            <div>
-              <p className="text-[17px] font-bold text-ink">{T.vousEtesAJour}</p>
-              <p className="text-[13px] text-ink-soft">{T.aucuneCharge}</p>
+          <div className="bg-paywall relative overflow-hidden rounded-3xl p-5 text-white shadow-hero">
+            <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
+            <div className="absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-white/5" />
+            <div className="relative">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+                <Icon name="CircleCheck" className="h-3.5 w-3.5" /> {T.vousEtesAJour}
+              </span>
+              <div className="mt-3">
+                <span className="inline-flex items-end gap-1.5" dir="ltr">
+                  <span className="text-[44px] font-bold leading-none tracking-tight">0</span>
+                  <span className="mb-1.5 text-sm font-semibold text-white/90">MAD</span>
+                </span>
+              </div>
+              <p className="mt-1 text-[13px] text-white/90">{T.aucuneCharge}</p>
             </div>
           </div>
         ) : (
@@ -87,10 +94,10 @@ export default function ChargesScreen() {
               <div className="mt-3">
                 <span className="inline-flex items-end gap-1.5" dir="ltr">
                   <span className="text-[44px] font-bold leading-none tracking-tight">{num(total)}</span>
-                  <span className="mb-1.5 text-sm font-semibold opacity-80">MAD</span>
+                  <span className="mb-1.5 text-sm font-semibold text-white/90">MAD</span>
                 </span>
               </div>
-              <p className="mt-1 text-[13px] opacity-80">{T.chargeNonPayee(charges.length)}</p>
+              <p className="mt-1 text-[13px] text-white/90">{T.chargeNonPayee(charges.length)}</p>
             </div>
           </div>
         )}
