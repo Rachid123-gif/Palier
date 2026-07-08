@@ -280,11 +280,11 @@ export async function requestRecoveryOtp(
   return { ok: true };
 }
 
-/** Step 2: Verify OTP — checks code and creates session */
+/** Step 2: Verify OTP — checks code, regenerates access code, creates session */
 export async function verifyRecoveryOtp(
   phone: string,
   otpCode: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
   const rl = checkRateLimit(`otp-verify:${ip}`, RATE_LIMITS.login);
@@ -313,9 +313,32 @@ export async function verifyRecoveryOtp(
     return { ok: false, error: "otp_invalid" };
   }
 
-  // OTP valid — create session
+  // OTP valid — regenerate access code + create session
   otpStore.delete(cleaned);
 
+  // Generate new access code
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let newCode = "SYN-";
+  for (let j = 0; j < 5; j++) newCode += chars[Math.floor(Math.random() * chars.length)];
+
+  // Deactivate old codes and insert new one
+  await supabaseAdmin
+    .from("access_codes")
+    .delete()
+    .eq("building_id", entry.buildingId)
+    .eq("used_by", entry.profileId)
+    .eq("role", "syndic");
+
+  await supabaseAdmin.from("access_codes").insert({
+    building_id: entry.buildingId,
+    code: newCode,
+    role: "syndic",
+    label: "Syndic — Code régénéré",
+    used_by: entry.profileId,
+    used_at: new Date().toISOString(),
+  }).then(() => {}, () => {});
+
+  // Create session
   const session: SessionData = {
     profileId: entry.profileId,
     buildingId: entry.buildingId,
@@ -326,7 +349,7 @@ export async function verifyRecoveryOtp(
   const token = await encodeSession(session);
   cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
 
-  return { ok: true };
+  return { ok: true, accessCode: newCode };
 }
 
 /* ─── Switch building (multi-immeuble) ─── */

@@ -94,6 +94,11 @@ const t = {
     otpExpired: "Code expiré. Veuillez en demander un nouveau.",
     otpLoading: "Vérification…",
     otpResend: "Renvoyer le code",
+    // Recover success
+    recoverSuccessTitle: "Accès récupéré !",
+    recoverSuccessDesc: "Votre nouveau code d'accès :",
+    recoverSuccessKeep: "Notez ce code. C'est votre nouveau code de connexion.",
+    recoverSuccessContinue: "Accéder à mon espace",
   },
   ar: {
     langLabel: "Français",
@@ -179,6 +184,11 @@ const t = {
     otpExpired: "انتهت صلاحية الرمز. اطلب رمزاً جديداً.",
     otpLoading: "جارٍ التحقق…",
     otpResend: "إعادة إرسال الرمز",
+    // Recover success
+    recoverSuccessTitle: "تم استرجاع الوصول!",
+    recoverSuccessDesc: "رمز الدخول الجديد:",
+    recoverSuccessKeep: "سجّل هذا الرمز. إنه رمز الاتصال الجديد الخاص بك.",
+    recoverSuccessContinue: "الدخول إلى مساحتي",
   },
 };
 
@@ -190,7 +200,7 @@ const cities = [
   "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
 ];
 
-type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-success" | "recover" | "recover-otp";
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-success" | "recover" | "recover-otp" | "recover-success";
 
 export default function BienvenuePage() {
   const router = useRouter();
@@ -362,7 +372,8 @@ export default function BienvenuePage() {
       const result = await verifyRecoveryOtp(recoverPhone.trim(), otp.trim());
       if (result.ok) {
         localStorage.setItem("palier_lang", lang);
-        router.push("/syndic");
+        setAccessCode(result.accessCode);
+        setStep("recover-success");
       } else {
         const errorMap: Record<string, string> = {
           otp_invalid: i.otpError,
@@ -854,6 +865,57 @@ export default function BienvenuePage() {
               {i.recoverLink}
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── SUCCÈS RÉCUPÉRATION SYNDIC ──────────────────────────────
+  if (step === "recover-success") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+            <Icon name="KeyRound" className="h-10 w-10 text-emerald-600" strokeWidth={2.5} />
+          </div>
+
+          <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">{i.recoverSuccessTitle}</h1>
+          <p className="mt-2 max-w-[18rem] text-[14px] leading-snug text-ink-soft">{i.recoverSuccessDesc}</p>
+
+          <div className="mt-6 w-full max-w-[18rem]">
+            <div className="rounded-2xl border-2 border-palier-200 bg-palier-50/50 px-6 py-5">
+              <p className="font-mono text-[28px] font-bold tracking-[0.2em] text-palier-700">{accessCode}</p>
+            </div>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(accessCode);
+                setCodeCopied(true);
+                setTimeout(() => setCodeCopied(false), 2000);
+              }}
+              className="tap mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-2.5 text-[13px] font-semibold text-ink-soft"
+            >
+              <Icon name={codeCopied ? "Check" : "Copy"} className="h-4 w-4" />
+              {codeCopied ? i.successCopied : i.successCopy}
+            </button>
+          </div>
+
+          <div className="mt-5 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-4 py-3 text-start" dir={isAr ? "rtl" : "ltr"}>
+            <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-[12px] leading-snug text-amber-800">{i.recoverSuccessKeep}</p>
+          </div>
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={() => router.push("/syndic")}
+            className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white"
+          >
+            {i.recoverSuccessContinue}
+            <Icon name={isAr ? "ArrowLeft" : "ArrowRight"} className="h-4.5 w-4.5" />
+          </button>
         </div>
       </div>
     );
