@@ -55,7 +55,6 @@ export async function loginWithCode(
     .single();
 
   if (!data) return { ok: false, error: "code_not_found" };
-  if (data.used_at) return { ok: false, error: "code_already_used" };
   if (data.role !== selectedRole)
     return { ok: false, error: "wrong_role" };
 
@@ -63,7 +62,7 @@ export async function loginWithCode(
   let unitId: string | null = null;
 
   if (data.used_by) {
-    // Code pre-linked to a profile (created by addResident)
+    // Code linked to a profile
     profileId = data.used_by;
     const { data: mem } = await supabaseAdmin
       .from("memberships")
@@ -74,14 +73,13 @@ export async function loginWithCode(
     unitId = mem?.unit_id ?? null;
   } else {
     // Code without profile link — reject for both roles.
-    // Codes must be pre-linked to a profile.
     return { ok: false, error: "code_not_linked" };
   }
 
-  // Mark code as used
+  // Track last login (does not block reuse)
   await supabaseAdmin
     .from("access_codes")
-    .update({ used_at: new Date().toISOString(), used_by: profileId })
+    .update({ used_at: new Date().toISOString() })
     .eq("id", data.id);
 
   // Set session cookie
@@ -123,6 +121,38 @@ export async function registerSyndic(input: {
     return { ok: false, error: "missing_fields" };
   }
 
+  // Validate phone format (Moroccan: 06/07/05 + 8 digits)
+  const phoneClean = phone.replace(/\s+/g, "");
+  if (!/^0[5-7]\d{8}$/.test(phoneClean)) {
+    return { ok: false, error: "invalid_phone" };
+  }
+
+  // Validate lots
+  if (lots < 2) {
+    return { ok: false, error: "invalid_lots" };
+  }
+
+  // Check if phone already registered as syndic
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("phone", phoneClean)
+    .single();
+
+  if (existingProfile) {
+    const { data: existingMembership } = await supabaseAdmin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", existingProfile.id)
+      .eq("role", "syndic")
+      .eq("status", "active")
+      .single();
+
+    if (existingMembership) {
+      return { ok: false, error: "phone_already_registered" };
+    }
+  }
+
   // 1. Create building
   const { data: building, error: bErr } = await supabaseAdmin
     .from("buildings")
@@ -132,7 +162,7 @@ export async function registerSyndic(input: {
       city,
       lots_count: lots,
       syndic_name: name,
-      syndic_phone: phone,
+      syndic_phone: phoneClean,
       balance: 0,
       payment_rate: 0,
     })
@@ -143,7 +173,7 @@ export async function registerSyndic(input: {
   // 2. Create profile
   const { data: profile, error: pErr } = await supabaseAdmin
     .from("profiles")
-    .insert({ full_name: name, phone })
+    .insert({ full_name: name, phone: phoneClean })
     .select("id")
     .single();
   if (pErr || !profile) return { ok: false, error: "creation_failed" };
@@ -184,9 +214,21 @@ export async function registerSyndic(input: {
   return { ok: true, accessCode: code };
 }
 
-/* ─── Recover syndic access (forgot code) ─── */
+/* ─── Recover syndic access (forgot code) — OTP flow ─── */
 
-export async function recoverSyndicAccess(
+// In-memory OTP store (production: use Redis or DB)
+const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number; profileId: string; buildingId: string; unitId: string | null }>();
+
+// Clean expired OTPs periodically
+function cleanExpiredOtps() {
+  const now = Date.now();
+  for (const [key, val] of otpStore) {
+    if (val.expiresAt < now) otpStore.delete(key);
+  }
+}
+
+/** Step 1: Request OTP — validates phone, generates code */
+export async function requestRecoveryOtp(
   phone: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const hdrs = await headers();
@@ -194,7 +236,7 @@ export async function recoverSyndicAccess(
   const rl = checkRateLimit(`recover:${ip}`, RATE_LIMITS.login);
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
-  const cleaned = phone.trim();
+  const cleaned = phone.trim().replace(/\s+/g, "");
   if (!cleaned) return { ok: false, error: "missing_phone" };
 
   // Find profile by phone
@@ -216,11 +258,68 @@ export async function recoverSyndicAccess(
     .single();
   if (!membership) return { ok: false, error: "not_found" };
 
-  // Auto-login: set session
-  const session: SessionData = {
+  // Generate 6-digit OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  // Store OTP (expires in 5 minutes, max 3 verification attempts)
+  cleanExpiredOtps();
+  otpStore.set(cleaned, {
+    code: otp,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    attempts: 0,
     profileId: profile.id,
     buildingId: membership.building_id,
     unitId: membership.unit_id,
+  });
+
+  // TODO: Send OTP via SMS (Twilio, Infobip, etc.)
+  // await sendSMS(cleaned, `Votre code Palier : ${otp}`);
+  // For dev: log to console
+  console.log(`[PALIER OTP] ${cleaned} → ${otp}`);
+
+  return { ok: true };
+}
+
+/** Step 2: Verify OTP — checks code and creates session */
+export async function verifyRecoveryOtp(
+  phone: string,
+  otpCode: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+  const rl = checkRateLimit(`otp-verify:${ip}`, RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
+
+  const cleaned = phone.trim().replace(/\s+/g, "");
+  const entry = otpStore.get(cleaned);
+
+  if (!entry) return { ok: false, error: "otp_expired" };
+
+  // Check expiry
+  if (Date.now() > entry.expiresAt) {
+    otpStore.delete(cleaned);
+    return { ok: false, error: "otp_expired" };
+  }
+
+  // Check attempts
+  entry.attempts++;
+  if (entry.attempts > 3) {
+    otpStore.delete(cleaned);
+    return { ok: false, error: "too_many_attempts" };
+  }
+
+  // Verify code
+  if (otpCode.trim() !== entry.code) {
+    return { ok: false, error: "otp_invalid" };
+  }
+
+  // OTP valid — create session
+  otpStore.delete(cleaned);
+
+  const session: SessionData = {
+    profileId: entry.profileId,
+    buildingId: entry.buildingId,
+    unitId: entry.unitId,
     role: "syndic",
   };
   const cookieStore = await cookies();

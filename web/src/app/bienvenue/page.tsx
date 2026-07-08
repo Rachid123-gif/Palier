@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { loginWithCode, registerSyndic, recoverSyndicAccess } from "@/lib/auth";
-import { useTheme } from "@/lib/ThemeProvider";
+import { loginWithCode, registerSyndic, requestRecoveryOtp, verifyRecoveryOtp } from "@/lib/auth";
+
 
 type Lang = "fr" | "ar";
 
@@ -26,8 +26,8 @@ const t = {
       },
       {
         icon: "Wrench",
-        title: "Le bouche-à-oreille\nde vos voisins.",
-        desc: "Plombier, femme de ménage, électricien ou autre. Trouvez les pros que vos voisins recommandent.",
+        title: "Des services\nrecommandés.",
+        desc: "Plombier, femme de ménage, électricien… Trouvez les pros que vos voisins recommandent.",
       },
     ],
     next: "Suivant",
@@ -39,8 +39,8 @@ const t = {
     codePlaceholder: "",
     codeErrorResident: "Code incorrect. Vérifiez auprès de votre syndic.",
     codeErrorSyndic: "Code incorrect. Vérifiez dans votre email d'inscription.",
-    codeInfoResident: "Chaque résident reçoit un code à usage unique de la part du syndic. En cas d'oubli ou si vous ne l'avez pas reçu, contactez votre syndic pour le régénérer.",
-    codeInfoSyndic: "Ce code vous a été envoyé par Palier lors de la création de votre espace.",
+    codeInfoResident: "Chaque résident reçoit un code personnel de la part du syndic. En cas d'oubli, contactez votre syndic.",
+    codeInfoSyndic: "Utilisez le code reçu lors de la création de votre espace. Vous pouvez le réutiliser à chaque connexion.",
     syndicWebNote: "Pour plus de confort, vous pouvez aussi accéder à votre espace syndic depuis un ordinateur sur ",
     codeBtn: "Valider le code",
     roleTitle: "Vous êtes…",
@@ -66,17 +66,34 @@ const t = {
     registerLots: "Nombre d'appartements",
     registerBtn: "Créer mon espace",
     registerError: "Une erreur est survenue. Veuillez réessayer.",
+    registerErrorPhone: "Numéro invalide. Format attendu : 06/07/05 suivi de 8 chiffres.",
+    registerErrorLots: "Minimum 2 appartements.",
+    registerErrorPhoneExists: "Ce numéro est déjà associé à un compte syndic. Utilisez « Code oublié » pour récupérer votre accès.",
     registerLoading: "Création en cours…",
-    registerSuccess: "Espace créé ! Redirection en cours…",
+    // Register success step
+    successTitle: "Votre espace est prêt !",
+    successDesc: "Votre résidence a été créée avec succès. Voici votre code d'accès personnel :",
+    successKeep: "Conservez ce code précieusement. Il vous permettra de vous reconnecter.",
+    successCopied: "Code copié !",
+    successCopy: "Copier le code",
+    successContinue: "Accéder à mon espace",
     // Recover step
     recoverLink: "Code oublié ?",
     recoverTitle: "Récupérer mon accès",
     recoverDesc: "Entrez le numéro de téléphone utilisé lors de votre inscription.",
     recoverPhone: "Numéro de téléphone",
-    recoverBtn: "Me connecter",
+    recoverBtn: "Recevoir un code de vérification",
     recoverError: "Aucun compte syndic trouvé avec ce numéro.",
-    recoverLoading: "Recherche en cours…",
-    recoverSuccess: "Compte trouvé ! Redirection…",
+    recoverLoading: "Envoi en cours…",
+    // OTP step
+    otpTitle: "Code de vérification",
+    otpDesc: "Un code à 6 chiffres a été envoyé au ",
+    otpPlaceholder: "000000",
+    otpBtn: "Vérifier",
+    otpError: "Code incorrect. Vérifiez et réessayez.",
+    otpExpired: "Code expiré. Veuillez en demander un nouveau.",
+    otpLoading: "Vérification…",
+    otpResend: "Renvoyer le code",
   },
   ar: {
     langLabel: "Français",
@@ -94,8 +111,8 @@ const t = {
       },
       {
         icon: "Wrench",
-        title: "توصيات\nجيرانك.",
-        desc: "سباك، عاملة نظافة، كهربائي أو غيرهم. اكتشف المهنيين الذين يوصي بهم جيرانك.",
+        title: "خدمات\nموصى بها.",
+        desc: "سباك، عاملة نظافة، كهربائي… اكتشف المهنيين الذين يوصي بهم جيرانك.",
       },
     ],
     next: "التالي",
@@ -107,8 +124,8 @@ const t = {
     codePlaceholder: "",
     codeErrorResident: "رمز غير صحيح. تحقق لدى السنديك.",
     codeErrorSyndic: "رمز غير صحيح. تحقق من بريدك الإلكتروني.",
-    codeInfoResident: "كل ساكن يتلقى رمزاً خاصاً به من السنديك. في حالة نسيانه أو عدم تلقيه، تواصل مع السنديك لإعادة توليده.",
-    codeInfoSyndic: "هذا الرمز أُرسل إليك من بالييه عند تسجيلك. كل رمز يُستخدم مرة واحدة.",
+    codeInfoResident: "كل ساكن يتلقى رمزاً خاصاً به من السنديك. في حالة نسيانه، تواصل مع السنديك.",
+    codeInfoSyndic: "استخدم الرمز الذي تلقيته عند إنشاء مساحتك. يمكنك إعادة استخدامه في كل مرة.",
     syndicWebNote: "لمزيد من الراحة، يمكنك أيضاً الوصول إلى مساحة السنديك من الحاسوب على ",
     codeBtn: "تأكيد الرمز",
     roleTitle: "أنت…",
@@ -134,17 +151,34 @@ const t = {
     registerLots: "عدد الشقق",
     registerBtn: "إنشاء مساحتي",
     registerError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    registerErrorPhone: "رقم غير صالح. الصيغة المطلوبة: 06/07/05 متبوعاً بـ 8 أرقام.",
+    registerErrorLots: "الحد الأدنى شقتان.",
+    registerErrorPhoneExists: "هذا الرقم مرتبط بحساب سنديك. استخدم «نسيت الرمز» لاسترجاع وصولك.",
     registerLoading: "جارٍ الإنشاء…",
-    registerSuccess: "تم الإنشاء! جارٍ التحويل…",
+    // Register success step
+    successTitle: "مساحتك جاهزة!",
+    successDesc: "تم إنشاء إقامتك بنجاح. إليك رمز الدخول الخاص بك:",
+    successKeep: "احتفظ بهذا الرمز. سيسمح لك بإعادة الاتصال.",
+    successCopied: "تم النسخ!",
+    successCopy: "نسخ الرمز",
+    successContinue: "الدخول إلى مساحتي",
     // Recover step
     recoverLink: "نسيت الرمز؟",
     recoverTitle: "استرجاع الوصول",
     recoverDesc: "أدخل رقم الهاتف الذي استخدمته عند التسجيل.",
     recoverPhone: "رقم الهاتف",
-    recoverBtn: "تسجيل الدخول",
+    recoverBtn: "إرسال رمز التحقق",
     recoverError: "لم يُعثر على حساب سنديك بهذا الرقم.",
-    recoverLoading: "جارٍ البحث…",
-    recoverSuccess: "تم العثور على الحساب! جارٍ التحويل…",
+    recoverLoading: "جارٍ الإرسال…",
+    // OTP step
+    otpTitle: "رمز التحقق",
+    otpDesc: "تم إرسال رمز مكون من 6 أرقام إلى ",
+    otpPlaceholder: "000000",
+    otpBtn: "تأكيد",
+    otpError: "رمز غير صحيح. تحقق وأعد المحاولة.",
+    otpExpired: "انتهت صلاحية الرمز. اطلب رمزاً جديداً.",
+    otpLoading: "جارٍ التحقق…",
+    otpResend: "إعادة إرسال الرمز",
   },
 };
 
@@ -156,11 +190,10 @@ const cities = [
   "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
 ];
 
-type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "recover";
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-success" | "recover" | "recover-otp";
 
 export default function BienvenuePage() {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
   const [lang, setLang] = useState<Lang>("fr");
   const [step, setStep] = useState<Step>("lang");
   const [slide, setSlide] = useState(0);
@@ -182,10 +215,19 @@ export default function BienvenuePage() {
   const [regError, setRegError] = useState("");
   const [registering, setRegistering] = useState(false);
 
+  // Registration success state
+  const [accessCode, setAccessCode] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
+
   // Recovery state
   const [recoverPhone, setRecoverPhone] = useState("");
   const [recoverError, setRecoverError] = useState("");
   const [recovering, setRecovering] = useState(false);
+
+  // OTP state
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
@@ -218,7 +260,6 @@ export default function BienvenuePage() {
       } else {
         const errorMessages: Record<string, string> = lang === "fr" ? {
           code_not_found: "Code introuvable. Vérifiez le code et réessayez.",
-          code_already_used: "Ce code a déjà été utilisé.",
           code_not_linked: "Ce code n'est pas encore associé à un compte. Contactez votre syndic.",
           too_many_attempts: "Trop de tentatives. Veuillez réessayer dans quelques minutes.",
           wrong_role: role === "syndic"
@@ -226,7 +267,6 @@ export default function BienvenuePage() {
             : "Ce code est réservé au syndic. Demandez un code résident à votre syndic.",
         } : {
           code_not_found: "الرمز غير موجود. تحقق من الرمز وأعد المحاولة.",
-          code_already_used: "هذا الرمز تم استخدامه من قبل.",
           code_not_linked: "هذا الرمز غير مرتبط بحساب بعد. تواصل مع السنديك.",
           too_many_attempts: "محاولات كثيرة. يرجى إعادة المحاولة بعد بضع دقائق.",
           wrong_role: role === "syndic"
@@ -242,10 +282,24 @@ export default function BienvenuePage() {
     }
   }
 
+  const isPhoneValid = (p: string) => /^0[5-7]\d{8}$/.test(p.replace(/\s+/g, ""));
+  const isLotsValid = (l: string) => { const n = parseInt(l); return !isNaN(n) && n >= 2; };
+
   async function handleRegister() {
     if (!regName.trim() || !regPhone.trim() || !regBuilding.trim() || !regCity || !regLots) return;
-    setRegistering(true);
     setRegError("");
+
+    // Client-side validation
+    if (!isPhoneValid(regPhone)) {
+      setRegError(i.registerErrorPhone);
+      return;
+    }
+    if (!isLotsValid(regLots)) {
+      setRegError(i.registerErrorLots);
+      return;
+    }
+
+    setRegistering(true);
 
     try {
       const result = await registerSyndic({
@@ -253,14 +307,20 @@ export default function BienvenuePage() {
         phone: regPhone.trim(),
         buildingName: regBuilding.trim(),
         city: resolvedCity,
-        lotsCount: parseInt(regLots) || 1,
+        lotsCount: parseInt(regLots) || 2,
       });
 
       if (result.ok) {
         localStorage.setItem("palier_lang", lang);
-        router.push("/syndic");
+        setAccessCode(result.accessCode);
+        setStep("register-success");
       } else {
-        setRegError(i.registerError);
+        const errorMap: Record<string, string> = {
+          invalid_phone: i.registerErrorPhone,
+          invalid_lots: i.registerErrorLots,
+          phone_already_registered: i.registerErrorPhoneExists,
+        };
+        setRegError(errorMap[result.error] ?? i.registerError);
       }
     } catch {
       setRegError(i.registerError);
@@ -274,17 +334,49 @@ export default function BienvenuePage() {
     setRecovering(true);
     setRecoverError("");
     try {
-      const result = await recoverSyndicAccess(recoverPhone.trim());
+      const result = await requestRecoveryOtp(recoverPhone.trim());
       if (result.ok) {
-        localStorage.setItem("palier_lang", lang);
-        router.push("/syndic");
+        setOtp("");
+        setOtpError("");
+        setStep("recover-otp");
       } else {
-        setRecoverError(i.recoverError);
+        const errorMap: Record<string, string> = {
+          too_many_attempts: lang === "fr"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : "محاولات كثيرة. أعد المحاولة بعد بضع دقائق.",
+        };
+        setRecoverError(errorMap[result.error] ?? i.recoverError);
       }
     } catch {
       setRecoverError(i.recoverError);
     } finally {
       setRecovering(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otp.trim()) return;
+    setVerifying(true);
+    setOtpError("");
+    try {
+      const result = await verifyRecoveryOtp(recoverPhone.trim(), otp.trim());
+      if (result.ok) {
+        localStorage.setItem("palier_lang", lang);
+        router.push("/syndic");
+      } else {
+        const errorMap: Record<string, string> = {
+          otp_invalid: i.otpError,
+          otp_expired: i.otpExpired,
+          too_many_attempts: lang === "fr"
+            ? "Trop de tentatives. Veuillez recommencer."
+            : "محاولات كثيرة. يرجى البدء من جديد.",
+        };
+        setOtpError(errorMap[result.error] ?? i.otpError);
+      }
+    } catch {
+      setOtpError(i.otpError);
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -309,21 +401,10 @@ export default function BienvenuePage() {
   );
 
   // ─── LANGUAGE SELECTION ─────────────────────────────────
-  const themeToggle = (
-    <button
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="tap flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-ink-soft transition-colors"
-      aria-label="Changer le thème"
-    >
-      <Icon name={theme === "dark" ? "Sun" : "Moon"} className="h-4 w-4" />
-    </button>
-  );
-
   if (step === "lang") {
     return (
       <div className="flex h-full flex-col">
         <StatusBar />
-        <div className="flex justify-end px-4 pt-1">{themeToggle}</div>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6">
           <LogoMark size={56} />
@@ -628,7 +709,7 @@ export default function BienvenuePage() {
                 type="number"
                 value={regLots}
                 onChange={(e) => setRegLots(e.target.value)}
-                min="1"
+                min="2"
                 max="500"
                 dir="ltr"
                 className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
@@ -651,6 +732,57 @@ export default function BienvenuePage() {
           >
             {registering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
             {registering ? i.registerLoading : i.registerBtn}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── SUCCÈS INSCRIPTION SYNDIC ─────────────────────────────
+  if (step === "register-success") {
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+            <Icon name="Check" className="h-10 w-10 text-emerald-600" strokeWidth={2.5} />
+          </div>
+
+          <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">{i.successTitle}</h1>
+          <p className="mt-2 max-w-[18rem] text-[14px] leading-snug text-ink-soft">{i.successDesc}</p>
+
+          <div className="mt-6 w-full max-w-[18rem]">
+            <div className="rounded-2xl border-2 border-palier-200 bg-palier-50/50 px-6 py-5">
+              <p className="font-mono text-[28px] font-bold tracking-[0.2em] text-palier-700">{accessCode}</p>
+            </div>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(accessCode);
+                setCodeCopied(true);
+                setTimeout(() => setCodeCopied(false), 2000);
+              }}
+              className="tap mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-2.5 text-[13px] font-semibold text-ink-soft"
+            >
+              <Icon name={codeCopied ? "Check" : "Copy"} className="h-4 w-4" />
+              {codeCopied ? i.successCopied : i.successCopy}
+            </button>
+          </div>
+
+          <div className="mt-5 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-4 py-3 text-start" dir={isAr ? "rtl" : "ltr"}>
+            <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-[12px] leading-snug text-amber-800">{i.successKeep}</p>
+          </div>
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={() => router.push("/syndic")}
+            className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white"
+          >
+            {i.successContinue}
+            <Icon name={isAr ? "ArrowLeft" : "ArrowRight"} className="h-4.5 w-4.5" />
           </button>
         </div>
       </div>
@@ -772,6 +904,69 @@ export default function BienvenuePage() {
           >
             {recovering ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
             {recovering ? i.recoverLoading : i.recoverBtn}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── VÉRIFICATION OTP ──────────────────────────────────────
+  if (step === "recover-otp") {
+    const maskedPhone = recoverPhone.trim().replace(/(\d{2})\d{4}(\d{4})/, "$1****$2");
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => { setStep("recover"); setOtp(""); setOtpError(""); })}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="ShieldCheck" className="h-8 w-8 text-palier-600" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.otpTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">
+            {i.otpDesc}<span className="font-semibold" dir="ltr">{maskedPhone}</span>
+          </p>
+
+          <div className="mt-6">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "")); setOtpError(""); }}
+              placeholder={i.otpPlaceholder}
+              autoFocus
+              dir="ltr"
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[24px] font-bold tracking-[0.3em] text-ink outline-none placeholder:text-[18px] placeholder:font-normal placeholder:tracking-[0.3em] placeholder:text-ink-faint focus:border-palier-400"
+            />
+            {otpError && (
+              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
+                <Icon name="CircleAlert" className="h-4 w-4" /> {otpError}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => { setOtp(""); setOtpError(""); handleRecover(); }}
+            className="tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
+          >
+            {i.otpResend}
+          </button>
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={handleVerifyOtp}
+            disabled={otp.length !== 6 || verifying}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${otp.length !== 6 || verifying ? "opacity-50" : ""}`}
+          >
+            {verifying ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
+            {verifying ? i.otpLoading : i.otpBtn}
           </button>
         </div>
       </div>
