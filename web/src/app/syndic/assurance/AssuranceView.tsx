@@ -226,7 +226,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
+            <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[22%] px-4 py-2.5">Assureur</th>
@@ -275,7 +275,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {policies.map((p) => (
                 <div key={p.id} className="p-4">
                   <div className="mb-2 flex items-start justify-between gap-2">

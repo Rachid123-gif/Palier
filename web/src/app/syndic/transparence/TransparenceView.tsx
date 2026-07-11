@@ -331,7 +331,7 @@ export function TransparenceView({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full text-left text-[13px] md:table">
+            <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-4 py-2.5">Date</th>
@@ -377,7 +377,7 @@ export function TransparenceView({
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {rows.map((l) => (
                 <div key={l.id} className="flex items-center gap-3 p-4">
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${l.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>

@@ -77,7 +77,7 @@ export function SyndicShell({
       <aside
         aria-label="Navigation syndic"
         className={cn(
-          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-black/[0.06] bg-cream-card py-4 transition-[width] duration-200 md:flex",
+          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-black/[0.06] bg-cream-card py-4 transition-[width] duration-200 lg:flex",
           collapsed ? "w-[60px] px-1.5" : "w-[244px] px-3",
         )}
       >
@@ -161,7 +161,7 @@ export function SyndicShell({
 
       {/* Mobile nav overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+        <div className="fixed inset-0 z-50 flex lg:hidden">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
           {/* Slide-out panel */}
@@ -224,7 +224,7 @@ export function SyndicShell({
 
       {/* Main */}
       <main id="main-content" className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-black/[0.06] bg-cream-card px-4 py-2.5 md:hidden">
+        <div className="flex items-center justify-between border-b border-black/[0.06] bg-cream-card px-4 py-2.5 lg:hidden">
           <div className="flex items-center gap-2">
             <LogoMark size={24} />
             <span className="text-[14px] font-semibold text-ink">Palier</span>
@@ -233,7 +233,7 @@ export function SyndicShell({
             <Icon name="Menu" className="h-5 w-5" strokeWidth={1.8} />
           </button>
         </div>
-        <div className="mx-auto w-full max-w-[1060px] flex-1 px-4 py-4 md:px-8 md:py-8">{children}</div>
+        <div className="mx-auto w-full max-w-[1060px] flex-1 px-4 py-4 lg:px-8 lg:py-8">{children}</div>
       </main>
 
       {showLogout && (

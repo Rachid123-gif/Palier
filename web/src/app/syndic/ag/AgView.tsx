@@ -398,7 +398,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
         ) : (
           <>
           {/* Desktop */}
-          <table className="hidden w-full table-fixed text-left text-[13px] md:table">
+          <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
             <thead>
               <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                 <th className="w-[20%] px-4 py-2.5">Date</th>
@@ -464,7 +464,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           </table>
 
           {/* Mobile cards */}
-          <div className="divide-y divide-black/[0.04] md:hidden">
+          <div className="divide-y divide-black/[0.04] lg:hidden">
             {filtered.map((ag) => {
               const upcoming = isUpcoming(ag);
               const hasResults = ag.quorum > 0 || ag.resolutions.some((r) => r.result);

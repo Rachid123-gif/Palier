@@ -163,7 +163,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       <Card>
         {filtered.length > 0 ? (
           <>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
@@ -223,7 +223,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
           </div>
 
           {/* Mobile cards */}
-          <div className="divide-y divide-black/[0.04] md:hidden">
+          <div className="divide-y divide-black/[0.04] lg:hidden">
             {filtered.map((doc) => {
               const cat = getCat(doc.type);
               return (

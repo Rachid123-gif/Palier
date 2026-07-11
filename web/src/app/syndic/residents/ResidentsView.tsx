@@ -301,7 +301,7 @@ export function ResidentsView({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full text-left text-[13px] md:table">
+            <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-4 py-2.5">Lot</th>
@@ -381,7 +381,7 @@ export function ResidentsView({
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {rows.map((r) => {
                 const isInactive = (r.status ?? "active") === "inactive";
                 return (

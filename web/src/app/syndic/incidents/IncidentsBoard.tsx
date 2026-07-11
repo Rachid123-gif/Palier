@@ -310,7 +310,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
+            <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[35%] px-4 py-2.5">Incident</th>
@@ -372,7 +372,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {rows.map((inc) => {
                 const urg = urgencyColors[inc.urgency] ?? urgencyColors.normal;
                 const isResolved = inc.status === "resolved";

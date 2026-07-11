@@ -256,9 +256,9 @@ export function SettingsView({
         }
       />
 
-      <div className="flex flex-col gap-6 md:flex-row">
+      <div className="flex flex-col gap-6 lg:flex-row">
         {/* ── Sidebar navigation (desktop) ── */}
-        <nav className="hidden w-[200px] shrink-0 md:block">
+        <nav className="hidden w-[200px] shrink-0 lg:block">
           <div className="sticky top-8 space-y-0.5">
             {sections.map((s) => (
               <button
@@ -285,7 +285,7 @@ export function SettingsView({
         </nav>
 
         {/* ── Mobile tabs (grid so all are visible) ── */}
-        <div className="grid grid-cols-4 gap-1.5 md:hidden">
+        <div className="grid grid-cols-4 gap-1.5 lg:hidden">
           {sections.map((s) => (
             <button
               key={s.key}
@@ -999,7 +999,7 @@ export function SettingsView({
           )}
 
           {/* ── Déconnexion (mobile) ── */}
-          <div className="border-t border-black/[0.06] pt-4 md:hidden">
+          <div className="border-t border-black/[0.06] pt-4 lg:hidden">
             <button onClick={() => setShowLogout(true)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
               <Icon name="LogOut" className="h-4 w-4" />
               Se déconnecter

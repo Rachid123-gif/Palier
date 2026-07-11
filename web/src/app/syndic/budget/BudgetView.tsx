@@ -328,7 +328,7 @@ export function BudgetView({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full table-fixed text-left text-[13px] md:table">
+            <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="w-[18%] px-4 py-2.5">Exercice</th>
@@ -364,7 +364,7 @@ export function BudgetView({
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {filtered.map((b) => (
                 <div key={b.id} className="p-4">
                   <div className="mb-2 flex items-start justify-between gap-2">

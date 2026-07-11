@@ -462,7 +462,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full text-left text-[13px] md:table">
+            <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-3 py-2.5">Lot</th>
@@ -470,7 +470,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <th className="px-3 py-2.5">Montant</th>
                   <th className="px-3 py-2.5 whitespace-nowrap">Échéance</th>
                   <th className="px-3 py-2.5 whitespace-nowrap">Statut</th>
-                  <th className="hidden px-3 py-2.5 whitespace-nowrap lg:table-cell">Dernière relance</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">Dernière relance</th>
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
@@ -501,7 +501,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                         {r.dueDate ? shortDate(r.dueDate) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5"><StatusPill status={r.status} /></td>
-                      <td className="hidden whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft lg:table-cell">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5">
                         {!isPaid && (
                           <div className="flex items-center justify-end gap-1.5">
@@ -536,7 +536,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {pageRows.map((r) => {
                 const remaining = r.amount - r.paid;
                 const isPaid = r.status === "paid";
@@ -705,7 +705,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         ) : (
           <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
             {/* Desktop table */}
-            <table className="hidden w-full text-left text-[13px] md:table">
+            <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                   <th className="px-4 py-2.5">Libellé</th>
@@ -758,7 +758,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             </table>
 
             {/* Mobile cards */}
-            <div className="divide-y divide-black/[0.04] md:hidden">
+            <div className="divide-y divide-black/[0.04] lg:hidden">
               {filteredCalls.map((c, idx) => {
                 const paidRate = c.lots > 0 ? Math.round((c.paid / c.lots) * 100) : 0;
                 return (
@@ -899,7 +899,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             ) : (
               <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
                 {/* Desktop table */}
-                <table className="hidden w-full text-left text-[13px] md:table">
+                <table className="hidden w-full text-left text-[13px] lg:table">
                   <thead>
                     <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
                       <th className="px-3 py-2.5">Date</th>
@@ -954,7 +954,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 </table>
 
                 {/* Mobile cards */}
-                <div className="divide-y divide-black/[0.04] md:hidden">
+                <div className="divide-y divide-black/[0.04] lg:hidden">
                   {filteredPayments.map((p) => {
                     const row = p.charge_id ? chargeMap.get(p.charge_id) : null;
                     return (
