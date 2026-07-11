@@ -33,6 +33,7 @@ export default function VoisinageScreen() {
   const { lang, i } = useLang();
   const T = i.voisinage;
   const router = useRouter();
+  const isInactive = currentUser.membershipStatus === "inactive";
   const [tab, setTab] = useState<PostType | "all">("all");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("tout");
   const [composer, setComposer] = useState(false);
@@ -256,7 +257,7 @@ export default function VoisinageScreen() {
             ))}
           </div>
         </div>
-        <button onClick={publish} disabled={!text.trim()} className={`tap mt-4 w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white ${!text.trim() ? "opacity-50" : ""}`}>
+        <button onClick={publish} disabled={!text.trim() || isInactive} className={`tap mt-4 w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white ${!text.trim() || isInactive ? "opacity-50" : ""}`}>
           {T.publier}
         </button>
       </Sheet>
@@ -273,7 +274,7 @@ export default function VoisinageScreen() {
               <p className="mt-1.5 line-clamp-3 text-[13px] text-ink-soft">{commentPost.body}</p>
               <div className="mt-2 flex items-center gap-3 border-t border-black/5 pt-2">
                 <button
-                  onClick={() => setLikedPosts((prev) => { const s = new Set(prev); if (s.has(commentPost.id)) s.delete(commentPost.id); else s.add(commentPost.id); return s; })}
+                  onClick={() => { if (!likedPosts.has(commentPost.id)) { setLikedPosts((s) => new Set(s).add(commentPost.id)); likePost(commentPost.id); } }}
                   className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold ${likedPosts.has(commentPost.id) ? "bg-palier-100 text-palier-700" : "bg-white text-ink-soft"}`}
                 >
                   <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
@@ -388,7 +389,7 @@ function PostCard({ p, onComment, onLike, typeBadge, lang, T, syndicBadge }: {
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <button onClick={() => { if (!liked) onLike(p.id); setLiked((v) => !v); }}
+        <button onClick={() => { if (!liked) { onLike(p.id); setLiked(true); } }}
           className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${liked ? "bg-palier-100 text-palier-700" : "bg-sand text-ink-soft"}`}>
           <Icon name="ThumbsUp" className="h-4 w-4" /> {totalReactions > 0 ? totalReactions : T.jaime}
         </button>

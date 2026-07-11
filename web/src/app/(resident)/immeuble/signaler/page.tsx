@@ -4,13 +4,14 @@ import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/primitives";
-import { Toast } from "@/components/ui/Sheet";
+import { Sheet, Toast } from "@/components/ui/Sheet";
 import { useRouter } from "next/navigation";
 import { timeAgo } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { createIncident } from "@/lib/actions";
-import type { Urgency } from "@/lib/types";
+import { createIncident, createIncidentComment, fetchIncidentComments } from "@/lib/actions";
+import { LetterAvatar } from "@/components/ui/Avatar";
+import type { Urgency, IncidentComment } from "@/lib/types";
 
 const urgencyColors: Record<string, { bg: string; text: string; border: string }> = {
   low: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
@@ -19,7 +20,7 @@ const urgencyColors: Record<string, { bg: string; text: string; border: string }
 };
 
 export default function SignalerScreen() {
-  const { incidents, currentUser, buildingId, unitId } = useData();
+  const { incidents, currentUser, buildingId, unitId, profileId } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.signaler;
   const router = useRouter();
@@ -34,6 +35,13 @@ export default function SignalerScreen() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [selectedInc, setSelectedInc] = useState<typeof incidents[0] | null>(null);
+  const [incComments, setIncComments] = useState<IncidentComment[]>([]);
+  const [incCommentsLoading, setIncCommentsLoading] = useState(false);
+  const [incCommentText, setIncCommentText] = useState("");
+
+  const isInactive = currentUser.membershipStatus === "inactive";
 
   const catSlugs = Object.keys(T.cats) as (keyof typeof T.cats)[];
   const urgKeys = Object.keys(T.urgencies) as (keyof typeof T.urgencies)[];
@@ -66,6 +74,29 @@ export default function SignalerScreen() {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhoto(null); setPhotoPreview(null);
     setSubmitting(false);
+    router.refresh();
+  }
+
+  async function openIncident(inc: typeof incidents[0]) {
+    setSelectedInc(inc);
+    setIncCommentsLoading(true);
+    const data = await fetchIncidentComments(inc.id);
+    setIncComments(data);
+    setIncCommentsLoading(false);
+  }
+
+  async function submitIncidentComment() {
+    if (!selectedInc || !incCommentText.trim()) return;
+    await createIncidentComment({
+      incidentId: selectedInc.id,
+      author: currentUser.name,
+      avatarColor: currentUser.avatarColor,
+      body: incCommentText.trim(),
+      role: "resident",
+    });
+    setIncCommentText("");
+    const data = await fetchIncidentComments(selectedInc.id);
+    setIncComments(data);
     router.refresh();
   }
 
@@ -171,7 +202,7 @@ export default function SignalerScreen() {
             )}
           </div>
 
-          <Button full disabled={!canSubmit || submitting} onClick={submit} className={!canSubmit || submitting ? "opacity-50" : ""} icon="Send">
+          <Button full disabled={!canSubmit || submitting || isInactive} onClick={submit} className={!canSubmit || submitting || isInactive ? "opacity-50" : ""} icon="Send">
             {submitting ? T.envoi : T.envoyerSignalement}
           </Button>
         </div>
@@ -190,7 +221,7 @@ export default function SignalerScreen() {
                     const isResolved = inc.status === "resolved";
                     const isInProgress = inc.status === "in_progress";
                     return (
-                      <div key={inc.id} className={`card p-3.5 ${isResolved ? "opacity-60" : ""}`}>
+                      <button key={inc.id} onClick={() => openIncident(inc)} className={`card p-3.5 w-full text-left ${isResolved ? "opacity-60" : ""}`}>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-[14px] font-bold text-ink">{inc.title}</p>
@@ -207,12 +238,15 @@ export default function SignalerScreen() {
                             )}
                           </div>
                           <p className="mt-1 text-[12px] text-ink-soft">{T.cats[inc.category as keyof typeof T.cats] ?? inc.category}{inc.details ? ` · ${inc.details}` : ""}</p>
+                          {inc.imageUrl && (
+                            <img src={inc.imageUrl} alt="" className="mt-2 h-20 w-full rounded-xl object-cover" />
+                          )}
                           <p className="mt-1 text-[11px] text-ink-faint">
                             {timeAgo(inc.createdAt, lang)}
                             {inc.messages > 0 && <> · <Icon name="MessageCircle" className="inline h-3 w-3" /> {inc.messages}</>}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -229,6 +263,75 @@ export default function SignalerScreen() {
           )}
         </div>
       )}
+
+      {/* ═══ Incident detail Sheet ═══ */}
+      <Sheet open={!!selectedInc} onClose={() => { setSelectedInc(null); setIncComments([]); setIncCommentText(""); }} title={selectedInc?.title ?? ""}>
+        {selectedInc && (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-sand p-3.5">
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-[14px] font-bold text-ink">{selectedInc.title}</p>
+                {selectedInc.status === "resolved" ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    <Icon name="Check" className="h-3 w-3" />{T.statuses.resolved}
+                  </span>
+                ) : selectedInc.status === "in_progress" ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    <Icon name="Clock" className="h-3 w-3" />{T.statuses.in_progress}
+                  </span>
+                ) : (
+                  <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${(urgencyColors[selectedInc.urgency] ?? urgencyColors.normal).bg} ${(urgencyColors[selectedInc.urgency] ?? urgencyColors.normal).text} ${(urgencyColors[selectedInc.urgency] ?? urgencyColors.normal).border}`}>
+                    {T.urgencies[selectedInc.urgency as keyof typeof T.urgencies] ?? selectedInc.urgency}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[12px] text-ink-soft">{T.cats[selectedInc.category as keyof typeof T.cats] ?? selectedInc.category}</p>
+              {selectedInc.details && <p className="mt-2 text-[13px] text-ink-soft">{selectedInc.details}</p>}
+              {selectedInc.imageUrl && (
+                <img src={selectedInc.imageUrl} alt="" className="mt-2 w-full rounded-xl object-cover" style={{ maxHeight: 200 }} />
+              )}
+              <p className="mt-2 text-[11px] text-ink-faint">{timeAgo(selectedInc.createdAt, lang)}</p>
+            </div>
+
+            {incCommentsLoading ? (
+              <p className="py-4 text-center text-[13px] text-ink-faint">{i.voisinage.chargement}</p>
+            ) : incComments.length > 0 ? (
+              <div className="space-y-3">
+                {incComments.map((c) => (
+                  <div key={c.id} className="flex gap-2.5">
+                    <LetterAvatar letter={c.author[0]} color={c.avatarColor} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <div className="rounded-2xl border border-black/5 bg-white p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-bold text-ink">{c.author}</span>
+                          {c.role === "syndic" && <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">{i.syndicBadge}</span>}
+                          <span className="text-[10px] text-ink-faint">{timeAgo(c.createdAt, lang)}</span>
+                        </div>
+                        <p className="mt-1 text-[13px] text-ink-soft">{c.body}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-4 text-center text-[13px] text-ink-faint">{i.voisinage.aucunCommentaire}</p>
+            )}
+
+            {!isInactive && (
+              <div className="flex items-end gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <textarea value={incCommentText} onChange={(e) => setIncCommentText(e.target.value.slice(0, 500))} rows={2} placeholder={i.voisinage.ecrireCommentaire}
+                    className="w-full resize-none rounded-2xl border border-black/5 bg-white px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-300" />
+                </div>
+                <button onClick={submitIncidentComment} disabled={!incCommentText.trim()}
+                  className={`tap flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-palier-600 text-white ${!incCommentText.trim() ? "opacity-40" : ""}`}>
+                  <Icon name="Send" className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Sheet>
 
       <Toast open={toast} onClose={() => setToast(false)} title={T.signalementEnvoye} body={T.signalementBody} />
     </div>

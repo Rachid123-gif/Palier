@@ -73,7 +73,7 @@ export async function createIncident(input: {
 }) {
   const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(createIncidentSchema, input);
-  return supabaseAdmin.from("incidents").insert({
+  const res = await supabaseAdmin.from("incidents").insert({
     building_id: v.buildingId,
     unit_id: v.unitId,
     reporter_id: session.profileId,
@@ -85,6 +85,18 @@ export async function createIncident(input: {
     status: "open",
     image_url: v.imageUrl ?? null,
   });
+  // Notify syndic members
+  const { data: syndicMembers } = await supabaseAdmin
+    .from("memberships")
+    .select("profile_id")
+    .eq("building_id", v.buildingId)
+    .eq("role", "syndic")
+    .eq("status", "active");
+  if (syndicMembers?.length) {
+    const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter(Boolean);
+    await notifyProfiles(syndicIds, "Nouvel incident", `${v.title} — ${v.urgency === "urgent" ? "⚠️ Urgent" : v.category}`, "incident");
+  }
+  return res;
 }
 
 /** Créer un post en tant que syndic */

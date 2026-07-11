@@ -11,7 +11,7 @@ import { useLang } from "@/lib/LangProvider";
 import { castVote, fetchMyVotes } from "@/lib/actions";
 
 export default function AgScreen() {
-  const { building, assembly, assemblies, profileId } = useData();
+  const { building, assembly, assemblies, profileId, currentUser } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.ag;
   const [choice, setChoice] = useState<Record<string, string>>({});
@@ -93,7 +93,7 @@ export default function AgScreen() {
                             key={o}
                             disabled={isPending}
                             onClick={() => {
-                              if (!profileId) return;
+                              if (!profileId || currentUser.membershipStatus === "inactive") return;
                               setChoice((c) => ({ ...c, [v.id]: o }));
                               setToast(true);
                               startTransition(() => {

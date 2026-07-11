@@ -23,6 +23,7 @@ export default function ServicesScreen() {
   const { lang, i } = useLang();
   const T = i.services;
   const router = useRouter();
+  const isInactive = currentUser.membershipStatus === "inactive";
 
   const [tab, setTab] = useState<Tab>("recos");
   const [activeCat, setActiveCat] = useState<string | null>(null);
@@ -320,7 +321,7 @@ export default function ServicesScreen() {
 
           <button
             onClick={publishReco}
-            disabled={!recoName.trim() || !recoBody.trim()}
+            disabled={!recoName.trim() || !recoBody.trim() || isInactive}
             className="tap w-full rounded-full bg-palier-600 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
           >
             {T.publier}
@@ -343,8 +344,8 @@ export default function ServicesScreen() {
         </div>
         <button
           onClick={publishDemande}
-          disabled={!demandeText.trim()}
-          className={`tap mt-4 w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white ${!demandeText.trim() ? "opacity-50" : ""}`}
+          disabled={!demandeText.trim() || isInactive}
+          className={`tap mt-4 w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white ${!demandeText.trim() || isInactive ? "opacity-50" : ""}`}
         >
           {T.publier}
         </button>

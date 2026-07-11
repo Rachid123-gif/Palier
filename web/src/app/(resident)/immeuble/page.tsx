@@ -12,7 +12,7 @@ import { useLang } from "@/lib/LangProvider";
 const LEDGER_LIMIT = 3;
 
 export default function ImmeubleScreen() {
-  const { building, buildingKpis, ledger, incidents, gardien, welcomeMessage, insurancePolicies, mandate, coproprieteRule, budgetSummary } = useData();
+  const { building, buildingKpis, ledger, incidents, gardien, welcomeMessage, insurancePolicies, mandate, coproprieteRule, budgetSummary, urgentWorks } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.immeuble;
   const [ledgerCount, setLedgerCount] = useState(LEDGER_LIMIT);
@@ -247,7 +247,7 @@ export default function ImmeubleScreen() {
         )}
 
         {/* ═══════ Infos immeuble (gardien, assurance, etc.) ═══════ */}
-        {(gardien || welcomeMessage || insurancePolicies.length > 0 || mandate || coproprieteRule || budgetSummary) && (
+        {(gardien || welcomeMessage || insurancePolicies.length > 0 || mandate || coproprieteRule || budgetSummary || urgentWorks.length > 0) && (
           <>
             <hr className="border-palier-100" />
 
@@ -372,6 +372,34 @@ export default function ImmeubleScreen() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {urgentWorks.length > 0 && (
+              <div className="card space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="Hammer" className="h-4 w-4 text-palier-600" />
+                  <h3 className="text-[14px] font-bold text-ink">{T.travauxUrgents}</h3>
+                </div>
+                {urgentWorks.map((w) => {
+                  const statusCls = w.status === "completed" ? "bg-emerald-50 text-emerald-700"
+                    : w.status === "in_progress" ? "bg-amber-50 text-amber-700"
+                    : "bg-red-50 text-red-700";
+                  const statusLabel = w.status === "completed" ? T.travauxTermine
+                    : w.status === "in_progress" ? T.travauxEnCours
+                    : w.status === "approved" ? T.travauxApprouve
+                    : T.travauxDeclare;
+                  return (
+                    <div key={w.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium text-ink">{w.title}</p>
+                        {w.description && <p className="mt-0.5 text-[11px] text-ink-faint">{w.description}</p>}
+                        {w.estimatedCost != null && <p className="mt-0.5 text-[11px] text-ink-soft" dir="ltr">~{num(w.estimatedCost, false)} MAD</p>}
+                      </div>
+                      <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusCls}`}>{statusLabel}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>

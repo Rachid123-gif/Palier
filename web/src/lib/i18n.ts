@@ -194,6 +194,11 @@ export const t = {
       depenses: "Dépenses",
       prevu: "Prévu",
       reel: "Réel",
+      travauxUrgents: "Travaux urgents",
+      travauxDeclare: "Déclaré",
+      travauxApprouve: "Approuvé",
+      travauxEnCours: "En cours",
+      travauxTermine: "Terminé",
     },
 
     // ── Documents ──
@@ -594,6 +599,11 @@ export const t = {
       depenses: "المصاريف",
       prevu: "مقدر",
       reel: "فعلي",
+      travauxUrgents: "أشغال مستعجلة",
+      travauxDeclare: "معلن",
+      travauxApprouve: "موافق عليه",
+      travauxEnCours: "قيد التنفيذ",
+      travauxTermine: "مكتمل",
     },
 
     // ── Documents ──

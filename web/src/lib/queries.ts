@@ -28,6 +28,7 @@ export interface AppData {
   mandate: { syndicName: string; syndicType: string; mandateEnd: string; electedAt: string } | null;
   coproprieteRule: { title: string; fileUrl?: string; adoptedAt?: string } | null;
   budgetSummary: { fiscalYear: number; totalAmount: number; status: string; lines: { label: string; category: string; amountBudgeted: number; amountActual: number }[] } | null;
+  urgentWorks: { id: string; title: string; status: string; estimatedCost?: number; declaredAt: string; description?: string }[];
   notifications: { id: string; title: string; body: string; created_at: string; kind: string }[];
   /** Multi-building: all buildings user has access to */
   buildings: UserBuilding[];
@@ -113,7 +114,7 @@ export async function getUserBuildings(profileId: string): Promise<UserBuilding[
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null, buildings?: UserBuilding[]): Promise<AppData> {
-  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes] = await Promise.all([
+  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes, urgentWorksRes] = await Promise.all([
     supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
     profileId ? supabaseAdmin.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
     unitId ? supabaseAdmin.from("units").select("*").eq("id", unitId).single() : supabaseAdmin.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
@@ -132,6 +133,7 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }).limit(1).single(),
     supabaseAdmin.from("copropriete_rules").select("title, file_url, adopted_at").eq("building_id", buildingId).single(),
     supabaseAdmin.from("budgets").select("*, budget_lines(*)").eq("building_id", buildingId).eq("status", "approved").order("fiscal_year", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("urgent_works").select("id, title, status, estimated_cost, description, declared_at").eq("building_id", buildingId).order("declared_at", { ascending: false }),
   ]);
 
   const b = bRes.data;
@@ -221,6 +223,11 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
         amountBudgeted: Number(l.amount_budgeted), amountActual: Number(l.amount_actual),
       })),
     } : null,
+    urgentWorks: (urgentWorksRes.data ?? []).map((w: any) => ({
+      id: w.id, title: w.title, status: w.status,
+      estimatedCost: w.estimated_cost ? Number(w.estimated_cost) : undefined,
+      declaredAt: w.declared_at, description: w.description ?? undefined,
+    })),
     notifications: (notifRes as any).data ?? [],
     buildings: buildings ?? [],
   };
