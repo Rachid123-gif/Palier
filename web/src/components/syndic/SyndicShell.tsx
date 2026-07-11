@@ -144,7 +144,7 @@ export function SyndicShell({
         </nav>
 
         <div className="border-t border-black/[0.06] pt-3">
-          {!collapsed && <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />}
+          {!collapsed && <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} fallback={building} />}
           <div className={cn("mt-2 flex items-center", collapsed ? "justify-center py-1.5" : "gap-2.5 px-2.5 py-1.5")}>
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
               {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -209,7 +209,7 @@ export function SyndicShell({
             </nav>
 
             <div className="border-t border-black/[0.06] px-3 pt-3 pb-4">
-              <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />
+              <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} fallback={building} />
               <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
                   {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}

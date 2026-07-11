@@ -208,7 +208,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
                           )}
                           <button
                             onClick={() => setShowDelete(doc.id)}
-                            className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600"
+                            className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-red-50 hover:text-red-500"
                             title="Supprimer"
                           >
                             <Icon name="Trash2" className="h-4 w-4" />

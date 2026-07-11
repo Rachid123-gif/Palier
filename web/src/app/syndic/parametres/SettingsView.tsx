@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
@@ -157,8 +157,13 @@ export function SettingsView({
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
 
-  function handleSave() {
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
+
+  const doSave = useCallback(() => {
     startTransition(async () => {
+      setSaveStatus("saving");
       await saveBuildingSettings(building.id, {
         syndic_phone: phone || undefined,
         syndic_email: email || undefined,
@@ -180,10 +185,19 @@ export function SettingsView({
           quiet_hours: { enabled: quietEnabled, from: quietFrom, to: quietTo },
         },
       } as Record<string, unknown>);
-      flash("Configuration sauvegardée");
+      setSaveStatus("saved");
       router.refresh();
+      setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }
+  }, [building.id, phone, email, welcome, incidentCats, expenseCats, chargeCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
+
+  // Auto-save with 1s debounce
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(doSave, 1000);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [doSave]);
 
   // ── Category helpers ──
   function addCat(list: string[], setList: (v: string[]) => void, value: string, setInput: (v: string) => void) {
@@ -230,14 +244,15 @@ export function SettingsView({
         title="Paramètres"
         subtitle="Configuration de la résidence"
         action={
-          <button
-            onClick={handleSave}
-            disabled={isPending}
-            className={`inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700 ${isPending ? "opacity-50" : ""}`}
-          >
-            <Icon name="Save" className="h-3.5 w-3.5" />
-            {isPending ? "Sauvegarde…" : "Sauvegarder"}
-          </button>
+          saveStatus !== "idle" ? (
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-soft">
+              {saveStatus === "saving" ? (
+                <><Icon name="LoaderCircle" className="h-3.5 w-3.5 animate-spin" /> Sauvegarde…</>
+              ) : (
+                <><Icon name="Check" className="h-3.5 w-3.5 text-emerald-600" /> Sauvegardé</>
+              )}
+            </span>
+          ) : undefined
         }
       />
 

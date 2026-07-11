@@ -9,15 +9,18 @@ import type { UserBuilding } from "@/lib/queries";
 export function BuildingSwitcher({
   buildings,
   currentBuildingId,
+  fallback,
 }: {
   buildings: UserBuilding[];
   currentBuildingId: string;
+  fallback?: { name: string; city: string };
 }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const current = buildings.find((b) => b.buildingId === currentBuildingId);
+  const found = buildings.find((b) => b.buildingId === currentBuildingId);
+  const current = found ?? (fallback ? { buildingId: currentBuildingId, name: fallback.name, city: fallback.city, role: "syndic" as const, unitId: null } : undefined);
 
   // Close dropdown on click outside
   useEffect(() => {

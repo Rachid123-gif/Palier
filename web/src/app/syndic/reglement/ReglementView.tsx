@@ -235,7 +235,7 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
                       <a href={annexe.url} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-600" title="Ouvrir">
                         <Icon name="ExternalLink" className="h-4 w-4" />
                       </a>
-                      <button onClick={() => handleRemoveAnnexe(i)} className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600" title="Supprimer">
+                      <button onClick={() => handleRemoveAnnexe(i)} className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-red-50 hover:text-red-500" title="Supprimer">
                         <Icon name="Trash2" className="h-4 w-4" />
                       </button>
                     </div>

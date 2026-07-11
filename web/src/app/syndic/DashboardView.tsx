@@ -442,10 +442,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-4">
-              <Icon name="BookOpen" className="h-5 w-5 text-ink-faint" />
-              <p className="text-[13px] text-ink-soft">Aucune dépense sur la période</p>
-            </div>
+            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune dépense sur la période</p>
           )}
         </Card>
 
@@ -528,10 +525,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-4">
-              <Icon name="CheckCircle" className="h-5 w-5 text-ink-faint" />
-              <p className="text-[13px] text-ink-soft">Aucun incident sur cette période</p>
-            </div>
+            <p className="py-4 text-center text-[13px] text-ink-faint">Aucun incident sur cette période</p>
           )}
         </Card>
 
@@ -549,7 +543,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               {ledgerInPeriod.slice(0, 5).map((e: any) => (
                 <div key={e.id} className="flex items-center gap-3 py-2.5">
                   <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${e.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
-                    <Icon name={e.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-3.5 w-3.5 ${e.type === "in" ? "text-emerald-600" : "text-red-500"}`} />
+                    <Icon name={e.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-3.5 w-3.5 ${e.type === "in" ? "text-emerald-600" : "text-red-600"}`} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-ink">{e.label}</p>
@@ -562,10 +556,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-4">
-              <Icon name="BookOpen" className="h-5 w-5 text-ink-faint" />
-              <p className="text-[13px] text-ink-soft">Aucune opération sur cette période</p>
-            </div>
+            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune opération sur cette période</p>
           )}
         </Card>
       </div>
@@ -597,10 +588,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-4">
-              <Icon name="Calendar" className="h-5 w-5 text-ink-faint" />
-              <p className="text-[13px] text-ink-soft">Aucune assemblée prévue</p>
-            </div>
+            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune assemblée prévue</p>
           )}
         </Card>
 
@@ -628,10 +616,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 py-4">
-              <Icon name="FileText" className="h-5 w-5 text-ink-faint" />
-              <p className="text-[13px] text-ink-soft">Aucun document sur cette période</p>
-            </div>
+            <p className="py-4 text-center text-[13px] text-ink-faint">Aucun document sur cette période</p>
           )}
         </Card>
       </div>

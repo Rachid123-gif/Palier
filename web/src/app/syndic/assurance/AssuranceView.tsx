@@ -264,7 +264,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
                         <button onClick={() => openEdit(p)} className="text-[11px] font-semibold text-palier-600 hover:underline">
                           Modifier
                         </button>
-                        <button onClick={() => setShowDelete(p)} className="text-[11px] font-semibold text-red-500 hover:underline">
+                        <button onClick={() => setShowDelete(p)} className="text-[11px] font-semibold text-red-600 hover:underline">
                           Supprimer
                         </button>
                       </div>
@@ -294,7 +294,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
                       <a href={p.fileUrl} target="_blank" rel="noopener" className="text-[12px] font-semibold text-palier-600">Fichier</a>
                     )}
                     <button onClick={() => openEdit(p)} className="text-[12px] font-semibold text-palier-600">Modifier</button>
-                    <button onClick={() => setShowDelete(p)} className="text-[11px] font-semibold text-red-500">Supprimer</button>
+                    <button onClick={() => setShowDelete(p)} className="text-[11px] font-semibold text-red-600">Supprimer</button>
                   </div>
                 </div>
               ))}

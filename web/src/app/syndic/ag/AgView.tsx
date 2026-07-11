@@ -446,7 +446,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                         {upcoming && (
                           <>
                             <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-palier-700">Notifier</button>
-                            <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-500 hover:underline">Annuler</button>
+                            <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600 hover:underline">Annuler</button>
                           </>
                         )}
                         {!upcoming && !hasResults && (
@@ -494,7 +494,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                     {upcoming && (
                       <>
                         <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">Notifier</button>
-                        <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-500">Annuler</button>
+                        <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600">Annuler</button>
                       </>
                     )}
                     {!upcoming && !hasResults && (
@@ -585,7 +585,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                           </div>
                           <div className="mt-1 flex gap-3 text-[11px] text-ink-soft">
                             <span className="text-emerald-600">Pour {r.pourTantiemes}t</span>
-                            <span className="text-red-500">Contre {r.contreTantiemes}t</span>
+                            <span className="text-red-600">Contre {r.contreTantiemes}t</span>
                             <span>Abst. {r.abstentionTantiemes}t</span>
                           </div>
                         </div>
@@ -781,7 +781,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                             }} className={inputCls} />
                           </div>
                           <div>
-                            <label className="mb-0.5 block text-[10px] font-semibold text-red-500">Contre (tantièmes)</label>
+                            <label className="mb-0.5 block text-[10px] font-semibold text-red-600">Contre (tantièmes)</label>
                             <input type="number" min="0" value={rd.contre || ""} onChange={(e) => {
                               const m = new Map(resolutionResults);
                               m.set(r.id, { ...rd, contre: Number(e.target.value) || 0 });

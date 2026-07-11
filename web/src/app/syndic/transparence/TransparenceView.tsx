@@ -348,7 +348,7 @@ export function TransparenceView({
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${l.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
-                          <Icon name={l.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-3.5 w-3.5 ${l.type === "in" ? "text-emerald-600" : "text-red-500"}`} />
+                          <Icon name={l.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-3.5 w-3.5 ${l.type === "in" ? "text-emerald-600" : "text-red-600"}`} />
                         </span>
                         <span className="font-medium text-ink">{l.label}</span>
                       </div>
@@ -381,7 +381,7 @@ export function TransparenceView({
               {rows.map((l) => (
                 <div key={l.id} className="flex items-center gap-3 p-4">
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${l.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
-                    <Icon name={l.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-4 w-4 ${l.type === "in" ? "text-emerald-600" : "text-red-500"}`} />
+                    <Icon name={l.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-4 w-4 ${l.type === "in" ? "text-emerald-600" : "text-red-600"}`} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-medium text-ink">{l.label}</p>
@@ -541,7 +541,7 @@ export function TransparenceView({
 
           <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white p-4">
             <span className={`flex h-9 w-9 items-center justify-center rounded-full ${editTarget.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
-              <Icon name={editTarget.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-4 w-4 ${editTarget.type === "in" ? "text-emerald-600" : "text-red-500"}`} />
+              <Icon name={editTarget.type === "in" ? "ArrowDownLeft" : "ArrowUpRight"} className={`h-4 w-4 ${editTarget.type === "in" ? "text-emerald-600" : "text-red-600"}`} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold text-ink">{editTarget.label}</p>

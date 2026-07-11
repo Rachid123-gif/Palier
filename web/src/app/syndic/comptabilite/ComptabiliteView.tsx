@@ -1,6 +1,6 @@
 "use client";
 import { useMemo } from "react";
-import { PageHeader } from "@/components/syndic/ui";
+import { PageHeader, KpiCard } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 import { mad } from "@/lib/format";
@@ -252,42 +252,10 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
 
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100">
-              <Icon name="TrendingUp" className="h-3.5 w-3.5 text-emerald-600" />
-            </div>
-            <p className="text-[11px] font-semibold text-ink-soft">Recettes</p>
-          </div>
-          <p className="text-[20px] font-bold leading-none text-emerald-700">{mad(totalIncome, { decimals: false })}</p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100">
-              <Icon name="TrendingDown" className="h-3.5 w-3.5 text-red-600" />
-            </div>
-            <p className="text-[11px] font-semibold text-ink-soft">Dépenses</p>
-          </div>
-          <p className="text-[20px] font-bold leading-none text-red-700">{mad(totalExpenses, { decimals: false })}</p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100">
-              <Icon name="Wallet" className="h-3.5 w-3.5 text-blue-600" />
-            </div>
-            <p className="text-[11px] font-semibold text-ink-soft">Solde trésorerie</p>
-          </div>
-          <p className={`text-[20px] font-bold leading-none ${kpis.balance >= 0 ? "text-ink" : "text-red-700"}`}>{mad(kpis.balance, { decimals: false })}</p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100">
-              <Icon name="AlertTriangle" className="h-3.5 w-3.5 text-amber-600" />
-            </div>
-            <p className="text-[11px] font-semibold text-ink-soft">Impayés</p>
-          </div>
-          <p className={`text-[20px] font-bold leading-none ${kpis.outstanding > 0 ? "text-amber-700" : "text-ink"}`}>{mad(kpis.outstanding, { decimals: false })}</p>
-        </div>
+        <KpiCard label="Recettes" value={mad(totalIncome, { decimals: false })} />
+        <KpiCard label="Dépenses" value={mad(totalExpenses, { decimals: false })} />
+        <KpiCard label="Solde trésorerie" value={mad(kpis.balance, { decimals: false })} />
+        <KpiCard label="Impayés" value={mad(kpis.outstanding, { decimals: false })} hint={kpis.outstanding > 0 ? "à recouvrer" : "aucun impayé"} />
       </div>
 
       {/* Annexes header */}

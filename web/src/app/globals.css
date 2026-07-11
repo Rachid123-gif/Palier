@@ -231,6 +231,13 @@ body {
 .dark .text-blue-600 { color: #93c5fd; }
 .dark .text-red-700 { color: #fca5a5; }
 .dark .text-red-600 { color: #fca5a5; }
+.dark .text-red-800 { color: #fca5a5; }
+.dark .text-emerald-800 { color: #6ee7b7; }
+.dark .text-amber-800 { color: #fcd34d; }
+.dark .text-amber-400 { color: #fcd34d; }
+.dark .text-red-400 { color: #fca5a5; }
+.dark .text-red-500 { color: #fca5a5; }
+.dark .text-amber-500 { color: #fbbf24; }
 
 /* ── Dark: hardcoded page backgrounds ── */
 .dark .bg-\[\#e7e1d6\] { background-color: #0e0e0e; }

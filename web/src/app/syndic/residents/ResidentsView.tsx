@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { addResident, updateResident, deactivateResident, reactivateResident, regenerateResidentCode } from "@/lib/actions";
-import { whatsappLink } from "@/lib/whatsapp";
+
 
 interface Resident {
   id: string;
@@ -43,7 +43,7 @@ export function ResidentsView({
   const [toast, setToast] = useState("");
   const [addError, setAddError] = useState("");
   const [editError, setEditError] = useState("");
-  const [copied, setCopied] = useState<string | null>(null);
+
   const [codeTarget, setCodeTarget] = useState<Resident | null>(null);
   const [codeValue, setCodeValue] = useState<string | null>(null);
   const [codeLoading, setCodeLoading] = useState(false);
@@ -74,7 +74,6 @@ export function ResidentsView({
   function setQ(v: string) { setSearch(v); setPage(0); }
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
-  function copy(code: string) { navigator.clipboard.writeText(code); setCopied(code); setTimeout(() => setCopied(null), 2000); }
 
   function normalizePhone(raw: string): string {
     const digits = raw.replace(/\s/g, "");
@@ -359,7 +358,7 @@ export function ResidentsView({
                             </button>
                           ) : (
                             <>
-                              <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-600" title="Code d'accès">
+                              <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-600" title="Renvoyer le code d'accès">
                                 <Icon name="KeyRound" className="h-3.5 w-3.5" />
                               </button>
                               <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="WhatsApp">
@@ -412,7 +411,7 @@ export function ResidentsView({
                           </button>
                         ) : (
                           <>
-                            <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="KeyRound" className="h-4 w-4" /></button>
+                            <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint" title="Renvoyer le code d'accès"><Icon name="KeyRound" className="h-4 w-4" /></button>
                             <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
                             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
                             <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>
@@ -457,32 +456,18 @@ export function ResidentsView({
                   <Icon name="Check" className="h-5 w-5 text-emerald-700" />
                 </span>
                 <p className="mt-3 text-[14px] font-semibold text-emerald-800">Résident ajouté avec succès</p>
-                <p className="mt-3 rounded-lg bg-white px-4 py-2.5 font-mono text-[22px] font-bold tracking-[0.15em] text-ink">{addResult}</p>
-                <p className="mt-2 text-[12px] text-ink-soft">Code d&apos;accès unique pour rejoindre Palier</p>
+                <p className="mt-2 text-[12px] text-ink-soft">
+                  Un code d&apos;accès a été envoyé automatiquement par <span className="font-semibold text-palier-700">WhatsApp</span> à {addForm.name.split(" ")[0]}.
+                </p>
               </div>
-              <a
-                href={whatsappLink(addForm.phone, `Bonjour ${addForm.name.split(" ")[0]} 👋\n\nVotre code d'accès Palier est : *${addResult}*\n\nTéléchargez l'application et utilisez ce code pour rejoindre votre résidence.\n\nÀ bientôt sur Palier !`)}
-                target="_blank"
-                rel="noopener"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1fb855]"
-              >
-                <Icon name="MessageCircle" className="h-4 w-4" />
-                Envoyer le code par WhatsApp
-              </a>
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => copy(addResult)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                  <span className="flex items-center justify-center gap-1.5">
-                    <Icon name={copied === addResult ? "Check" : "Copy"} className="h-3.5 w-3.5" />
-                    {copied === addResult ? "Copié" : "Copier le code"}
-                  </span>
-                </button>
-                <button onClick={openAdd} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
+              <div className="mt-4 flex gap-2">
+                <button onClick={openAdd} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
                   Ajouter un autre
                 </button>
+                <button onClick={() => setModal(null)} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
+                  Terminé
+                </button>
               </div>
-              <button onClick={() => setModal(null)} className="mt-2 w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
-                Terminé
-              </button>
             </div>
           ) : (
             <div>
@@ -540,9 +525,9 @@ export function ResidentsView({
                 <div className="flex items-start gap-2.5 rounded-xl border border-palier-200 bg-palier-50 px-3.5 py-3">
                   <Icon name="Send" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
                   <div>
-                    <p className="text-[12px] font-semibold text-ink">Code envoyé automatiquement</p>
+                    <p className="text-[12px] font-semibold text-ink">Accès automatique</p>
                     <p className="mt-0.5 text-[12px] text-ink">
-                      Un code d&apos;accès unique sera généré et vous pourrez l&apos;envoyer par <span className="font-bold text-palier-700">WhatsApp</span> au résident.
+                      Un code d&apos;accès unique sera généré et envoyé automatiquement par <span className="font-bold text-palier-700">WhatsApp</span> au résident.
                     </p>
                   </div>
                 </div>
@@ -636,23 +621,23 @@ export function ResidentsView({
             <div className="space-y-2 rounded-xl border border-black/10 bg-white p-3">
               <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-red-600">N&apos;aura plus accès à</p>
               <div className="flex items-start gap-2.5">
-                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
                 <p className="text-[12px] text-ink">Publier et commenter dans le <span className="font-semibold">voisinage</span></p>
               </div>
               <div className="flex items-start gap-2.5">
-                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
                 <p className="text-[12px] text-ink">Signaler des <span className="font-semibold">incidents</span></p>
               </div>
               <div className="flex items-start gap-2.5">
-                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
                 <p className="text-[12px] text-ink">Voter aux <span className="font-semibold">assemblées générales</span></p>
               </div>
               <div className="flex items-start gap-2.5">
-                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
                 <p className="text-[12px] text-ink">Accéder aux <span className="font-semibold">nouveaux documents</span> et écritures de <span className="font-semibold">transparence</span></p>
               </div>
               <div className="flex items-start gap-2.5">
-                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
                 <p className="text-[12px] text-ink">Réserver des <span className="font-semibold">services</span> via la résidence</p>
               </div>
               <div className="my-2 border-t border-black/[0.06]" />
@@ -704,7 +689,7 @@ export function ResidentsView({
                 <Icon name="KeyRound" className="h-5 w-5 text-palier-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Code d&apos;accès</h2>
+                <h2 className="text-[16px] font-semibold text-ink">Régénérer le code</h2>
                 <p className="text-[12px] text-ink-soft">Lot {codeTarget.unit} · {codeTarget.name}</p>
               </div>
             </div>
@@ -715,38 +700,26 @@ export function ResidentsView({
           {codeLoading ? (
             <div className="py-8 text-center">
               <Icon name="LoaderCircle" className="mx-auto h-6 w-6 animate-spin text-ink-faint" />
-              <p className="mt-2 text-[13px] text-ink-soft">Génération du code…</p>
+              <p className="mt-2 text-[13px] text-ink-soft">Génération et envoi du code…</p>
             </div>
           ) : codeValue ? (
             <div>
-              <div className="rounded-xl border border-palier-200 bg-palier-50 p-5 text-center">
-                <p className="rounded-lg bg-white px-4 py-2.5 font-mono text-[22px] font-bold tracking-[0.15em] text-ink">{codeValue}</p>
-                <p className="mt-2 text-[12px] text-ink-soft">Nouveau code d&apos;accès pour rejoindre Palier</p>
-              </div>
-              <a
-                href={whatsappLink(codeTarget.phone, `Bonjour ${codeTarget.name.split(" ")[0]} 👋\n\nVotre code d'accès Palier est : *${codeValue}*\n\nTéléchargez l'application et utilisez ce code pour rejoindre votre résidence.\n\nÀ bientôt sur Palier !`)}
-                target="_blank"
-                rel="noopener"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1fb855]"
-              >
-                <Icon name="MessageCircle" className="h-4 w-4" />
-                Envoyer par WhatsApp
-              </a>
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => copy(codeValue)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                  <span className="flex items-center justify-center gap-1.5">
-                    <Icon name={copied === codeValue ? "Check" : "Copy"} className="h-3.5 w-3.5" />
-                    {copied === codeValue ? "Copié" : "Copier le code"}
-                  </span>
-                </button>
-                <button onClick={() => setCodeTarget(null)} className="flex-1 rounded-lg bg-palier-600 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
-                  Fermer
-                </button>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                  <Icon name="Check" className="h-5 w-5 text-emerald-700" />
+                </span>
+                <p className="mt-3 text-[14px] font-semibold text-emerald-800">Nouveau code envoyé</p>
+                <p className="mt-2 text-[12px] text-ink-soft">
+                  Un nouveau code d&apos;accès a été envoyé automatiquement par <span className="font-semibold text-palier-700">WhatsApp</span> à {codeTarget.name.split(" ")[0]}.
+                </p>
               </div>
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                <p className="text-[11px] text-amber-800">L&apos;ancien code a été invalidé. Seul ce nouveau code est valide.</p>
+                <p className="text-[11px] text-amber-800">L&apos;ancien code a été invalidé. Seul le nouveau code est valide.</p>
               </div>
+              <button onClick={() => setCodeTarget(null)} className="mt-4 w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
+                Fermer
+              </button>
             </div>
           ) : null}
         </Overlay>
