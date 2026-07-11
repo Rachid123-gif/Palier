@@ -470,7 +470,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <th className="px-3 py-2.5">Montant</th>
                   <th className="px-3 py-2.5 whitespace-nowrap">Échéance</th>
                   <th className="px-3 py-2.5 whitespace-nowrap">Statut</th>
-                  <th className="px-3 py-2.5 whitespace-nowrap">Dernière relance</th>
+                  <th className="hidden px-3 py-2.5 whitespace-nowrap lg:table-cell">Dernière relance</th>
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
@@ -501,7 +501,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                         {r.dueDate ? shortDate(r.dueDate) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5"><StatusPill status={r.status} /></td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
+                      <td className="hidden whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft lg:table-cell">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5">
                         {!isPaid && (
                           <div className="flex items-center justify-end gap-1.5">
