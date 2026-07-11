@@ -450,7 +450,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
+      <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Search" className="mx-auto h-8 w-8 text-ink-faint" />

@@ -216,7 +216,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
       </div>
 
       {/* Policy cards */}
-      <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
+      <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
         {policies.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Shield" className="mx-auto h-8 w-8 text-ink-faint" />
