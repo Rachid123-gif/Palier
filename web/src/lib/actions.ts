@@ -552,12 +552,13 @@ export async function emitCharges(input: {
     };
   });
 
-  // Send notification to all residents
+  // Send notification to all residents (not syndic)
   const { data: memberships } = await supabaseAdmin
     .from("memberships")
     .select("profile_id")
     .eq("building_id", v.buildingId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .neq("role", "syndic");
 
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
@@ -845,7 +846,7 @@ export async function fetchResidentHistory(profileId: string, buildingId: string
     supabaseAdmin.from("memberships").select("*, units(ref)").eq("profile_id", profileId).eq("building_id", buildingId).single(),
     supabaseAdmin.from("charges").select("*").eq("unit_id", unitId),
     supabaseAdmin.from("incidents").select("*").eq("reporter_id", profileId).eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabaseAdmin.from("posts").select("*").eq("author_id", profileId).eq("building_id", buildingId).order("created_at", { ascending: false }),
+    supabaseAdmin.from("posts").select("*").eq("profile_id", profileId).eq("building_id", buildingId).order("created_at", { ascending: false }),
   ]);
 
   return {

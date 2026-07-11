@@ -7,13 +7,14 @@ import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 
-type NotifKind = "incident" | "charge" | "post" | "ag";
+type NotifKind = "incident" | "charge" | "post" | "ag" | "document";
 
 const kindIcon: Record<string, { icon: string; tint: string; color: string }> = {
   incident: { icon: "TriangleAlert", tint: "bg-danger-soft", color: "text-danger" },
   charge: { icon: "ReceiptText", tint: "bg-coral-400/20", color: "text-coral-600" },
   post: { icon: "Megaphone", tint: "bg-palier-100", color: "text-palier-600" },
   ag: { icon: "CalendarDays", tint: "bg-amber-100", color: "text-amber-600" },
+  document: { icon: "FileText", tint: "bg-blue-100", color: "text-blue-600" },
 };
 
 /** Map notification kinds to preference keys from profile settings */
@@ -22,6 +23,7 @@ const kindToPref: Record<string, string> = {
   charge: "charges",
   post: "voisinage",
   ag: "ag",
+  document: "syndic",
 };
 
 function getReadIds(): Set<string> {
