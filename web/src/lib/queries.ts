@@ -51,7 +51,7 @@ const mapIncident = (r: any): Incident => ({
 });
 
 const mapPost = (r: any): Post => ({
-  id: r.id, type: r.type, author: r.author_name, role: r.role,
+  id: r.id, type: r.type, author: r.author_name, authorId: r.profile_id ?? null, role: r.role,
   avatarColor: r.avatar_color, createdAt: r.created_at, pinned: r.pinned,
   emoji: r.emoji, title: r.title, body: r.body,
   reactions: { like: r.like_count ?? 0, love: r.love_count ?? 0, haha: r.haha_count ?? 0, wow: r.wow_count ?? 0 },

@@ -43,6 +43,9 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
 
 export function useLang(): LangCtx {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useLang must be used within LangProvider");
+  if (!ctx) {
+    // Fallback for pages outside LangProvider (e.g. syndic)
+    return { lang: "fr", isAr: false, setLang: () => {}, toggleLang: () => {}, i: t.fr as Translations };
+  }
   return ctx;
 }

@@ -3,7 +3,7 @@ import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
-import { addResident, updateResident, deactivateResident, reactivateResident } from "@/lib/actions";
+import { addResident, updateResident, deactivateResident, reactivateResident, regenerateResidentCode } from "@/lib/actions";
 import { whatsappLink } from "@/lib/whatsapp";
 
 interface Resident {
@@ -15,6 +15,7 @@ interface Resident {
   role: string;
   status: string;
   deactivatedAt: string | null;
+  tantiemes: number;
 }
 
 const PER_PAGE = 10;
@@ -43,6 +44,9 @@ export function ResidentsView({
   const [addError, setAddError] = useState("");
   const [editError, setEditError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [codeTarget, setCodeTarget] = useState<Resident | null>(null);
+  const [codeValue, setCodeValue] = useState<string | null>(null);
+  const [codeLoading, setCodeLoading] = useState(false);
 
   const activeResidents = residents.filter((r) => (r.status ?? "active") === "active");
   const inactiveResidents = residents.filter((r) => (r.status ?? "active") === "inactive");
@@ -80,9 +84,9 @@ export function ResidentsView({
   }
 
   function exportCSV() {
-    const header = "Lot,Nom,Statut,Téléphone,Rôle";
+    const header = "Lot,Nom,Statut,Téléphone,Rôle,Tantièmes";
     const csvRows = filtered.map((r) =>
-      `${r.unit},"${r.name.replace(/"/g, '""')}",${(r.status ?? "active") === "active" ? "Actif" : "Désactivé"},${r.phone},${r.role === "tenant" ? "Locataire" : "Propriétaire"}`
+      `${r.unit},"${r.name.replace(/"/g, '""')}",${(r.status ?? "active") === "active" ? "Actif" : "Désactivé"},${r.phone},${r.role === "tenant" ? "Locataire" : "Propriétaire"},${r.tantiemes || ""}`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -145,19 +149,35 @@ export function ResidentsView({
   function handleDeactivate() {
     if (!editTarget) return;
     startTransition(async () => {
-      await deactivateResident(editTarget.id, buildingId);
-      flash("Résident désactivé");
-      setModal(null);
-      router.refresh();
+      try {
+        await deactivateResident(editTarget.id, buildingId);
+        flash("Résident désactivé");
+        setModal(null);
+        router.refresh();
+      } catch { flash("Erreur lors de la désactivation"); }
     });
   }
 
   function handleReactivate(r: Resident) {
     startTransition(async () => {
-      await reactivateResident(r.id, buildingId);
-      flash("Résident réactivé");
-      router.refresh();
+      try {
+        await reactivateResident(r.id, buildingId);
+        flash("Résident réactivé");
+        router.refresh();
+      } catch { flash("Erreur lors de la réactivation"); }
     });
+  }
+
+  async function handleRegenerateCode(r: Resident) {
+    setCodeTarget(r);
+    setCodeValue(null);
+    setCodeLoading(true);
+    try {
+      const res = await regenerateResidentCode(r.id);
+      if (res.error) { flash("Erreur : résident introuvable"); setCodeTarget(null); }
+      else setCodeValue(res.code!);
+    } catch { flash("Erreur lors de la génération du code"); setCodeTarget(null); }
+    setCodeLoading(false);
   }
 
   return (
@@ -288,6 +308,7 @@ export function ResidentsView({
                   <th className="px-4 py-2.5">Lot</th>
                   <th className="px-4 py-2.5">Nom</th>
                   <th className="px-4 py-2.5">Statut</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Tantièmes</th>
                   <th className="px-4 py-2.5">Téléphone</th>
                   <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
@@ -316,6 +337,7 @@ export function ResidentsView({
                           {r.role === "tenant" ? "Locataire" : "Propriétaire"}
                         </span>
                       </td>
+                      <td className="px-4 py-2.5 text-ink-soft">{r.tantiemes > 0 ? r.tantiemes : "—"}</td>
                       <td className="px-4 py-2.5 text-ink-soft">
                         {r.phone}
                         {isInactive && r.deactivatedAt && (
@@ -337,6 +359,9 @@ export function ResidentsView({
                             </button>
                           ) : (
                             <>
+                              <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-600" title="Code d'accès">
+                                <Icon name="KeyRound" className="h-3.5 w-3.5" />
+                              </button>
                               <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="WhatsApp">
                                 <Icon name="MessageCircle" className="h-3.5 w-3.5" />
                               </a>
@@ -376,6 +401,7 @@ export function ResidentsView({
                           <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === "tenant" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
                             {r.role === "tenant" ? "Locataire" : "Propriétaire"}
                           </span>
+                          {r.tantiemes > 0 && <span className="text-[10px] text-ink-faint">{r.tantiemes} t.</span>}
                         </div>
                         <p className="mt-0.5 text-[12px] text-ink-soft">{r.phone}</p>
                       </div>
@@ -386,6 +412,7 @@ export function ResidentsView({
                           </button>
                         ) : (
                           <>
+                            <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="KeyRound" className="h-4 w-4" /></button>
                             <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
                             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
                             <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>
@@ -665,6 +692,63 @@ export function ResidentsView({
               {isPending ? "Désactivation…" : "Retirer le résident"}
             </button>
           </div>
+        </Overlay>
+      )}
+
+      {/* Code d'accès modal */}
+      {codeTarget && (
+        <Overlay onClose={() => setCodeTarget(null)}>
+          <div className="mb-5 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
+                <Icon name="KeyRound" className="h-5 w-5 text-palier-600" />
+              </span>
+              <div>
+                <h2 className="text-[16px] font-semibold text-ink">Code d&apos;accès</h2>
+                <p className="text-[12px] text-ink-soft">Lot {codeTarget.unit} · {codeTarget.name}</p>
+              </div>
+            </div>
+            <button onClick={() => setCodeTarget(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+              <Icon name="X" className="h-4 w-4" />
+            </button>
+          </div>
+          {codeLoading ? (
+            <div className="py-8 text-center">
+              <Icon name="LoaderCircle" className="mx-auto h-6 w-6 animate-spin text-ink-faint" />
+              <p className="mt-2 text-[13px] text-ink-soft">Génération du code…</p>
+            </div>
+          ) : codeValue ? (
+            <div>
+              <div className="rounded-xl border border-palier-200 bg-palier-50 p-5 text-center">
+                <p className="rounded-lg bg-white px-4 py-2.5 font-mono text-[22px] font-bold tracking-[0.15em] text-ink">{codeValue}</p>
+                <p className="mt-2 text-[12px] text-ink-soft">Nouveau code d&apos;accès pour rejoindre Palier</p>
+              </div>
+              <a
+                href={whatsappLink(codeTarget.phone, `Bonjour ${codeTarget.name.split(" ")[0]} 👋\n\nVotre code d'accès Palier est : *${codeValue}*\n\nTéléchargez l'application et utilisez ce code pour rejoindre votre résidence.\n\nÀ bientôt sur Palier !`)}
+                target="_blank"
+                rel="noopener"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1fb855]"
+              >
+                <Icon name="MessageCircle" className="h-4 w-4" />
+                Envoyer par WhatsApp
+              </a>
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => copy(codeValue)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Icon name={copied === codeValue ? "Check" : "Copy"} className="h-3.5 w-3.5" />
+                    {copied === codeValue ? "Copié" : "Copier le code"}
+                  </span>
+                </button>
+                <button onClick={() => setCodeTarget(null)} className="flex-1 rounded-lg bg-palier-600 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
+                  Fermer
+                </button>
+              </div>
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                <p className="text-[11px] text-amber-800">L&apos;ancien code a été invalidé. Seul ce nouveau code est valide.</p>
+              </div>
+            </div>
+          ) : null}
         </Overlay>
       )}
 

@@ -33,6 +33,8 @@ import {
   updateMandateSchema,
   updateBudgetLineSchema,
   saveBuildingSettingsSchema,
+  recordPaymentSyndicSchema,
+  updateChargeCallSchema,
 } from "./schemas";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -82,6 +84,29 @@ export async function createIncident(input: {
     details: v.details,
     urgency: v.urgency,
     status: "open",
+    image_url: v.imageUrl ?? null,
+  });
+}
+
+/** Créer un post en tant que syndic */
+export async function createPostSyndic(input: {
+  buildingId: string;
+  body: string;
+  type?: "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";
+  title?: string;
+  imageUrl?: string;
+}) {
+  const session = await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(createPostSchema, { ...input, author: "Syndic", avatarColor: "#1e5b50" });
+  return supabaseAdmin.from("posts").insert({
+    building_id: v.buildingId,
+    author_name: v.author,
+    avatar_color: v.avatarColor,
+    profile_id: session.profileId,
+    role: "syndic",
+    type: v.type ?? "announcement",
+    body: v.body,
+    title: v.title ?? null,
     image_url: v.imageUrl ?? null,
   });
 }
@@ -508,6 +533,18 @@ export async function resolveIncident(incidentId: string) {
   return supabaseAdmin.from("incidents").update({ status: "resolved" }).eq("id", incidentId).eq("building_id", session.buildingId);
 }
 
+/** Réouvrir un incident résolu */
+export async function reopenIncident(incidentId: string) {
+  const session = await requireAuth({ role: "syndic" });
+  return supabaseAdmin.from("incidents").update({ status: "open" }).eq("id", incidentId).eq("building_id", session.buildingId);
+}
+
+/** Changer l'urgence d'un incident */
+export async function updateIncidentUrgency(incidentId: string, urgency: "low" | "normal" | "urgent") {
+  const session = await requireAuth({ role: "syndic" });
+  return supabaseAdmin.from("incidents").update({ urgency }).eq("id", incidentId).eq("building_id", session.buildingId);
+}
+
 /** Émettre un appel de fonds (créer des charges pour tous les lots) */
 export async function emitCharges(input: {
   buildingId: string;
@@ -564,12 +601,144 @@ export async function emitCharges(input: {
   return supabaseAdmin.from("charges").insert(charges);
 }
 
+/** Enregistrer un paiement côté syndic (cash, chèque, virement…) */
+export async function syndicRecordPayment(input: {
+  chargeId: string;
+  buildingId: string;
+  profileId?: string;
+  amount: number;
+  method: "cash" | "cheque" | "virement" | "autre";
+  note?: string;
+}) {
+  await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(recordPaymentSyndicSchema, input);
+
+  // Fetch the charge and verify it belongs to the building
+  const { data: charge, error: fetchErr } = await supabaseAdmin
+    .from("charges")
+    .select("id, amount, paid, status, label, due_date")
+    .eq("id", v.chargeId)
+    .eq("building_id", v.buildingId)
+    .single();
+
+  if (fetchErr || !charge) return { error: "charge_not_found" };
+  if (charge.status === "paid") return { error: "already_paid" };
+
+  const newPaid = Math.min(Number(charge.amount), Number(charge.paid) + v.amount);
+  const newStatus = newPaid >= Number(charge.amount) ? "paid" : "partial";
+
+  // Insert payment record for history tracking
+  const paymentRecord: Record<string, unknown> = {
+    charge_id: v.chargeId,
+    amount: v.amount,
+    method: v.method,
+    status: "paid",
+  };
+  if (v.profileId) paymentRecord.profile_id = v.profileId;
+  if (v.note) paymentRecord.note = v.note;
+
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .insert(paymentRecord)
+    .select("id, created_at")
+    .single();
+
+  // Update charge totals
+  await supabaseAdmin
+    .from("charges")
+    .update({ paid: newPaid, status: newStatus })
+    .eq("id", v.chargeId);
+
+  return {
+    paymentId: payment?.id ?? null,
+    createdAt: payment?.created_at ?? new Date().toISOString(),
+    chargeLabel: charge.label,
+    chargeDueDate: charge.due_date,
+  };
+}
+
+/** Récupérer l'historique des paiements d'une charge */
+export async function fetchPaymentHistory(chargeId: string, buildingId: string) {
+  await requireAuth({ role: "syndic", buildingId });
+  // Verify charge belongs to building
+  const { data: charge } = await supabaseAdmin
+    .from("charges")
+    .select("id")
+    .eq("id", chargeId)
+    .eq("building_id", buildingId)
+    .single();
+  if (!charge) return [];
+
+  const { data } = await supabaseAdmin
+    .from("payments")
+    .select("id, amount, method, note, created_at")
+    .eq("charge_id", chargeId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+/** Fetch all payments for a building (for the payment history tab) */
+export async function fetchBuildingPayments(buildingId: string) {
+  await requireAuth({ role: "syndic", buildingId });
+  const { data: charges } = await supabaseAdmin
+    .from("charges")
+    .select("id")
+    .eq("building_id", buildingId);
+  if (!charges?.length) return [];
+  const chargeIds = charges.map((c: { id: string }) => c.id);
+  const { data } = await supabaseAdmin
+    .from("payments")
+    .select("id, amount, method, note, created_at, charge_id")
+    .in("charge_id", chargeIds)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+/** Modifier un appel de fonds (label, catégorie, échéance) */
+export async function updateChargeCall(input: {
+  buildingId: string;
+  originalLabel: string;
+  originalDueDate: string;
+  label?: string;
+  category?: string;
+  dueDate?: string;
+}) {
+  await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(updateChargeCallSchema, input);
+
+  const updates: Record<string, string> = {};
+  if (v.label) updates.label = v.label;
+  if (v.category) updates.category = v.category;
+  if (v.dueDate) updates.due_date = v.dueDate;
+
+  if (Object.keys(updates).length === 0) return { error: "no_changes" };
+
+  return supabaseAdmin
+    .from("charges")
+    .update(updates)
+    .eq("building_id", v.buildingId)
+    .eq("label", v.originalLabel)
+    .eq("due_date", v.originalDueDate);
+}
+
+/** Supprimer un appel de fonds (toutes les charges du même appel) */
+export async function deleteChargeCall(buildingId: string, label: string, dueDate: string) {
+  await requireAuth({ role: "syndic", buildingId });
+  return supabaseAdmin
+    .from("charges")
+    .delete()
+    .eq("building_id", buildingId)
+    .eq("label", label)
+    .eq("due_date", dueDate);
+}
+
 /** Convoquer une AG */
 export async function createAssembly(input: {
   buildingId: string;
   date: string;
   time: string;
   place: string;
+  type?: "ordinaire" | "extraordinaire";
   agenda: { n: number; t: string; d: string }[];
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
@@ -579,6 +748,7 @@ export async function createAssembly(input: {
     date: v.date,
     time: v.time,
     place: v.place,
+    type: v.type ?? "ordinaire",
     agenda: v.agenda,
     votes: [],
     quorum: 0,
@@ -881,12 +1051,10 @@ export async function updateResolutionResult(resolutionId: string, input: {
 
 export async function deleteResolution(resolutionId: string) {
   const session = await requireAuth({ role: "syndic" });
-  // Verify resolution's assembly belongs to syndic's building
   const { data: res } = await supabaseAdmin.from("assembly_resolutions").select("assembly_id").eq("id", resolutionId).single();
-  if (res) {
-    const { data: ag } = await supabaseAdmin.from("assemblies").select("id").eq("id", res.assembly_id).eq("building_id", session.buildingId).single();
-    if (!ag) throw new Error("forbidden_building");
-  }
+  if (!res) throw new Error("not_found");
+  const { data: ag } = await supabaseAdmin.from("assemblies").select("id").eq("id", res.assembly_id).eq("building_id", session.buildingId).single();
+  if (!ag) throw new Error("forbidden_building");
   return supabaseAdmin.from("assembly_resolutions").delete().eq("id", resolutionId);
 }
 
@@ -997,10 +1165,9 @@ export async function updateBudgetLine(lineId: string, input: { label?: string; 
 export async function deleteBudgetLine(lineId: string) {
   const session = await requireAuth({ role: "syndic" });
   const { data: line } = await supabaseAdmin.from("budget_lines").select("budget_id").eq("id", lineId).single();
-  if (line) {
-    const { data: budget } = await supabaseAdmin.from("budgets").select("id").eq("id", line.budget_id).eq("building_id", session.buildingId).single();
-    if (!budget) throw new Error("forbidden_building");
-  }
+  if (!line) throw new Error("not_found");
+  const { data: budget } = await supabaseAdmin.from("budgets").select("id").eq("id", line.budget_id).eq("building_id", session.buildingId).single();
+  if (!budget) throw new Error("forbidden_building");
   return supabaseAdmin.from("budget_lines").delete().eq("id", lineId);
 }
 

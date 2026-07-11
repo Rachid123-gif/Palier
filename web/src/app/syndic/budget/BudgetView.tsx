@@ -20,8 +20,8 @@ const CATEGORIES = ["Personnel", "Maintenance", "Fluides", "Assurance", "Gestion
 const STATUS_LABELS: Record<Budget["status"], string> = {
   draft: "Brouillon",
   vote: "En vote",
-  approved: "Approuv\u00e9",
-  closed: "Cl\u00f4tur\u00e9",
+  approved: "Approuvé",
+  closed: "Clôturé",
 };
 
 const STATUS_COLORS: Record<Budget["status"], string> = {
@@ -44,7 +44,7 @@ function nextStatusLabel(current: Budget["status"]): string | null {
   const map: Record<string, string> = {
     vote: "Soumettre au vote",
     approved: "Approuver",
-    closed: "Cl\u00f4turer",
+    closed: "Clôturer",
   };
   return map[ns] ?? null;
 }
@@ -101,8 +101,8 @@ export function BudgetView({
     { key: "all", label: "Tout" },
     { key: "draft", label: "Brouillon" },
     { key: "vote", label: "En vote" },
-    { key: "approved", label: "Approuv\u00e9" },
-    { key: "closed", label: "Cl\u00f4tur\u00e9" },
+    { key: "approved", label: "Approuvé" },
+    { key: "closed", label: "Clôturé" },
   ];
 
   const counts = useMemo(() => ({
@@ -173,7 +173,7 @@ export function BudgetView({
     }
     setShowCreate(false);
     resetCreate();
-    flash("Budget cr\u00e9\u00e9");
+    flash("Budget créé");
     router.refresh();
   }
 
@@ -185,7 +185,7 @@ export function BudgetView({
     await updateBudgetStatus(budget.id, ns);
     setActionLoading(false);
     setSelected(null);
-    flash(`Statut mis \u00e0 jour : ${STATUS_LABELS[ns]}`);
+    flash(`Statut mis à jour : ${STATUS_LABELS[ns]}`);
     router.refresh();
   }
 
@@ -201,7 +201,7 @@ export function BudgetView({
     setActionLoading(false);
     setShowAddLine(false);
     setNewLine({ label: "", category: "Maintenance", amountBudgeted: "", accountCode: "" });
-    flash("Ligne ajout\u00e9e");
+    flash("Ligne ajoutée");
     router.refresh();
   }
 
@@ -209,7 +209,7 @@ export function BudgetView({
     setActionLoading(true);
     await deleteBudgetLine(lineId);
     setActionLoading(false);
-    flash("Ligne supprim\u00e9e");
+    flash("Ligne supprimée");
     router.refresh();
   }
 
@@ -220,7 +220,7 @@ export function BudgetView({
     setActionLoading(false);
     setShowDeleteConfirm(null);
     setSelected(null);
-    flash("Budget supprim\u00e9");
+    flash("Budget supprimé");
     router.refresh();
   }
 
@@ -235,8 +235,8 @@ export function BudgetView({
   return (
     <div>
       <PageHeader
-        title="Budget pr\u00e9visionnel"
-        subtitle={`${budgets.length} budget${budgets.length > 1 ? "s" : ""}${currentBudget ? ` \u00b7 ${currentYear} : ${STATUS_LABELS[currentBudget.status]}` : ""}`}
+        title="Budget prévisionnel"
+        subtitle={`${budgets.length} budget${budgets.length > 1 ? "s" : ""}${currentBudget ? ` · ${currentYear} : ${STATUS_LABELS[currentBudget.status]}` : ""}`}
         action={
           <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
             <Icon name="Plus" className="h-3.5 w-3.5" /> Nouveau budget
@@ -248,7 +248,7 @@ export function BudgetView({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Conform\u00e9ment au D\u00e9cret 2.23.700, le budget pr\u00e9visionnel doit \u00eatre vot\u00e9 en assembl\u00e9e g\u00e9n\u00e9rale.
+          Conformément au Décret 2.23.700, le budget prévisionnel doit être voté en assemblée générale.
         </p>
       </div>
 
@@ -259,7 +259,7 @@ export function BudgetView({
           <p className="text-[22px] font-bold leading-none text-ink">{mad(budgetTotal, { decimals: false })}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Fonds de r\u00e9serve</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Fonds de réserve</p>
           <p className="text-[22px] font-bold leading-none text-ink">{mad(reserveAmount, { decimals: false })}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
@@ -302,7 +302,7 @@ export function BudgetView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par ann\u00e9e ou poste..."
+            placeholder="Rechercher par année ou poste..."
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -318,11 +318,11 @@ export function BudgetView({
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Wallet" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{budgets.length === 0 ? "Aucun budget cr\u00e9\u00e9" : "Aucun r\u00e9sultat"}</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{budgets.length === 0 ? "Aucun budget créé" : "Aucun résultat"}</p>
             {budgets.length === 0 ? (
-              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Cr\u00e9er un budget</button>
+              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Créer un budget</button>
             ) : (
-              <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">R\u00e9initialiser les filtres</button>
+              <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
             )}
           </div>
         ) : (
@@ -334,7 +334,7 @@ export function BudgetView({
                   <th className="w-[18%] px-4 py-2.5">Exercice</th>
                   <th className="w-[18%] px-4 py-2.5">Statut</th>
                   <th className="w-[20%] px-4 py-2.5">Montant total</th>
-                  <th className="w-[20%] px-4 py-2.5">Fonds de r\u00e9serve</th>
+                  <th className="w-[20%] px-4 py-2.5">Fonds de réserve</th>
                   <th className="w-[12%] px-4 py-2.5">Lignes</th>
                   <th className="w-[12%] px-4 py-2.5 text-right">Actions</th>
                 </tr>
@@ -355,7 +355,7 @@ export function BudgetView({
                     <td className="px-4 py-2.5 text-ink-soft">{b.lines.length} poste{b.lines.length > 1 ? "s" : ""}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button onClick={() => setSelected(b)} className="text-[11px] font-semibold text-palier-600 hover:underline">
-                        D\u00e9tails
+                        Détails
                       </button>
                     </td>
                   </tr>
@@ -378,9 +378,9 @@ export function BudgetView({
                   </div>
                   <div className="mb-2.5 flex items-center gap-3 text-[12px] text-ink-soft">
                     <span>Total : {mad(b.totalAmount, { decimals: false })}</span>
-                    <span>R\u00e9serve : {mad(b.reserveFundAmount, { decimals: false })}</span>
+                    <span>Réserve : {mad(b.reserveFundAmount, { decimals: false })}</span>
                   </div>
-                  <button onClick={() => setSelected(b)} className="text-[12px] font-semibold text-palier-600">D\u00e9tails</button>
+                  <button onClick={() => setSelected(b)} className="text-[12px] font-semibold text-palier-600">Détails</button>
                 </div>
               ))}
             </div>
@@ -402,7 +402,7 @@ export function BudgetView({
                   </span>
                   <span className="text-[12px] text-ink-soft">Total : {mad(selected.totalAmount)}</span>
                   {selected.approvedAt && (
-                    <span className="text-[11px] text-ink-faint">Approuv\u00e9 le {new Date(selected.approvedAt).toLocaleDateString("fr-FR")}</span>
+                    <span className="text-[11px] text-ink-faint">Approuvé le {new Date(selected.approvedAt).toLocaleDateString("fr-FR")}</span>
                   )}
                 </div>
               </div>
@@ -414,14 +414,14 @@ export function BudgetView({
             {/* Lines table */}
             <div className="mb-4">
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold text-ink">Lignes budg\u00e9taires</h3>
+                <h3 className="text-[13px] font-semibold text-ink">Lignes budgétaires</h3>
                 {selected.status === "draft" && (
                   <button onClick={() => setShowAddLine(true)} className="text-[12px] font-medium text-palier-600">+ Ajouter un poste</button>
                 )}
               </div>
 
               {selected.lines.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-ink-soft">Aucun poste budg\u00e9taire</p>
+                <p className="py-6 text-center text-[13px] text-ink-soft">Aucun poste budgétaire</p>
               ) : (
                 <div className="space-y-2">
                   {selected.lines.map((line) => {
@@ -442,7 +442,7 @@ export function BudgetView({
                             <div className="text-right">
                               <p className="text-[13px] font-semibold text-ink">{mad(line.amountBudgeted)}</p>
                               <p className={`text-[11px] ${overBudget ? "font-semibold text-red-500" : "text-ink-soft"}`}>
-                                R\u00e9alis\u00e9 : {mad(line.amountActual)}
+                                Réalisé : {mad(line.amountActual)}
                               </p>
                             </div>
                             {selected.status === "draft" && (
@@ -474,7 +474,7 @@ export function BudgetView({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Icon name="Shield" className="h-4 w-4 text-palier-600" />
-                      <p className="text-[13px] font-medium text-ink">Fonds de r\u00e9serve</p>
+                      <p className="text-[13px] font-medium text-ink">Fonds de réserve</p>
                     </div>
                     <p className="text-[13px] font-semibold text-ink">{mad(selected.reserveFundAmount)}</p>
                   </div>
@@ -489,7 +489,7 @@ export function BudgetView({
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     type="text"
-                    placeholder="Libell\u00e9"
+                    placeholder="Libellé"
                     value={newLine.label}
                     onChange={(e) => setNewLine({ ...newLine, label: e.target.value })}
                     className={inputCls}
@@ -540,7 +540,7 @@ export function BudgetView({
                   disabled={actionLoading}
                   className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50"
                 >
-                  {actionLoading ? "Mise \u00e0 jour..." : nextStatusLabel(selected.status)}
+                  {actionLoading ? "Mise à jour..." : nextStatusLabel(selected.status)}
                 </button>
               )}
               {selected.status === "draft" && (
@@ -566,8 +566,8 @@ export function BudgetView({
                   <Icon name="Wallet" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Nouveau budget pr\u00e9visionnel</h2>
-                  <p className="text-[12px] text-ink-soft">D\u00e9finir les postes et montants pr\u00e9visionnels</p>
+                  <h2 className="text-[16px] font-semibold text-ink">Nouveau budget prévisionnel</h2>
+                  <p className="text-[12px] text-ink-soft">Définir les postes et montants prévisionnels</p>
                 </div>
               </div>
               <button onClick={() => { setShowCreate(false); resetCreate(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -591,7 +591,7 @@ export function BudgetView({
               {/* Budget lines */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-ink-soft">Postes budg\u00e9taires</span>
+                  <span className="text-[12px] font-semibold text-ink-soft">Postes budgétaires</span>
                   <button type="button" onClick={addFormLine} className="text-[12px] font-medium text-palier-600">+ Ajouter</button>
                 </div>
                 <div className="max-h-64 space-y-2 overflow-y-auto">
@@ -608,7 +608,7 @@ export function BudgetView({
                       <input
                         type="text"
                         required
-                        placeholder="Libell\u00e9 (ex : Entretien parties communes)"
+                        placeholder="Libellé (ex : Entretien parties communes)"
                         value={line.label}
                         onChange={(e) => updateFormLine(i, "label", e.target.value)}
                         className={`mb-1 ${inputCls}`}
@@ -638,7 +638,7 @@ export function BudgetView({
 
               {/* Reserve fund */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Fonds de r\u00e9serve (MAD)</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Fonds de réserve (MAD)</label>
                 <input
                   type="number"
                   min="0"
@@ -647,13 +647,13 @@ export function BudgetView({
                   onChange={(e) => setReserveFund(e.target.value)}
                   className={inputCls}
                 />
-                <p className="mt-1 text-[11px] text-ink-faint">Minimum 5% du budget total recommand\u00e9 par la loi 18-00</p>
+                <p className="mt-1 text-[11px] text-ink-faint">Minimum 5% du budget total recommandé par la loi 18-00</p>
               </div>
 
               {/* Total preview */}
               <div className="rounded-lg border border-black/[0.06] bg-white p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[12px] font-semibold text-ink-soft">Total pr\u00e9visionnel</p>
+                  <p className="text-[12px] font-semibold text-ink-soft">Total prévisionnel</p>
                   <p className="text-[16px] font-bold text-ink">{mad(formTotal, { decimals: false })}</p>
                 </div>
               </div>
@@ -663,7 +663,7 @@ export function BudgetView({
                 disabled={saving || lines.every((l) => !l.label.trim() || !Number(l.amountBudgeted))}
                 className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50"
               >
-                {saving ? "Cr\u00e9ation..." : "Cr\u00e9er le budget"}
+                {saving ? "Création..." : "Créer le budget"}
               </button>
             </form>
           </div>
@@ -676,7 +676,7 @@ export function BudgetView({
           <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[16px] font-semibold text-ink">Supprimer ce budget ?</h2>
             <p className="mt-1 text-[13px] text-ink-soft">
-              Le budget de l&apos;exercice {showDeleteConfirm.fiscalYear} et toutes ses lignes seront d\u00e9finitivement supprim\u00e9s.
+              Le budget de l&apos;exercice {showDeleteConfirm.fiscalYear} et toutes ses lignes seront définitivement supprimés.
             </p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">

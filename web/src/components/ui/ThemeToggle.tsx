@@ -1,14 +1,22 @@
 "use client";
 import { useTheme } from "@/lib/ThemeProvider";
+import { useLang } from "@/lib/LangProvider";
 import { Icon } from "./Icon";
+
+const labels = {
+  fr: { light: "Clair", dark: "Sombre", system: "Système" },
+  ar: { light: "فاتح", dark: "داكن", system: "النظام" },
+};
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { theme, setTheme } = useTheme();
+  const { lang } = useLang();
+  const l = labels[lang];
 
   const modes = [
-    { key: "light", icon: "Sun", label: "Clair" },
-    { key: "dark", icon: "Moon", label: "Sombre" },
-    { key: "system", icon: "Monitor", label: "Système" },
+    { key: "light", icon: "Sun", label: l.light },
+    { key: "dark", icon: "Moon", label: l.dark },
+    { key: "system", icon: "Monitor", label: l.system },
   ] as const;
 
   return (

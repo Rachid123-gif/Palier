@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function VoisinageSyndicPage() {
   const session = await requireSyndicSession();
   const d = await fetchSyndicData(session.buildingId);
-  return <VoisinageView posts={d.posts} buildingName={d.building.name} />;
+  return <VoisinageView posts={d.posts} buildingName={d.building.name} buildingId={session.buildingId} />;
 }

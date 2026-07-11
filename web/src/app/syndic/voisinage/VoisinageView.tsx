@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
-import { deletePost, togglePinPost } from "@/lib/actions";
+import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment } from "@/lib/actions";
 
 type Post = {
   id: string;
@@ -26,6 +26,16 @@ type Post = {
   image_url?: string;
 };
 
+type Comment = {
+  id: string;
+  postId: string;
+  author: string;
+  avatarColor: string;
+  body: string;
+  likes: number;
+  createdAt: string;
+};
+
 const typeLabels: Record<string, string> = {
   announcement: "Annonce", event: "Événement", help: "Entraide",
   found: "Trouvé", general: "Général", service: "Service", recommendation: "Recommandation",
@@ -43,7 +53,7 @@ const typeColors: Record<string, string> = {
 
 const PER_PAGE = 15;
 
-export function VoisinageView({ posts, buildingName }: { posts: Post[]; buildingName: string }) {
+export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post[]; buildingName: string; buildingId: string }) {
   const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -53,23 +63,125 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
   const [toast, setToast] = useState<string | null>(null);
   const [isPinning, startPinning] = useTransition();
 
+  // Compose form
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeBody, setComposeBody] = useState("");
+  const [composeTitle, setComposeTitle] = useState("");
+  const [composeType, setComposeType] = useState<string>("announcement");
+  const [isPosting, startPosting] = useTransition();
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+
+  // Like
+  const [isLiking, startLiking] = useTransition();
+
+  // Comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [commentBody, setCommentBody] = useState("");
+  const [isSendingComment, startSendingComment] = useTransition();
+
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
   async function handleDelete(postId: string) {
-    await deletePost(postId);
-    setShowDeleteConfirm(null);
-    setSelected(null);
-    flash("Publication supprimée");
-    router.refresh();
+    try {
+      await deletePost(postId);
+      setShowDeleteConfirm(null);
+      setSelected(null);
+      flash("Publication supprimée");
+      router.refresh();
+    } catch { flash("Erreur lors de la suppression"); }
   }
 
   function handleTogglePin(post: Post) {
     startPinning(async () => {
-      await togglePinPost(post.id, !post.pinned);
-      setSelected(null);
-      flash(post.pinned ? "Publication désépinglée" : "Publication épinglée");
-      router.refresh();
+      try {
+        await togglePinPost(post.id, !post.pinned);
+        setSelected(null);
+        flash(post.pinned ? "Publication désépinglée" : "Publication épinglée");
+        router.refresh();
+      } catch { flash("Erreur lors de l'épinglage"); }
     });
+  }
+
+  function handleMediaSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaFile(file);
+    if (file.type.startsWith("image/")) {
+      setMediaPreview(URL.createObjectURL(file));
+    } else {
+      setMediaPreview(null);
+    }
+  }
+
+  function clearMedia() {
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaFile(null);
+    setMediaPreview(null);
+  }
+
+  function handlePublish() {
+    if (!composeBody.trim()) return;
+    startPosting(async () => {
+      try {
+        let imageUrl: string | undefined;
+        if (mediaFile && mediaFile.type.startsWith("image/")) {
+          const { uploadPostImage } = await import("@/lib/storage");
+          imageUrl = await uploadPostImage(mediaFile);
+        }
+        await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType as "announcement", imageUrl });
+        setComposeBody("");
+        setComposeTitle("");
+        setComposeType("announcement");
+        clearMedia();
+        setShowCompose(false);
+        flash("Publication créée");
+        router.refresh();
+      } catch { flash("Erreur lors de la publication"); }
+    });
+  }
+
+  const handleLike = useCallback((postId: string) => {
+    startLiking(async () => {
+      try {
+        await likePost(postId);
+        router.refresh();
+      } catch { flash("Erreur"); }
+    });
+  }, [router]);
+
+  const loadComments = useCallback(async (postId: string) => {
+    if (commentsPostId === postId) return;
+    setCommentsLoading(true);
+    setComments([]);
+    setCommentsPostId(postId);
+    try {
+      const data = await fetchComments(postId);
+      setComments(data);
+    } catch { /* empty */ }
+    setCommentsLoading(false);
+  }, [commentsPostId]);
+
+  function handleSendComment() {
+    if (!commentBody.trim() || !selected) return;
+    startSendingComment(async () => {
+      try {
+        await createComment({ postId: selected.id, author: "Syndic", avatarColor: "#1e5b50", body: commentBody.trim() });
+        setCommentBody("");
+        const data = await fetchComments(selected.id);
+        setComments(data);
+        router.refresh();
+      } catch { flash("Erreur lors de l'envoi"); }
+    });
+  }
+
+  function openDetail(post: Post) {
+    setSelected(post);
+    setCommentsPostId(null);
+    setComments([]);
+    setCommentBody("");
   }
 
   const typeCounts = useMemo(() => {
@@ -134,6 +246,88 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
         </div>
       </div>
 
+      {/* Compose button */}
+      <button
+        onClick={() => setShowCompose(true)}
+        className="mb-3 inline-flex items-center gap-2 rounded-xl bg-palier-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-palier-700"
+      >
+        <Icon name="Plus" className="h-4 w-4" />
+        Nouvelle publication
+      </button>
+
+      {/* Compose form */}
+      {showCompose && (
+        <div className="mb-4 rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-[14px] font-semibold text-ink">Nouvelle publication</h3>
+            <button onClick={() => setShowCompose(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+              <Icon name="X" className="h-4 w-4" />
+            </button>
+          </div>
+          <select
+            value={composeType}
+            onChange={(e) => setComposeType(e.target.value)}
+            className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:w-auto"
+          >
+            {Object.entries(typeLabels).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <input
+            value={composeTitle}
+            onChange={(e) => setComposeTitle(e.target.value)}
+            placeholder="Titre (optionnel)"
+            className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+          />
+          <textarea
+            value={composeBody}
+            onChange={(e) => setComposeBody(e.target.value)}
+            placeholder="Écrivez votre message…"
+            rows={3}
+            className="mb-2 w-full resize-none rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+          />
+          {/* Media upload buttons */}
+          <div className="mb-2 flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
+              <Icon name="Image" className="h-3.5 w-3.5" /> Photo
+              <input type="file" accept="image/*" className="hidden" onChange={handleMediaSelect} />
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
+              <Icon name="Paperclip" className="h-3.5 w-3.5" /> Fichier
+              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleMediaSelect} />
+            </label>
+          </div>
+          {/* Media preview */}
+          {mediaFile && (
+            <div className="mb-3 flex items-start gap-2">
+              {mediaPreview ? (
+                <img src={mediaPreview} alt="" className="h-20 w-20 rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-12 items-center gap-2 rounded-xl bg-sand px-3">
+                  <Icon name="FileText" className="h-4 w-4 text-ink-soft" />
+                  <span className="max-w-[12rem] truncate text-[12px] font-medium text-ink">{mediaFile.name}</span>
+                </div>
+              )}
+              <button onClick={clearMedia} className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200">
+                <Icon name="X" className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowCompose(false); clearMedia(); }} className="rounded-lg border border-black/[0.08] px-4 py-2 text-[12px] font-medium text-ink hover:bg-sand/50">
+              Annuler
+            </button>
+            <button
+              onClick={handlePublish}
+              disabled={!composeBody.trim() || isPosting}
+              className="rounded-lg bg-palier-600 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
+            >
+              {isPosting ? "Publication…" : "Publier"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="mb-3 space-y-2">
         <div className="relative">
@@ -175,11 +369,12 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
             <table className="hidden w-full table-fixed text-left text-[13px] md:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="w-[45%] px-4 py-2.5">Publication</th>
+                  <th className="w-[40%] px-4 py-2.5">Publication</th>
                   <th className="w-[12%] px-4 py-2.5">Type</th>
-                  <th className="w-[15%] px-4 py-2.5">Auteur</th>
+                  <th className="w-[14%] px-4 py-2.5">Auteur</th>
                   <th className="w-[10%] px-4 py-2.5">Date</th>
-                  <th className="w-[18%] px-4 py-2.5 text-right">Engagement</th>
+                  <th className="w-[14%] px-4 py-2.5 text-right">Engagement</th>
+                  <th className="w-[10%] px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -188,7 +383,7 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
                   return (
                     <tr key={p.id} className="transition-colors hover:bg-sand/50">
                       <td className="overflow-hidden px-4 py-2.5">
-                        <button onClick={() => setSelected(p)} className="block w-full text-left">
+                        <button onClick={() => openDetail(p)} className="block w-full text-left">
                           <div className="flex items-center gap-2">
                             {p.pinned && <Icon name="Pin" className="h-3 w-3 shrink-0 text-palier-600" />}
                             <p className="truncate font-medium text-ink hover:text-palier-700 hover:underline">
@@ -218,6 +413,25 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
                           <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
                         </div>
                       </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleLike(p.id)}
+                            disabled={isLiking}
+                            title="Aimer"
+                            className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
+                          >
+                            <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openDetail(p)}
+                            title="Voir"
+                            className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-700"
+                          >
+                            <Icon name="Eye" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -229,27 +443,37 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
               {rows.map((p) => {
                 const reactions = (p.like_count ?? 0) + (p.love_count ?? 0) + (p.haha_count ?? 0) + (p.wow_count ?? 0);
                 return (
-                  <button key={p.id} onClick={() => setSelected(p)} className="block w-full p-4 text-left">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
-                        {typeLabels[p.type] ?? p.type}
-                      </span>
-                      {p.pinned && <Icon name="Pin" className="h-3 w-3 text-palier-600" />}
-                    </div>
-                    <p className="text-[14px] font-medium text-ink">{p.title || p.body.slice(0, 80)}</p>
-                    {p.title && <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-soft">{p.body.slice(0, 120)}</p>}
-                    <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-soft">
-                      <div className="flex items-center gap-1.5">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: p.avatar_color }}>
-                          {p.author_name?.[0]?.toUpperCase()}
+                  <div key={p.id} className="p-4">
+                    <button onClick={() => openDetail(p)} className="block w-full text-left">
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
+                          {typeLabels[p.type] ?? p.type}
                         </span>
-                        <span>{p.author_name}</span>
+                        {p.pinned && <Icon name="Pin" className="h-3 w-3 text-palier-600" />}
                       </div>
-                      <span>{shortDate(p.created_at)}</span>
-                      <span className="ml-auto flex items-center gap-1"><Icon name="ThumbsUp" className="h-3 w-3" />{reactions}</span>
+                      <p className="text-[14px] font-medium text-ink">{p.title || p.body.slice(0, 80)}</p>
+                      {p.title && <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-soft">{p.body.slice(0, 120)}</p>}
+                      <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-soft">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: p.avatar_color }}>
+                            {p.author_name?.[0]?.toUpperCase()}
+                          </span>
+                          <span>{p.author_name}</span>
+                        </div>
+                        <span>{shortDate(p.created_at)}</span>
+                      </div>
+                    </button>
+                    <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-soft">
+                      <button
+                        onClick={() => handleLike(p.id)}
+                        disabled={isLiking}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
+                      >
+                        <Icon name="ThumbsUp" className="h-3 w-3" />{reactions}
+                      </button>
                       <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -317,10 +541,70 @@ export function VoisinageView({ posts, buildingName }: { posts: Post[]; building
               <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
             )}
 
+            {/* Like + engagement stats */}
             <div className="mt-4 flex items-center gap-4 border-t border-black/[0.06] pt-3 text-[12px] text-ink-soft">
-              <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3.5 w-3.5" />{(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)} réactions</span>
-              <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3.5 w-3.5" />{selected.comments_count ?? 0} commentaires</span>
+              <button
+                onClick={() => handleLike(selected.id)}
+                disabled={isLiking}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
+              >
+                <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
+                {(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)} réactions
+              </button>
+              <button
+                onClick={() => loadComments(selected.id)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700"
+              >
+                <Icon name="MessageCircle" className="h-3.5 w-3.5" />
+                {selected.comments_count ?? 0} commentaires
+              </button>
             </div>
+
+            {/* Comments section */}
+            {commentsPostId === selected.id && (
+              <div className="mt-3 border-t border-black/[0.06] pt-3">
+                <h4 className="mb-2 text-[13px] font-semibold text-ink">Commentaires</h4>
+                {commentsLoading ? (
+                  <p className="text-[12px] text-ink-soft">Chargement…</p>
+                ) : comments.length === 0 ? (
+                  <p className="mb-3 text-[12px] text-ink-soft">Aucun commentaire pour le moment.</p>
+                ) : (
+                  <div className="mb-3 max-h-60 space-y-2.5 overflow-y-auto">
+                    {comments.map((c) => (
+                      <div key={c.id} className="flex gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: c.avatarColor }}>
+                          {c.author?.[0]?.toUpperCase()}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[12px] font-semibold text-ink">{c.author}</span>
+                            <span className="text-[10px] text-ink-faint">{timeAgo(c.createdAt)}</span>
+                          </div>
+                          <p className="text-[12px] leading-snug text-ink-soft">{c.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Comment compose */}
+                <div className="flex gap-2">
+                  <input
+                    value={commentBody}
+                    onChange={(e) => setCommentBody(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
+                    placeholder="Écrire un commentaire…"
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+                  />
+                  <button
+                    onClick={handleSendComment}
+                    disabled={!commentBody.trim() || isSendingComment}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-palier-600 text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
+                  >
+                    <Icon name="Send" className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Moderation actions */}
             <div className="mt-3 flex gap-2 border-t border-black/[0.06] pt-3">

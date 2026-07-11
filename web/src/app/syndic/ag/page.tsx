@@ -8,5 +8,16 @@ export default async function SyndicAg() {
   const residentProfileIds = d.residents
     .filter((r) => r.status === "active")
     .map((r) => r.id);
-  return <AgView assemblies={d.assemblies} buildingId={d.building.id} residentProfileIds={residentProfileIds} />;
+  const residentsForAg = d.residents
+    .filter((r) => r.status === "active")
+    .map((r) => ({ id: r.id, name: r.name, unit: r.unit, unitId: r.unitId, tantiemes: r.tantiemes }));
+  return (
+    <AgView
+      assemblies={d.assemblies}
+      buildingId={d.building.id}
+      residentProfileIds={residentProfileIds}
+      residents={residentsForAg}
+      totalTantiemes={d.kpis.totalTantiemes}
+    />
+  );
 }

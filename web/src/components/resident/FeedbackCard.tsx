@@ -10,7 +10,7 @@ type FeedbackType = "bug" | "suggestion" | "autre";
 
 export function FeedbackCard() {
   const { currentUser, building, buildingId } = useData();
-  const { i } = useLang();
+  const { i, isAr } = useLang();
   const T = i.feedback;
 
   const [open, setOpen] = useState(false);
@@ -20,23 +20,30 @@ export function FeedbackCard() {
   const [contactValue, setContactValue] = useState(currentUser.phone ?? "");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState(false);
 
   async function handleSend() {
     if (!msg.trim()) return;
     setSending(true);
-    await submitFeedback({
-      buildingId,
-      type,
-      message: msg.trim(),
-      senderName: currentUser.name,
-      senderPhone: contact === "phone" ? (contactValue || null) : null,
-      senderEmail: contact === "email" ? (contactValue || null) : null,
-      contactPreference: contact,
-      buildingName: building.name,
-      senderRole: "resident",
-    });
-    setSending(false);
-    setSent(true);
+    setError(false);
+    try {
+      await submitFeedback({
+        buildingId,
+        type,
+        message: msg.trim(),
+        senderName: currentUser.name,
+        senderPhone: contact === "phone" ? (contactValue || null) : null,
+        senderEmail: contact === "email" ? (contactValue || null) : null,
+        contactPreference: contact,
+        buildingName: building.name,
+        senderRole: "resident",
+      });
+      setSent(true);
+    } catch {
+      setError(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   function reset() {
@@ -55,7 +62,7 @@ export function FeedbackCard() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="tap card flex w-full items-center gap-3 p-3.5 text-left"
+        className="tap card flex w-full items-center gap-3 p-3.5 text-start"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
           <Icon name="MessageCircle" className="h-5 w-5 text-purple-600" strokeWidth={2.2} />
@@ -64,7 +71,7 @@ export function FeedbackCard() {
           <p className="text-[14px] font-bold text-ink">{T.title}</p>
           <p className="text-[12px] text-ink-faint">{T.subtitle}</p>
         </div>
-        <Icon name="ChevronRight" className="h-4 w-4 text-ink-faint" />
+        <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-4 w-4 text-ink-faint" />
       </button>
 
       <Sheet open={open} onClose={() => { setOpen(false); if (sent) reset(); }} title={T.title}>
@@ -168,6 +175,12 @@ export function FeedbackCard() {
             >
               {sending ? T.sending : T.send}
             </button>
+            {error && (
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-[13px] text-red-500">
+                <Icon name="CircleAlert" className="h-4 w-4" />
+                {isAr ? "حدث خطأ. أعد المحاولة." : "Une erreur est survenue. Réessayez."}
+              </p>
+            )}
           </div>
         )}
       </Sheet>

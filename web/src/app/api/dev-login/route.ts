@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
   }
 
   const session: SessionData = {
-    profileId: "dev-profile-001",
-    buildingId: "dev-building-001",
-    unitId: role === "resident" ? "dev-unit-001" : null,
+    profileId: "00000000-0000-0000-0000-0000000000a1",
+    buildingId: "00000000-0000-0000-0000-0000000000b1",
+    unitId: role === "resident" ? "00000000-0000-0000-0000-0000000000c1" : null,
     role,
   };
 

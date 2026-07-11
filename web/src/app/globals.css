@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Cursor pointer on all interactive elements */
+button, [role="button"], a, select, input[type="checkbox"], input[type="radio"], label[for], summary {
+  cursor: pointer;
+}
+
 /* =========================================================================
    PALIER — Design System
    Palette : vert sapin (brand), olive (accent chaud), crème (fond),

@@ -18,6 +18,8 @@ export interface RecouvrementRow {
   status: "due" | "partial" | "paid" | "late";
   lastDunnedAt: string | null;
   dueDate: string | null;
+  /** ID de la charge pour enregistrement de paiement */
+  chargeId: string | null;
   /** Jours depuis l'échéance (pour alerte prescription 5 ans) */
   daysSinceDue: number | null;
 }
@@ -142,6 +144,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
         avatarColor: prof?.avatar_color ?? "#8a9893",
         role: mem?.role ?? "owner",
         phone: prof?.phone ?? "",
+        chargeId: ch?.id ?? null,
         amount: ch ? Number(ch.amount) : 0,
         paid: ch ? Number(ch.paid) : 0,
         status: (ch?.status ?? "due") as RecouvrementRow["status"],

@@ -69,23 +69,44 @@ export function SyndicShell({
   const path = usePathname();
   const [showLogout, setShowLogout] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="flex min-h-dvh bg-cream text-ink">
       <a href="#main-content" className="skip-link">Aller au contenu principal</a>
       {/* Sidebar */}
-      <aside aria-label="Navigation syndic" className="sticky top-0 hidden h-dvh w-[244px] shrink-0 flex-col border-r border-black/[0.06] bg-cream-card px-3 py-4 md:flex">
-        <div className="flex items-center gap-2 px-2 pb-4">
-          <LogoMark size={28} />
-          <span className="text-[14px] font-semibold text-ink">Palier</span>
-          <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
+      <aside
+        aria-label="Navigation syndic"
+        className={cn(
+          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-black/[0.06] bg-cream-card py-4 transition-[width] duration-200 md:flex",
+          collapsed ? "w-[60px] px-1.5" : "w-[244px] px-3",
+        )}
+      >
+        <div className={cn("flex items-center pb-4", collapsed ? "flex-col gap-2" : "justify-between px-2")}>
+          <div className="flex items-center gap-2">
+            <LogoMark size={28} />
+            {!collapsed && (
+              <>
+                <span className="text-[14px] font-semibold text-ink">Palier</span>
+                <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sand/50 hover:text-ink"
+          >
+            <Icon name={collapsed ? "PanelLeftOpen" : "PanelLeftClose"} className="h-4 w-4" strokeWidth={1.8} />
+          </button>
         </div>
 
         <nav aria-label="Menu principal" className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
           {navSections.map((section, si) => (
             <div key={si}>
-              {section.title && (
+              {section.title && !collapsed && (
                 <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{section.title}</p>
               )}
+              {collapsed && section.title && <div className="mx-auto my-2 h-px w-6 bg-black/[0.06]" />}
               {section.items.map((n) => {
                 const active = n.exact ? path === n.href : path.startsWith(n.href);
                 const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
@@ -93,22 +114,27 @@ export function SyndicShell({
                   <Link
                     key={n.href}
                     href={n.href}
+                    title={collapsed ? n.label : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
+                      "relative flex items-center rounded-lg text-[13px] font-medium transition-colors",
+                      collapsed ? "justify-center px-0 py-[7px]" : "gap-2.5 px-2.5 py-[7px]",
                       active
                         ? "bg-palier-600 text-white"
                         : "text-ink-soft hover:bg-sand/50 hover:text-ink",
                     )}
                   >
-                    <Icon name={n.icon} className="h-4 w-4" strokeWidth={1.8} />
-                    <span className="flex-1">{n.label}</span>
-                    {badge > 0 && (
+                    <Icon name={n.icon} className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                    {!collapsed && <span className="flex-1">{n.label}</span>}
+                    {badge > 0 && !collapsed && (
                       <span className={cn(
                         "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
                         active ? "bg-white/20 text-white" : "bg-red-500 text-white",
                       )}>
                         {badge}
                       </span>
+                    )}
+                    {badge > 0 && collapsed && (
+                      <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
                     )}
                   </Link>
                 );
@@ -118,13 +144,17 @@ export function SyndicShell({
         </nav>
 
         <div className="border-t border-black/[0.06] pt-3">
-          <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />
-          <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
+          {!collapsed && <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} />}
+          <div className={cn("mt-2 flex items-center", collapsed ? "justify-center py-1.5" : "gap-2.5 px-2.5 py-1.5")}>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
               {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
             </span>
-            <span className="flex-1 truncate text-[13px] font-medium text-ink">{syndicName}</span>
-            <button onClick={() => setShowLogout(true)} className="text-ink-faint transition-colors hover:text-ink"><Icon name="LogOut" className="h-3.5 w-3.5" /></button>
+            {!collapsed && (
+              <>
+                <span className="flex-1 truncate text-[13px] font-medium text-ink">{syndicName}</span>
+                <button onClick={() => setShowLogout(true)} className="text-ink-faint transition-colors hover:text-ink"><Icon name="LogOut" className="h-3.5 w-3.5" /></button>
+              </>
+            )}
           </div>
         </div>
       </aside>

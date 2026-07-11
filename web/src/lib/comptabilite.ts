@@ -96,21 +96,21 @@ export interface AnnexeRequirement {
 
 export const ANNEXES: AnnexeRequirement[] = [
   // Grand (≥ 500 000 MAD) — Annexes 3 à 10
-  { id: "3", label: "État de la situation financière", description: "Bilan comptable actif / passif", tiers: ["tier3"] },
-  { id: "4", label: "Compte de gestion général", description: "Compte de produits et charges détaillé", tiers: ["tier3"] },
-  { id: "5", label: "Comparaison budgétaire", description: "Budget voté vs réalisé avec prévision N+1", tiers: ["tier3"] },
-  { id: "6", label: "Travaux non courants", description: "Suivi budgétaire des travaux votés", tiers: ["tier3"] },
-  { id: "7", label: "Suivi du fonds de réserve", description: "Mouvements du fonds de réserve (art. 37bis)", tiers: ["tier3"] },
-  { id: "8", label: "Suivi des emprunts", description: "Échéancier des emprunts contractés", tiers: ["tier3"] },
-  { id: "9", label: "Inventaire des immobilisations", description: "Inventaire des équipements parties communes", tiers: ["tier3"] },
+  { id: "3", label: "État de la situation financière", description: "Bilan actif / passif — Exercice N et N-1", tiers: ["tier3"] },
+  { id: "4", label: "Compte de gestion général", description: "Produits et charges par code comptable — Réalisé N + Budget N+1", tiers: ["tier3"] },
+  { id: "5", label: "Comparaison budgétaire", description: "Budget N-1, N, Réalisé N, Prévision N+1, Écart valeur et %", tiers: ["tier3"] },
+  { id: "6", label: "Travaux non courants", description: "Voté (date AG), payé, réalisé, solde, réalisé non payé", tiers: ["tier3"] },
+  { id: "7", label: "Suivi du fonds de réserve", description: "Mouvements chronologiques du fonds (art. 37bis Loi 18-00)", tiers: ["tier3"] },
+  { id: "8", label: "Suivi des emprunts", description: "Date, prêteur, montant initial, remboursements, solde restant", tiers: ["tier3"] },
+  { id: "9", label: "Inventaire des immobilisations", description: "Nature, fournisseur, mise en service, valeur d'acquisition", tiers: ["tier3"] },
   // Toutes catégories — Annexe 10
-  { id: "10", label: "Suivi des contributions", description: "Solde par copropriétaire (appels, paiements, impayés)", tiers: ["tier1", "tier2", "tier3"] },
+  { id: "10", label: "Suivi des contributions", description: "Par copropriétaire : tantièmes, charges, paiements, solde clôture", tiers: ["tier1", "tier2", "tier3"] },
   // Moyen (200 000 – 500 000 MAD) — Annexes 11, 12
-  { id: "11", label: "États simplifiés", description: "Situation financière et gestion simplifiées", tiers: ["tier2"] },
-  { id: "12", label: "Revenus et budgets simplifiés", description: "Comparaison budgétaire simplifiée à 3 colonnes", tiers: ["tier2"] },
+  { id: "11", label: "États financiers simplifiés", description: "Situation financière + gestion — Exercice N et N-1", tiers: ["tier2"] },
+  { id: "12", label: "Revenus et budgets simplifiés", description: "Produits / Charges par catégorie — Réalisé N, Budget N-1, Budget N", tiers: ["tier2"] },
   // Petit (≤ 200 000 MAD) — Annexes 13-1, 13-2
-  { id: "13-1", label: "Bilan très simplifié", description: "4 lignes : réserves, créances, dettes, trésorerie", tiers: ["tier1"] },
-  { id: "13-2", label: "Revenus et budget très simplifiés", description: "Recettes et dépenses vs budget en 5 colonnes", tiers: ["tier1"] },
+  { id: "13-1", label: "Situation financière très simplifiée", description: "4 lignes — N, Dotation, Utilisation, N-1, Observations", tiers: ["tier1"] },
+  { id: "13-2", label: "Revenus et budget très simplifiés", description: "Budget, Réalisé, Écart valeur, Écart %, Prévision N+1", tiers: ["tier1"] },
 ];
 
 export function getRequiredAnnexes(tier: AccountingTier): AnnexeRequirement[] {

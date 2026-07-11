@@ -34,18 +34,29 @@ export function contactMessage(params: {
 export function dunningMessage(params: {
   name: string;
   amount: number;
+  paid?: number;
+  remaining?: number;
   period: string;
   building: string;
+  lot?: string;
+  dueDate?: string;
 }): string {
-  const { name, amount, period, building } = params;
+  const { name, amount, paid, remaining, period, building, lot, dueDate } = params;
+  const fmt = (n: number) => new Intl.NumberFormat("fr-MA").format(n);
+  const rest = remaining ?? amount - (paid ?? 0);
   return [
     `Bonjour ${name},`,
     ``,
-    `Rappel amical : vos charges de copropriété de *${period}* (${new Intl.NumberFormat("fr-MA").format(amount)} MAD) restent à régler.`,
-    `Vous pouvez payer en 1 clic depuis l'application *Palier*.`,
+    `Rappel concernant vos charges de copropriété à *${building}*${lot ? ` (Lot ${lot})` : ""}.`,
     ``,
-    `Merci de régulariser au plus vite. — Syndic, ${building}`,
-  ].join("\n");
+    `• Montant dû : *${fmt(amount)} MAD*`,
+    paid && paid > 0 ? `• Déjà payé : ${fmt(paid)} MAD` : null,
+    paid && paid > 0 ? `• Reste à régler : *${fmt(rest)} MAD*` : null,
+    dueDate ? `• Échéance : ${dueDate}` : null,
+    `• Période : ${period}`,
+    ``,
+    `Merci de régulariser votre situation. — Syndic, ${building}`,
+  ].filter(Boolean).join("\n");
 }
 
 export function quoteRequestMessage(params: {

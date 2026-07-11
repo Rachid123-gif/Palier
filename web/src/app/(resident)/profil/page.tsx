@@ -16,7 +16,7 @@ import { logout } from "@/lib/auth";
 type NotifKey = "charges" | "incidents" | "voisinage" | "ag" | "syndic";
 
 export default function ProfilPage() {
-  const { currentUser, building, charges, chargesHistory, incidents, posts } = useData();
+  const { currentUser, building, charges, chargesHistory, incidents, posts, profileId } = useData();
   const { i, isAr } = useLang();
   const p = i.profil;
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function ProfilPage() {
   const infoRows = [
     { icon: "User", label: p.nom, value: currentUser.name },
     { icon: "Phone", label: p.telephone, value: currentUser.phone || "—" },
-    { icon: "Home", label: p.lot, value: currentUser.unit },
+    { icon: "DoorOpen", label: p.lot, value: currentUser.unit },
     { icon: "Building2", label: p.residence, value: building.name },
   ];
 
@@ -160,7 +160,7 @@ export default function ProfilPage() {
 
         {/* ═══════ Apparence ═══════ */}
         <div className="card p-4">
-          <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-ink-soft">Apparence</p>
+          <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-ink-soft">{p.apparence}</p>
           <ThemeToggle />
         </div>
 
@@ -191,7 +191,7 @@ export default function ProfilPage() {
                 profil: { nom: currentUser.name, telephone: currentUser.phone, lot: currentUser.unit, role: currentUser.role, residence: building.name },
                 charges: [...charges, ...chargesHistory].map((c) => ({ label: c.label, montant: c.amount, statut: c.status, echeance: c.dueDate })),
                 incidents: incidents.map((inc) => ({ titre: inc.title, details: inc.details, statut: inc.status, date: inc.createdAt })),
-                posts: posts.filter((post) => post.author === currentUser.name).map((post) => ({ contenu: post.body, date: post.createdAt })),
+                posts: posts.filter((post) => post.authorId === profileId).map((post) => ({ contenu: post.body, date: post.createdAt })),
               };
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
               const url = URL.createObjectURL(blob);

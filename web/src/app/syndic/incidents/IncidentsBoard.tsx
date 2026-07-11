@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { resolveIncident, markIncidentInProgress, fetchIncidentComments, createIncidentComment } from "@/lib/actions";
+import { resolveIncident, markIncidentInProgress, reopenIncident, updateIncidentUrgency, fetchIncidentComments, createIncidentComment } from "@/lib/actions";
 import type { IncidentComment } from "@/lib/types";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
@@ -73,8 +73,22 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   const [selected, setSelected] = useState<Inc | null>(null);
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
-  const handleResolve = useCallback(async (id: string) => { await resolveIncident(id); flash("Incident marqué comme résolu"); router.refresh(); }, [router, flash]);
-  const handleInProgress = useCallback(async (id: string) => { await markIncidentInProgress(id); flash("Incident marqué en cours"); router.refresh(); }, [router, flash]);
+  const handleResolve = useCallback(async (id: string) => {
+    try { await resolveIncident(id); flash("Incident marqué comme résolu"); router.refresh(); }
+    catch { flash("Erreur lors de la mise à jour"); }
+  }, [router, flash]);
+  const handleInProgress = useCallback(async (id: string) => {
+    try { await markIncidentInProgress(id); flash("Incident marqué en cours"); router.refresh(); }
+    catch { flash("Erreur lors de la mise à jour"); }
+  }, [router, flash]);
+  const handleReopen = useCallback(async (id: string) => {
+    try { await reopenIncident(id); flash("Incident réouvert"); router.refresh(); }
+    catch { flash("Erreur lors de la réouverture"); }
+  }, [router, flash]);
+  const handleUrgencyChange = useCallback(async (id: string, urgency: "low" | "normal" | "urgent") => {
+    try { await updateIncidentUrgency(id, urgency); flash("Urgence mise à jour"); router.refresh(); }
+    catch { flash("Erreur lors de la mise à jour"); }
+  }, [router, flash]);
 
   // Years present in data
   const years = useMemo(() => {
@@ -346,6 +360,9 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                           {!isResolved && (
                             <ResolveBtn id={inc.id} onResolve={handleResolve} />
                           )}
+                          {isResolved && (
+                            <ReopenBtn id={inc.id} onReopen={handleReopen} />
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -384,10 +401,14 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                       <span>{inc.reporter_name}</span>
                       <span>{shortDate(inc.created_at)}</span>
                     </div>
-                    {!isResolved && (
+                    {!isResolved ? (
                       <div className="mt-2.5 flex items-center gap-1.5">
                         {inc.status === "open" && <InProgressBtn id={inc.id} onInProgress={handleInProgress} />}
                         <ResolveBtn id={inc.id} onResolve={handleResolve} />
+                      </div>
+                    ) : (
+                      <div className="mt-2.5">
+                        <ReopenBtn id={inc.id} onReopen={handleReopen} />
                       </div>
                     )}
                   </div>
@@ -425,6 +446,8 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           onClose={() => setSelected(null)}
           onResolve={handleResolve}
           onInProgress={handleInProgress}
+          onReopen={handleReopen}
+          onUrgencyChange={handleUrgencyChange}
         />
       )}
 
@@ -531,6 +554,19 @@ function ResolveBtn({ id, onResolve }: { id: string; onResolve: (id: string) => 
   );
 }
 
+function ReopenBtn({ id, onReopen }: { id: string; onReopen: (id: string) => void }) {
+  const [pending, start] = useTransition();
+  return (
+    <button
+      disabled={pending}
+      onClick={() => start(() => onReopen(id))}
+      className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+    >
+      {pending ? "…" : "Réouvrir"}
+    </button>
+  );
+}
+
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
@@ -541,11 +577,13 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
   );
 }
 
-function DetailModal({ incident, onClose, onResolve, onInProgress }: {
-  incident: Inc; onClose: () => void; onResolve: (id: string) => void; onInProgress: (id: string) => void;
+function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onUrgencyChange }: {
+  incident: Inc; onClose: () => void; onResolve: (id: string) => void; onInProgress: (id: string) => void; onReopen: (id: string) => void; onUrgencyChange: (id: string, urgency: "low" | "normal" | "urgent") => void;
 }) {
   const [rp, startR] = useTransition();
   const [ip, startI] = useTransition();
+  const [ro, startRo] = useTransition();
+  const [urgPending, startUrg] = useTransition();
   const urg = urgencyColors[incident.urgency] ?? urgencyColors.normal;
   const isResolved = incident.status === "resolved";
   const isInProgress = incident.status === "in_progress";
@@ -590,12 +628,25 @@ function DetailModal({ incident, onClose, onResolve, onInProgress }: {
         </button>
       </div>
 
-      {/* Urgency badge */}
+      {/* Urgency + status badges */}
       <div className="mb-4 flex items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${urg.dot}`} />
-          {urgencyLabels[incident.urgency] ?? incident.urgency}
-        </span>
+        {isResolved ? (
+          <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${urg.dot}`} />
+            {urgencyLabels[incident.urgency] ?? incident.urgency}
+          </span>
+        ) : (
+          <select
+            value={incident.urgency === "high" ? "urgent" : incident.urgency}
+            disabled={urgPending}
+            onChange={(e) => startUrg(() => onUrgencyChange(incident.id, e.target.value as "low" | "normal" | "urgent"))}
+            className={`rounded-md border-0 px-2 py-0.5 text-[11px] font-semibold outline-none ${urg.bg} ${urg.text} disabled:opacity-50`}
+          >
+            <option value="low">Faible</option>
+            <option value="normal">Normal</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        )}
         {isResolved && <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Résolu</span>}
         {isInProgress && <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"><Icon name="Clock" className="h-3 w-3" />En cours</span>}
       </div>
@@ -701,9 +752,19 @@ function DetailModal({ incident, onClose, onResolve, onInProgress }: {
       )}
 
       {isResolved && (
-        <div className="mt-5 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
-          <Icon name="CircleCheck" className="h-4 w-4 shrink-0 text-emerald-600" />
-          <p className="text-[12px] font-medium text-emerald-800">Cet incident a été résolu</p>
+        <div className="mt-5 space-y-2">
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+            <Icon name="CircleCheck" className="h-4 w-4 shrink-0 text-emerald-600" />
+            <p className="text-[12px] font-medium text-emerald-800">Cet incident a été résolu</p>
+          </div>
+          <button
+            disabled={ro}
+            onClick={() => startRo(async () => { await onReopen(incident.id); onClose(); })}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[13px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+          >
+            <Icon name="RotateCcw" className="h-4 w-4" />
+            {ro ? "…" : "Réouvrir l'incident"}
+          </button>
         </div>
       )}
     </Overlay>

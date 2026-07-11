@@ -1,14 +1,18 @@
 /**
- * Décret 2.23.700 — Data preparation for the 13 accounting annexes.
- * Transforms app data (ledger, charges, budgets) into annexe-ready formats.
+ * Décret 2.23.700 — Data preparation for accounting annexes.
+ *
+ * Structure légale:
+ *   Grand (≥ 500k MAD): Annexes 3–10
+ *   Moyen (200k–500k MAD): Annexes 10, 11, 12
+ *   Petit (≤ 200k MAD): Annexes 10, 13-1, 13-2
  */
 
 import { PLAN_COMPTABLE } from "./comptabilite";
-import type { Budget, BudgetLine, UrgentWork } from "./types";
+import type { Budget, UrgentWork } from "./types";
 import type { RecouvrementRow } from "./syndic";
 
 /* ═══════════════════════════════════════════
-   Input type (ledger row from syndic data)
+   Input type
    ═══════════════════════════════════════════ */
 export interface LedgerInput {
   type: "in" | "out";
@@ -58,8 +62,54 @@ function accountLabel(code: string): string {
   return PLAN_COMPTABLE.find((a) => a.code === code)?.label ?? code;
 }
 
+function round(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /* ═══════════════════════════════════════════
-   Double-entry journal derivation
+   Shared aggregate helpers
+   ═══════════════════════════════════════════ */
+
+export interface AccountRow { accountCode: string; accountLabel: string; amount: number }
+
+function aggregateExpenses(entries: LedgerInput[]): { rows: AccountRow[]; total: number } {
+  const m = new Map<string, number>();
+  for (const e of entries.filter((e) => e.type === "out")) {
+    const c = mapToAccount(e.category, "out");
+    m.set(c, (m.get(c) ?? 0) + e.amount);
+  }
+  const rows: AccountRow[] = [...m.entries()]
+    .map(([c, a]) => ({ accountCode: c, accountLabel: accountLabel(c), amount: round(a) }))
+    .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+  return { rows, total: rows.reduce((s, r) => s + r.amount, 0) };
+}
+
+function aggregateRevenues(entries: LedgerInput[]): { rows: AccountRow[]; total: number } {
+  const m = new Map<string, number>();
+  for (const e of entries.filter((e) => e.type === "in")) {
+    const c = mapToAccount(e.category, "in");
+    m.set(c, (m.get(c) ?? 0) + e.amount);
+  }
+  const rows: AccountRow[] = [...m.entries()]
+    .map(([c, a]) => ({ accountCode: c, accountLabel: accountLabel(c), amount: round(a) }))
+    .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+  return { rows, total: rows.reduce((s, r) => s + r.amount, 0) };
+}
+
+function reserveInflows(entries: LedgerInput[]): number {
+  return entries
+    .filter((e) => e.type === "in" && (normalize(e.category).includes("reserve") || normalize(e.category).includes("fonds")))
+    .reduce((s, e) => s + e.amount, 0);
+}
+
+function reserveOutflows(entries: LedgerInput[]): number {
+  return entries
+    .filter((e) => e.type === "out" && (normalize(e.category).includes("reserve") || normalize(e.category).includes("fonds")))
+    .reduce((s, e) => s + e.amount, 0);
+}
+
+/* ═══════════════════════════════════════════
+   Journal (for CSV export)
    ═══════════════════════════════════════════ */
 
 export interface JournalEntry {
@@ -79,275 +129,608 @@ function deriveJournal(entries: LedgerInput[]): JournalEntry[] {
   });
 }
 
-/* ═══════════════════════════════════════════
-   A1 — État des dépenses
-   ═══════════════════════════════════════════ */
-export interface A1Row { accountCode: string; accountLabel: string; amount: number }
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 3 — État de la situation financière (Bilan)
+   Grand ≥ 500 000 MAD
 
-export function prepareA1(entries: LedgerInput[]) {
-  const m = new Map<string, number>();
-  for (const e of entries.filter((e) => e.type === "out")) {
-    const c = mapToAccount(e.category, "out");
-    m.set(c, (m.get(c) ?? 0) + e.amount);
+   ACTIF: Créances copropriétaires, Autres créances, Trésorerie
+   PASSIF: Fonds de réserve, Provisions, Résultat, Dettes fournisseurs, Autres dettes
+   Colonnes: Exercice N | Exercice N-1
+   Règle: Total ACTIF = Total PASSIF
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe3Row { label: string; amountN: number; amountN1: number }
+export interface Annexe3Section { label: string; rows: Annexe3Row[]; totalN: number; totalN1: number }
+
+export function prepareAnnexe3(
+  entries: LedgerInput[], balance: number, unpaidTotal: number,
+  entriesN1: LedgerInput[], balanceN1: number, unpaidN1: number,
+) {
+  function compute(ent: LedgerInput[], bal: number, unpaid: number) {
+    const exp = aggregateExpenses(ent);
+    const rev = aggregateRevenues(ent);
+    const reserve = reserveInflows(ent);
+    const resultat = rev.total - exp.total;
+    const totalActif = round(bal + unpaid);
+    const dettes = round(Math.max(0, totalActif - reserve - resultat));
+    return { reserve: round(reserve), resultat: round(resultat), totalActif, bal: round(bal), unpaid: round(unpaid), dettes };
   }
-  const rows: A1Row[] = [...m.entries()]
-    .map(([c, a]) => ({ accountCode: c, accountLabel: accountLabel(c), amount: round(a) }))
-    .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
-  return { rows, total: rows.reduce((s, r) => s + r.amount, 0) };
+
+  const n = compute(entries, balance, unpaidTotal);
+  const n1 = compute(entriesN1, balanceN1, unpaidN1);
+
+  const actif: Annexe3Section = {
+    label: "ACTIF",
+    rows: [
+      { label: "Créances copropriétaires", amountN: n.unpaid, amountN1: n1.unpaid },
+      { label: "Autres créances", amountN: 0, amountN1: 0 },
+      { label: "Trésorerie (banque + caisse)", amountN: n.bal, amountN1: n1.bal },
+    ],
+    totalN: n.totalActif,
+    totalN1: n1.totalActif,
+  };
+
+  const passif: Annexe3Section = {
+    label: "PASSIF",
+    rows: [
+      { label: "Fonds de réserve", amountN: n.reserve, amountN1: n1.reserve },
+      { label: "Provisions", amountN: 0, amountN1: 0 },
+      { label: "Résultat de l'exercice", amountN: n.resultat, amountN1: n1.resultat },
+      { label: "Dettes fournisseurs", amountN: n.dettes, amountN1: n1.dettes },
+      { label: "Autres dettes", amountN: 0, amountN1: 0 },
+    ],
+    totalN: n.totalActif,
+    totalN1: n1.totalActif,
+  };
+
+  return { actif, passif };
 }
 
-/* ═══════════════════════════════════════════
-   A2 — État des recettes
-   ═══════════════════════════════════════════ */
-export function prepareA2(entries: LedgerInput[]) {
-  const m = new Map<string, number>();
-  for (const e of entries.filter((e) => e.type === "in")) {
-    const c = mapToAccount(e.category, "in");
-    m.set(c, (m.get(c) ?? 0) + e.amount);
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 4 — Compte de gestion général
+   Grand ≥ 500 000 MAD
+
+   PRODUITS et CHARGES détaillés par code comptable
+   Colonnes: Réalisé exercice N | Budget à approuver N+1
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe4Row { accountCode: string; label: string; realiseN: number; budgetN1: number }
+export interface Annexe4Section { label: string; rows: Annexe4Row[]; totalRealise: number; totalBudget: number }
+
+export function prepareAnnexe4(entries: LedgerInput[], nextBudget?: Budget) {
+  const exp = aggregateExpenses(entries);
+  const rev = aggregateRevenues(entries);
+
+  const budgetByCode = new Map<string, number>();
+  if (nextBudget?.lines) {
+    for (const l of nextBudget.lines) {
+      const code = l.accountCode || mapToAccount(l.label + " " + l.category, "out");
+      budgetByCode.set(code, (budgetByCode.get(code) ?? 0) + l.amountBudgeted);
+    }
   }
-  const rows: A1Row[] = [...m.entries()]
-    .map(([c, a]) => ({ accountCode: c, accountLabel: accountLabel(c), amount: round(a) }))
-    .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
-  return { rows, total: rows.reduce((s, r) => s + r.amount, 0) };
+
+  const produits: Annexe4Section = {
+    label: "PRODUITS",
+    rows: rev.rows.map((r) => ({
+      accountCode: r.accountCode, label: r.accountLabel,
+      realiseN: r.amount, budgetN1: round(budgetByCode.get(r.accountCode) ?? 0),
+    })),
+    totalRealise: rev.total,
+    totalBudget: rev.rows.reduce((s, r) => s + round(budgetByCode.get(r.accountCode) ?? 0), 0),
+  };
+
+  const charges: Annexe4Section = {
+    label: "CHARGES",
+    rows: exp.rows.map((r) => ({
+      accountCode: r.accountCode, label: r.accountLabel,
+      realiseN: r.amount, budgetN1: round(budgetByCode.get(r.accountCode) ?? 0),
+    })),
+    totalRealise: exp.total,
+    totalBudget: exp.rows.reduce((s, r) => s + round(budgetByCode.get(r.accountCode) ?? 0), 0),
+  };
+
+  return { produits, charges, resultat: round(rev.total - exp.total) };
 }
 
-/* ═══════════════════════════════════════════
-   A3 — Situation de trésorerie
-   ═══════════════════════════════════════════ */
-export interface A3Row { code: string; label: string; amount: number }
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 5 — Comparaison budgétaire
+   Grand ≥ 500 000 MAD
 
-export function prepareA3(balance: number) {
-  const rows: A3Row[] = [
-    { code: "5141", label: "Compte bancaire copropriété", amount: round(balance) },
-  ];
-  return { rows, total: round(balance) };
+   Colonnes: Budget approuvé N-1 | Budget voté N | Réalisé N | Budget prévisionnel N+1
+             Écart valeur (Budget N − Réalisé N) | Écart %
+   Signaler tout poste avec |écart %| > 10%
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe5Row {
+  label: string;
+  category: string;
+  budgetN1: number;
+  budgetN: number;
+  realiseN: number;
+  budgetNext: number;
+  ecartValeur: number;
+  ecartPct: number | null;
+  alert: boolean;
 }
 
-/* ═══════════════════════════════════════════
-   A4 — État des impayés
-   ═══════════════════════════════════════════ */
-export interface A4Row {
-  unitRef: string; ownerName: string;
-  totalDue: number; totalPaid: number; balance: number;
-  dueDate: string | null;
-}
-
-export function prepareA4(recouvrement: RecouvrementRow[]) {
-  const rows: A4Row[] = recouvrement
-    .filter((r) => r.status !== "paid" && r.amount - r.paid > 0)
-    .map((r) => ({
-      unitRef: r.ref,
-      ownerName: r.ownerName,
-      totalDue: round(r.amount),
-      totalPaid: round(r.paid),
-      balance: round(r.amount - r.paid),
-      dueDate: r.dueDate,
-    }))
-    .sort((a, b) => b.balance - a.balance);
-  return { rows, total: rows.reduce((s, r) => s + r.balance, 0) };
-}
-
-/* ═══════════════════════════════════════════
-   A5 — Budget prévisionnel (voté vs réalisé)
-   ═══════════════════════════════════════════ */
-export interface A5Row {
-  label: string; category: string;
-  budgeted: number; actual: number; ecart: number;
-}
-
-export function prepareA5(budget: Budget | undefined) {
-  if (!budget || !budget.lines.length) return { rows: [] as A5Row[], totalBudgeted: 0, totalActual: 0, totalEcart: 0 };
-  const rows: A5Row[] = budget.lines.map((l) => ({
-    label: l.label,
-    category: l.category,
-    budgeted: round(l.amountBudgeted),
-    actual: round(l.amountActual),
-    ecart: round(l.amountActual - l.amountBudgeted),
-  }));
-  const totalBudgeted = rows.reduce((s, r) => s + r.budgeted, 0);
-  const totalActual = rows.reduce((s, r) => s + r.actual, 0);
-  return { rows, totalBudgeted, totalActual, totalEcart: totalActual - totalBudgeted };
-}
-
-/* ═══════════════════════════════════════════
-   A6 — Balance générale
-   ═══════════════════════════════════════════ */
-export interface A6Row {
-  accountCode: string; label: string;
-  totalDebit: number; totalCredit: number;
-  soldeDebiteur: number; soldeCrediteur: number;
-}
-
-export function prepareA6(entries: LedgerInput[]) {
-  const journal = deriveJournal(entries);
-  const m = new Map<string, { debit: number; credit: number }>();
-  for (const je of journal) {
-    const d = m.get(je.accountDebit) ?? { debit: 0, credit: 0 };
-    d.debit += je.amount; m.set(je.accountDebit, d);
-    const c = m.get(je.accountCredit) ?? { debit: 0, credit: 0 };
-    c.credit += je.amount; m.set(je.accountCredit, c);
+export function prepareAnnexe5(currentBudget?: Budget, previousBudget?: Budget, nextBudget?: Budget) {
+  if (!currentBudget?.lines.length) {
+    return { rows: [] as Annexe5Row[], totals: { budgetN1: 0, budgetN: 0, realiseN: 0, budgetNext: 0, ecartValeur: 0 } };
   }
-  const rows: A6Row[] = [...m.entries()]
-    .map(([code, { debit, credit }]) => ({
-      accountCode: code, label: accountLabel(code),
-      totalDebit: round(debit), totalCredit: round(credit),
-      soldeDebiteur: debit > credit ? round(debit - credit) : 0,
-      soldeCrediteur: credit > debit ? round(credit - debit) : 0,
-    }))
-    .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
-  return { rows };
+
+  const prevByLabel = new Map<string, number>();
+  if (previousBudget?.lines) for (const l of previousBudget.lines) prevByLabel.set(l.label, l.amountBudgeted);
+  const nextByLabel = new Map<string, number>();
+  if (nextBudget?.lines) for (const l of nextBudget.lines) nextByLabel.set(l.label, l.amountBudgeted);
+
+  const rows: Annexe5Row[] = currentBudget.lines.map((l) => {
+    const budgetN = round(l.amountBudgeted);
+    const realiseN = round(l.amountActual);
+    const ecartValeur = round(budgetN - realiseN);
+    const ecartPct = budgetN !== 0 ? round((ecartValeur / budgetN) * 100) : null;
+    return {
+      label: l.label, category: l.category,
+      budgetN1: round(prevByLabel.get(l.label) ?? 0),
+      budgetN, realiseN,
+      budgetNext: round(nextByLabel.get(l.label) ?? 0),
+      ecartValeur, ecartPct,
+      alert: ecartPct !== null && Math.abs(ecartPct) > 10,
+    };
+  });
+
+  return {
+    rows,
+    totals: {
+      budgetN1: rows.reduce((s, r) => s + r.budgetN1, 0),
+      budgetN: rows.reduce((s, r) => s + r.budgetN, 0),
+      realiseN: rows.reduce((s, r) => s + r.realiseN, 0),
+      budgetNext: rows.reduce((s, r) => s + r.budgetNext, 0),
+      ecartValeur: rows.reduce((s, r) => s + r.ecartValeur, 0),
+    },
+  };
 }
 
-/* ═══════════════════════════════════════════
-   A7 — Grand livre
-   ═══════════════════════════════════════════ */
-export interface A7Account {
-  accountCode: string; label: string;
-  entries: { date: string; label: string; debit: number; credit: number; solde: number }[];
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 6 — Travaux non courants
+   Grand ≥ 500 000 MAD
+
+   Colonnes: Description | Montant voté (date AG) | Montant payé |
+             Montant réalisé | Solde exécution en attente |
+             Montants réalisés non payés | Observations
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe6Row {
+  description: string;
+  montantVote: number;
+  dateAG: string;
+  montantPaye: number;
+  montantRealise: number;
+  soldeExecution: number;
+  realiseNonPaye: number;
+  observations: string;
 }
 
-export function prepareA7(entries: LedgerInput[]) {
-  const journal = deriveJournal(entries);
-  const byAccount = new Map<string, { date: string; label: string; debit: number; credit: number }[]>();
-  for (const je of journal) {
-    const dList = byAccount.get(je.accountDebit) ?? [];
-    dList.push({ date: je.date, label: je.label, debit: je.amount, credit: 0 });
-    byAccount.set(je.accountDebit, dList);
-    const cList = byAccount.get(je.accountCredit) ?? [];
-    cList.push({ date: je.date, label: je.label, debit: 0, credit: je.amount });
-    byAccount.set(je.accountCredit, cList);
-  }
-  const accounts: A7Account[] = [];
-  for (const [code, raw] of [...byAccount.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    let solde = 0;
-    const sorted = raw.sort((a, b) => a.date.localeCompare(b.date));
-    const withSolde = sorted.map((e) => { solde += e.debit - e.credit; return { ...e, solde: round(solde) }; });
-    accounts.push({ accountCode: code, label: accountLabel(code), entries: withSolde });
-  }
-  return { accounts };
+export function prepareAnnexe6(works: UrgentWork[]) {
+  const statusLabels: Record<string, string> = {
+    declared: "Déclaré", approved: "Approuvé", in_progress: "En cours", completed: "Terminé",
+  };
+
+  const rows: Annexe6Row[] = works.map((w) => {
+    const vote = round(w.estimatedCost ?? 0);
+    const realise = round(w.actualCost ?? 0);
+    return {
+      description: w.title,
+      montantVote: vote,
+      dateAG: w.declaredAt ? new Date(w.declaredAt).toLocaleDateString("fr-FR") : "—",
+      montantPaye: realise,
+      montantRealise: realise,
+      soldeExecution: round(Math.max(0, vote - realise)),
+      realiseNonPaye: 0,
+      observations: `${statusLabels[w.status] ?? w.status}${w.supplier ? ` — Fournisseur : ${w.supplier}` : ""}`,
+    };
+  });
+
+  return {
+    rows,
+    totalVote: rows.reduce((s, r) => s + r.montantVote, 0),
+    totalPaye: rows.reduce((s, r) => s + r.montantPaye, 0),
+    totalRealise: rows.reduce((s, r) => s + r.montantRealise, 0),
+    totalSolde: rows.reduce((s, r) => s + r.soldeExecution, 0),
+  };
 }
 
-/* ═══════════════════════════════════════════
-   A8 — Journal des opérations
-   ═══════════════════════════════════════════ */
-export function prepareA8(entries: LedgerInput[]) {
-  const rows = deriveJournal(entries).sort((a, b) => a.date.localeCompare(b.date));
-  return { rows };
-}
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 7 — Suivi du fonds de réserve (art. 37bis Loi 18-00)
+   Grand ≥ 500 000 MAD
 
-/* ═══════════════════════════════════════════
-   A9 — État du fonds de réserve
-   ═══════════════════════════════════════════ */
-export interface A9Row { date: string; label: string; entree: number; sortie: number; solde: number }
+   Chronologie des mouvements du fonds de réserve
+   Colonnes: Date | Libellé | Entrée | Sortie | Solde cumulé
+   ═══════════════════════════════════════════════════════════ */
 
-export function prepareA9(entries: LedgerInput[]) {
+export interface Annexe7Row { date: string; label: string; entree: number; sortie: number; solde: number }
+
+export function prepareAnnexe7(entries: LedgerInput[]) {
   const reserveEntries = entries.filter((e) => {
     const n = normalize(e.category);
     return n.includes("reserve") || n.includes("fonds");
   }).sort((a, b) => a.date.localeCompare(b.date));
+
   let solde = 0;
-  const rows: A9Row[] = reserveEntries.map((e) => {
-    const entree = e.type === "in" ? e.amount : 0;
-    const sortie = e.type === "out" ? e.amount : 0;
+  const rows: Annexe7Row[] = reserveEntries.map((e) => {
+    const entree = e.type === "in" ? round(e.amount) : 0;
+    const sortie = e.type === "out" ? round(e.amount) : 0;
     solde += entree - sortie;
-    return { date: e.date, label: e.label, entree: round(entree), sortie: round(sortie), solde: round(solde) };
+    return { date: e.date, label: e.label, entree, sortie, solde: round(solde) };
   });
+
   return { rows, solde: round(solde) };
 }
 
-/* ═══════════════════════════════════════════
-   A10 — État des travaux
-   ═══════════════════════════════════════════ */
-export interface A10Row {
-  title: string; supplier: string;
-  budgetVote: number; depense: number; resteAPayer: number;
-  status: string;
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 8 — Suivi des emprunts
+   Grand ≥ 500 000 MAD
+
+   Colonnes: Date emprunt | Nom prêteur | Montant initial |
+             Remboursements exercice | Solde restant dû
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe8Row {
+  dateEmprunt: string;
+  preteur: string;
+  montantInitial: number;
+  remboursementsExercice: number;
+  soldeRestant: number;
 }
 
-export function prepareA10(works: UrgentWork[]) {
-  const statusLabels: Record<string, string> = {
-    declared: "Déclaré", approved: "Approuvé", in_progress: "En cours", completed: "Terminé",
+export function prepareAnnexe8() {
+  // Pas de données d'emprunts dans le modèle actuel — "Néant" si aucun emprunt
+  return {
+    rows: [] as Annexe8Row[],
+    totalInitial: 0, totalRembourse: 0, totalRestant: 0,
   };
-  const rows: A10Row[] = works.map((w) => ({
-    title: w.title,
-    supplier: w.supplier ?? "—",
-    budgetVote: round(w.estimatedCost ?? 0),
-    depense: round(w.actualCost ?? 0),
-    resteAPayer: round(Math.max(0, (w.estimatedCost ?? 0) - (w.actualCost ?? 0))),
-    status: statusLabels[w.status] ?? w.status,
-  }));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 9 — Inventaire des immobilisations
+   Grand ≥ 500 000 MAD
+
+   Colonnes: Type/nature équipement | Fournisseur |
+             Date mise en service | Valeur acquisition | Observations
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe9Row {
+  nature: string;
+  fournisseur: string;
+  dateMiseEnService: string;
+  valeurAcquisition: number;
+  observations: string;
+}
+
+export function prepareAnnexe9() {
+  // Pas de données d'inventaire dans le modèle actuel — "Néant" si aucun équipement
+  return { rows: [] as Annexe9Row[], totalValeur: 0 };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 10 — Suivi des contributions des copropriétaires
+   TOUS TIERS (obligatoire pour tous)
+
+   Par copropriétaire:
+     Référence bien | Nom | Quote-part (tantièmes)
+     Solde ouverture | Total charges appelées | Total paiements reçus | Solde clôture
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe10Row {
+  unitRef: string;
+  ownerName: string;
+  tantiemes: number;
+  soldeOuverture: number;
+  chargesAppelees: number;
+  paiementsRecus: number;
+  soldeCloture: number;
+}
+
+export function prepareAnnexe10(recouvrement: RecouvrementRow[]) {
+  const rows: Annexe10Row[] = recouvrement.map((r) => ({
+    unitRef: r.ref,
+    ownerName: r.ownerName,
+    tantiemes: r.tantiemes,
+    soldeOuverture: 0,
+    chargesAppelees: round(r.amount),
+    paiementsRecus: round(r.paid),
+    soldeCloture: round(r.amount - r.paid),
+  })).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
+
   return {
     rows,
-    totalBudget: rows.reduce((s, r) => s + r.budgetVote, 0),
-    totalDepense: rows.reduce((s, r) => s + r.depense, 0),
+    totalTantiemes: rows.reduce((s, r) => s + r.tantiemes, 0),
+    totalCharges: rows.reduce((s, r) => s + r.chargesAppelees, 0),
+    totalPaiements: rows.reduce((s, r) => s + r.paiementsRecus, 0),
+    totalSolde: rows.reduce((s, r) => s + r.soldeCloture, 0),
   };
 }
 
-/* ═══════════════════════════════════════════
-   A11 — Bilan (Actif / Passif)
-   ═══════════════════════════════════════════ */
-export interface BilanSection {
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 11 — États financiers simplifiés
+   Moyen 200 000 – 500 000 MAD
+
+   Situation financière simplifiée:
+     Créances | Trésorerie | Fonds de réserve | Dettes | Résultat
+   Compte de gestion simplifié:
+     Total produits | Total charges | Résultat
+   Colonnes: Exercice N | Exercice N-1
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe11Row { label: string; amountN: number; amountN1: number }
+
+export function prepareAnnexe11(
+  entries: LedgerInput[], balance: number, unpaidTotal: number,
+  entriesN1: LedgerInput[], balanceN1: number, unpaidN1: number,
+) {
+  function compute(ent: LedgerInput[], bal: number, unpaid: number) {
+    const exp = aggregateExpenses(ent);
+    const rev = aggregateRevenues(ent);
+    const reserve = reserveInflows(ent);
+    const resultat = rev.total - exp.total;
+    const dettes = round(Math.max(0, bal + unpaid - reserve - resultat));
+    return {
+      bal: round(bal), unpaid: round(unpaid), reserve: round(reserve),
+      resultat: round(resultat), dettes, produits: round(rev.total), charges: round(exp.total),
+    };
+  }
+
+  const n = compute(entries, balance, unpaidTotal);
+  const n1 = compute(entriesN1, balanceN1, unpaidN1);
+
+  const situation: Annexe11Row[] = [
+    { label: "Créances copropriétaires", amountN: n.unpaid, amountN1: n1.unpaid },
+    { label: "Trésorerie (banque + caisse)", amountN: n.bal, amountN1: n1.bal },
+    { label: "Fonds de réserve", amountN: n.reserve, amountN1: n1.reserve },
+    { label: "Dettes fournisseurs", amountN: n.dettes, amountN1: n1.dettes },
+    { label: "Résultat de l'exercice", amountN: n.resultat, amountN1: n1.resultat },
+  ];
+
+  const gestion: Annexe11Row[] = [
+    { label: "Total produits", amountN: n.produits, amountN1: n1.produits },
+    { label: "Total charges", amountN: n.charges, amountN1: n1.charges },
+    { label: "Résultat", amountN: n.resultat, amountN1: n1.resultat },
+  ];
+
+  return {
+    situation, gestion,
+    totalActifN: round(n.bal + n.unpaid),
+    totalActifN1: round(n1.bal + n1.unpaid),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 12 — Revenus et budgets simplifiés
+   Moyen 200 000 – 500 000 MAD
+
+   PRODUITS: Cotisations, Travaux, Fonds de réserve, Autres
+   CHARGES: Fournitures et services, Taxes et impôts, Personnel, Autres
+   Colonnes: Réalisé N | Budget approuvé N-1 | Budget voté N
+   Résultat: Excédent / Déficit
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe12Row {
   label: string;
-  items: { label: string; amount: number }[];
-  total: number;
+  section: "produits" | "charges";
+  realiseN: number;
+  budgetN1: number;
+  budgetN: number;
 }
 
-export function prepareA11(entries: LedgerInput[], balance: number, unpaidTotal: number) {
-  const a1 = prepareA1(entries);
-  const a2 = prepareA2(entries);
-  const reserveIn = entries
-    .filter((e) => e.type === "in" && normalize(e.category).includes("reserve"))
-    .reduce((s, e) => s + e.amount, 0);
-  const resultat = a2.total - a1.total;
-
-  const actif: BilanSection = {
-    label: "ACTIF",
-    items: [
-      { label: "Trésorerie (banque + caisse)", amount: round(balance) },
-      { label: "Créances copropriétaires", amount: round(unpaidTotal) },
-    ],
-    total: round(balance + unpaidTotal),
-  };
-  const passif: BilanSection = {
-    label: "PASSIF",
-    items: [
-      { label: "Fonds de réserve", amount: round(reserveIn) },
-      { label: "Résultat de l'exercice", amount: round(resultat) },
-      { label: "Dettes fournisseurs et divers", amount: round(Math.max(0, actif.total - reserveIn - resultat)) },
-    ],
-    total: actif.total,
-  };
-  return { actif, passif };
+/** Map budget lines to law-defined categories */
+function groupBudgetByLawCategory(budget?: Budget): { fournitures: number; taxes: number; personnel: number; autres: number } {
+  const result = { fournitures: 0, taxes: 0, personnel: 0, autres: 0 };
+  if (!budget?.lines) return result;
+  for (const l of budget.lines) {
+    const n = normalize(l.label + " " + l.category);
+    if (n.includes("salaire") || n.includes("personnel") || n.includes("charges sociales") || n.includes("gardien")) {
+      result.personnel += l.amountBudgeted;
+    } else if (n.includes("impot") || n.includes("taxe")) {
+      result.taxes += l.amountBudgeted;
+    } else {
+      result.fournitures += l.amountBudgeted;
+    }
+  }
+  return result;
 }
 
-/* ═══════════════════════════════════════════
-   A12 — Compte de résultat
-   ═══════════════════════════════════════════ */
-export interface CRSection {
+export function prepareAnnexe12(entries: LedgerInput[], currentBudget?: Budget, previousBudget?: Budget) {
+  const exp = aggregateExpenses(entries);
+  const rev = aggregateRevenues(entries);
+
+  // --- PRODUITS par catégorie légale ---
+  const cotisations = rev.rows.filter((r) => r.accountCode === "7140").reduce((s, r) => s + r.amount, 0);
+  const travaux = rev.rows.filter((r) => r.accountCode === "7142").reduce((s, r) => s + r.amount, 0);
+  const reserve = rev.rows.filter((r) => r.accountCode === "7150").reduce((s, r) => s + r.amount, 0);
+  const autresProduits = round(rev.total - cotisations - travaux - reserve);
+
+  // --- CHARGES par catégorie légale ---
+  const FOURNITURES_CODES = ["6110", "6131", "6132", "6133", "6134", "6142", "6144", "6145", "6148", "6161"];
+  const fournitures = exp.rows.filter((r) => FOURNITURES_CODES.includes(r.accountCode)).reduce((s, r) => s + r.amount, 0);
+  const taxes = exp.rows.filter((r) => r.accountCode === "6380").reduce((s, r) => s + r.amount, 0);
+  const personnel = exp.rows.filter((r) => ["6147", "6171", "6174"].includes(r.accountCode)).reduce((s, r) => s + r.amount, 0);
+  const autresCharges = round(exp.total - fournitures - taxes - personnel);
+
+  // Budget par catégorie
+  const budgetN = groupBudgetByLawCategory(currentBudget);
+  const budgetN1 = groupBudgetByLawCategory(previousBudget);
+
+  // Budget total for revenue side = total budget amount
+  const budgetRevN = round(currentBudget?.totalAmount ?? 0);
+  const budgetRevN1 = round(previousBudget?.totalAmount ?? 0);
+  const budgetReserveN = round(currentBudget?.reserveFundAmount ?? 0);
+  const budgetReserveN1 = round(previousBudget?.reserveFundAmount ?? 0);
+
+  const rows: Annexe12Row[] = [
+    { label: "Cotisations régulières", section: "produits", realiseN: round(cotisations), budgetN1: round(budgetRevN1 - budgetReserveN1), budgetN: round(budgetRevN - budgetReserveN) },
+    { label: "Appels travaux", section: "produits", realiseN: round(travaux), budgetN1: 0, budgetN: 0 },
+    { label: "Fonds de réserve", section: "produits", realiseN: round(reserve), budgetN1: round(budgetReserveN1), budgetN: round(budgetReserveN) },
+    { label: "Autres produits", section: "produits", realiseN: autresProduits, budgetN1: 0, budgetN: 0 },
+    { label: "Fournitures et services", section: "charges", realiseN: round(fournitures), budgetN1: round(budgetN1.fournitures), budgetN: round(budgetN.fournitures) },
+    { label: "Taxes et impôts", section: "charges", realiseN: round(taxes), budgetN1: round(budgetN1.taxes), budgetN: round(budgetN.taxes) },
+    { label: "Personnel", section: "charges", realiseN: round(personnel), budgetN1: round(budgetN1.personnel), budgetN: round(budgetN.personnel) },
+    { label: "Autres charges", section: "charges", realiseN: autresCharges, budgetN1: round(budgetN1.autres), budgetN: round(budgetN.autres) },
+  ];
+
+  const totalProduitsN = round(rev.total);
+  const totalChargesN = round(exp.total);
+
+  return {
+    rows,
+    totalProduitsN, totalChargesN,
+    resultatN: round(totalProduitsN - totalChargesN),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 13-1 — Situation financière très simplifiée
+   Petit ≤ 200 000 MAD
+
+   4 lignes: Comptes de réserve | Créances | Dettes | Trésorerie
+   5 colonnes: Exercice N | Dotation (+) | Utilisation (-) | Exercice N-1 | Observations
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe13_1Row {
   label: string;
-  items: { accountCode: string; label: string; amount: number }[];
-  total: number;
+  exerciceN: number;
+  dotation: number;
+  utilisation: number;
+  exerciceN1: number;
+  observations: string;
 }
 
-export function prepareA12(entries: LedgerInput[]) {
-  const a1 = prepareA1(entries);
-  const a2 = prepareA2(entries);
-  const charges: CRSection = {
-    label: "CHARGES",
-    items: a1.rows.map((r) => ({ accountCode: r.accountCode, label: r.accountLabel, amount: r.amount })),
-    total: a1.total,
-  };
-  const produits: CRSection = {
-    label: "PRODUITS",
-    items: a2.rows.map((r) => ({ accountCode: r.accountCode, label: r.accountLabel, amount: r.amount })),
-    total: a2.total,
-  };
-  return { charges, produits, resultat: round(a2.total - a1.total) };
+export function prepareAnnexe13_1(
+  entries: LedgerInput[], balance: number, unpaidTotal: number,
+  entriesN1: LedgerInput[], balanceN1: number, unpaidN1: number,
+) {
+  const reserveIn = round(reserveInflows(entries));
+  const reserveOut = round(reserveOutflows(entries));
+  const reserveN1 = round(reserveInflows(entriesN1) - reserveOutflows(entriesN1));
+
+  const exp = aggregateExpenses(entries);
+  const rev = aggregateRevenues(entries);
+  const dettes = round(Math.max(0, balance + unpaidTotal - (reserveIn - reserveOut) - (rev.total - exp.total)));
+  const dettesN1In = aggregateRevenues(entriesN1);
+  const dettesN1Exp = aggregateExpenses(entriesN1);
+  const dettesN1 = round(Math.max(0, balanceN1 + unpaidN1 - reserveN1 - (dettesN1In.total - dettesN1Exp.total)));
+
+  const rows: Annexe13_1Row[] = [
+    {
+      label: "Comptes de réserve (Classe 1)",
+      exerciceN: round(reserveIn - reserveOut),
+      dotation: reserveIn,
+      utilisation: reserveOut,
+      exerciceN1: reserveN1,
+      observations: "Art. 37bis Loi 18-00",
+    },
+    {
+      label: "Créances (Classe 3)",
+      exerciceN: round(unpaidTotal),
+      dotation: round(unpaidTotal),
+      utilisation: 0,
+      exerciceN1: round(unpaidN1),
+      observations: "Impayés copropriétaires",
+    },
+    {
+      label: "Dettes (Classe 4)",
+      exerciceN: dettes,
+      dotation: 0,
+      utilisation: 0,
+      exerciceN1: dettesN1,
+      observations: "Fournisseurs et divers",
+    },
+    {
+      label: "Trésorerie (Classe 5)",
+      exerciceN: round(balance),
+      dotation: round(rev.total),
+      utilisation: round(exp.total),
+      exerciceN1: round(balanceN1),
+      observations: "Banque + caisse",
+    },
+  ];
+
+  return { rows, totalActifN: round(balance + unpaidTotal), totalActifN1: round(balanceN1 + unpaidN1) };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANNEXE 13-2 — Revenus et budget très simplifiés
+   Petit ≤ 200 000 MAD
+
+   Colonnes: Budget approuvé (A) | Réalisé (B) | Écart valeur (A−B) |
+             Écart % | Budget prévisionnel N+1
+   ═══════════════════════════════════════════════════════════ */
+
+export interface Annexe13_2Row {
+  label: string;
+  budgetApprouve: number;
+  realise: number;
+  ecartValeur: number;
+  ecartPct: number | null;
+  budgetNext: number;
+}
+
+export function prepareAnnexe13_2(entries: LedgerInput[], currentBudget?: Budget, nextBudget?: Budget) {
+  const exp = aggregateExpenses(entries);
+  const rev = aggregateRevenues(entries);
+
+  const budgetTotal = currentBudget?.totalAmount ?? 0;
+  const reserveBudget = currentBudget?.reserveFundAmount ?? 0;
+  const budgetCharges = round(budgetTotal - reserveBudget);
+  const budgetProduits = round(budgetTotal);
+
+  const nextTotal = nextBudget?.totalAmount ?? 0;
+  const nextReserve = nextBudget?.reserveFundAmount ?? 0;
+
+  function ecart(budget: number, realise: number) {
+    const v = round(budget - realise);
+    const pct = budget !== 0 ? round((v / budget) * 100) : null;
+    return { v, pct };
+  }
+
+  const eRecettes = ecart(budgetProduits, rev.total);
+  const eDepenses = ecart(budgetCharges, exp.total);
+  const resultatBudget = round(budgetProduits - budgetCharges);
+  const resultatRealise = round(rev.total - exp.total);
+  const eResultat = ecart(resultatBudget, resultatRealise);
+
+  const rows: Annexe13_2Row[] = [
+    {
+      label: "Total recettes",
+      budgetApprouve: round(budgetProduits),
+      realise: round(rev.total),
+      ecartValeur: eRecettes.v,
+      ecartPct: eRecettes.pct,
+      budgetNext: round(nextTotal),
+    },
+    {
+      label: "Total dépenses",
+      budgetApprouve: round(budgetCharges),
+      realise: round(exp.total),
+      ecartValeur: eDepenses.v,
+      ecartPct: eDepenses.pct,
+      budgetNext: round(nextTotal - nextReserve),
+    },
+    {
+      label: "Résultat (excédent / déficit)",
+      budgetApprouve: resultatBudget,
+      realise: resultatRealise,
+      ecartValeur: eResultat.v,
+      ecartPct: eResultat.pct,
+      budgetNext: round(nextTotal - (nextTotal - nextReserve)),
+    },
+  ];
+
+  return { rows };
 }
 
 /* ═══════════════════════════════════════════
-   A13 — Export données pour commissaire aux comptes
+   CSV export (commissaire aux comptes)
    ═══════════════════════════════════════════ */
+
 export function prepareA13CSV(entries: LedgerInput[], buildingName: string, fiscalYear: number): string {
   const journal = deriveJournal(entries).sort((a, b) => a.date.localeCompare(b.date));
   const header = "Date,Libellé,Compte débité,Compte crédité,Montant (MAD)";
@@ -356,102 +739,4 @@ export function prepareA13CSV(entries: LedgerInput[], buildingName: string, fisc
   );
   const meta = `# Export comptable — ${buildingName} — Exercice ${fiscalYear}\n# Décret 2.23.700\n# Généré par Palier le ${new Date().toISOString().slice(0, 10)}\n`;
   return meta + header + "\n" + rows.join("\n");
-}
-
-/* ═══════════════════════════════════════════
-   Annexe 11 — États simplifiés (Moyen)
-   Situation financière + gestion condensées
-   ═══════════════════════════════════════════ */
-export interface A11SimplRow { label: string; amount: number }
-
-export function prepareAnnexe11(entries: LedgerInput[], balance: number, unpaidTotal: number) {
-  const a1 = prepareA1(entries);
-  const a2 = prepareA2(entries);
-  const reserveIn = entries
-    .filter((e) => e.type === "in" && normalize(e.category).includes("reserve"))
-    .reduce((s, e) => s + e.amount, 0);
-  const resultat = a2.total - a1.total;
-
-  const situation: A11SimplRow[] = [
-    { label: "Trésorerie", amount: round(balance) },
-    { label: "Créances copropriétaires", amount: round(unpaidTotal) },
-    { label: "Fonds de réserve", amount: round(reserveIn) },
-    { label: "Dettes fournisseurs", amount: round(Math.max(0, balance + unpaidTotal - reserveIn - resultat)) },
-  ];
-  const gestion: A11SimplRow[] = [
-    { label: "Total produits", amount: round(a2.total) },
-    { label: "Total charges", amount: round(a1.total) },
-    { label: "Résultat", amount: round(resultat) },
-  ];
-  return { situation, gestion, totalActif: round(balance + unpaidTotal) };
-}
-
-/* ═══════════════════════════════════════════
-   Annexe 12 — Revenus et budgets simplifiés (Moyen)
-   3 colonnes : budget voté, réalisé, écart
-   ═══════════════════════════════════════════ */
-export interface A12SimplRow { label: string; budgeted: number; actual: number; ecart: number }
-
-export function prepareAnnexe12(budget: Budget | undefined, entries: LedgerInput[]) {
-  if (!budget || !budget.lines.length) {
-    const a1 = prepareA1(entries);
-    const a2 = prepareA2(entries);
-    const rows: A12SimplRow[] = [
-      { label: "Charges courantes", budgeted: 0, actual: a1.total, ecart: a1.total },
-      { label: "Produits courants", budgeted: 0, actual: a2.total, ecart: a2.total },
-    ];
-    return { rows, totalBudgeted: 0, totalActual: a1.total + a2.total, totalEcart: a1.total + a2.total };
-  }
-  const rows: A12SimplRow[] = budget.lines.map((l) => ({
-    label: l.label,
-    budgeted: round(l.amountBudgeted),
-    actual: round(l.amountActual),
-    ecart: round(l.amountActual - l.amountBudgeted),
-  }));
-  const totalBudgeted = rows.reduce((s, r) => s + r.budgeted, 0);
-  const totalActual = rows.reduce((s, r) => s + r.actual, 0);
-  return { rows, totalBudgeted, totalActual, totalEcart: totalActual - totalBudgeted };
-}
-
-/* ═══════════════════════════════════════════
-   Annexe 13-1 — Bilan très simplifié (Petit)
-   4 lignes : réserves, créances, dettes, trésorerie
-   ═══════════════════════════════════════════ */
-export interface A13_1Row { label: string; amount: number }
-
-export function prepareAnnexe13_1(entries: LedgerInput[], balance: number, unpaidTotal: number) {
-  const reserveIn = entries
-    .filter((e) => e.type === "in" && normalize(e.category).includes("reserve"))
-    .reduce((s, e) => s + e.amount, 0);
-  const rows: A13_1Row[] = [
-    { label: "Fonds de réserve", amount: round(reserveIn) },
-    { label: "Créances copropriétaires", amount: round(unpaidTotal) },
-    { label: "Dettes fournisseurs", amount: round(Math.max(0, balance + unpaidTotal - reserveIn)) },
-    { label: "Trésorerie (banque + caisse)", amount: round(balance) },
-  ];
-  return { rows, totalActif: round(balance + unpaidTotal) };
-}
-
-/* ═══════════════════════════════════════════
-   Annexe 13-2 — Revenus et budget très simplifiés (Petit)
-   5 colonnes : poste, budget N-1, budget N, réalisé N, écart
-   ═══════════════════════════════════════════ */
-export interface A13_2Row { label: string; budgetN: number; actual: number; ecart: number }
-
-export function prepareAnnexe13_2(entries: LedgerInput[], budget: Budget | undefined) {
-  const a1 = prepareA1(entries);
-  const a2 = prepareA2(entries);
-  const totalBudgeted = budget ? budget.lines.reduce((s, l) => s + l.amountBudgeted, 0) : 0;
-
-  const rows: A13_2Row[] = [
-    { label: "Total recettes", budgetN: round(totalBudgeted > 0 ? totalBudgeted * 0.6 : 0), actual: round(a2.total), ecart: round(a2.total - totalBudgeted * 0.6) },
-    { label: "Total dépenses", budgetN: round(totalBudgeted > 0 ? totalBudgeted * 0.4 : 0), actual: round(a1.total), ecart: round(a1.total - totalBudgeted * 0.4) },
-    { label: "Résultat", budgetN: 0, actual: round(a2.total - a1.total), ecart: round(a2.total - a1.total) },
-  ];
-  return { rows };
-}
-
-/* ═══ Utility ═══ */
-function round(n: number): number {
-  return Math.round(n * 100) / 100;
 }

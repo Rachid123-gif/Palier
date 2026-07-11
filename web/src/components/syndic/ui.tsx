@@ -41,7 +41,7 @@ const pills: Record<string, { label: string; cls: string }> = {
 
 export function StatusPill({ status }: { status: string }) {
   const p = pills[status] ?? { label: status, cls: "bg-sand text-ink-soft" };
-  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold", p.cls)}>{p.label}</span>;
+  return <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold", p.cls)}>{p.label}</span>;
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {

@@ -59,6 +59,8 @@ export const t = {
       notifAGDesc: "Convocations, votes",
       notifSyndic: "Annonces syndic",
       notifSyndicDesc: "Messages du syndic",
+      // Apparence
+      apparence: "Apparence",
       // Export
       exportTitle: "Mes données",
       exportDesc: "Téléchargez l'historique complet de votre résidence.",
@@ -437,6 +439,8 @@ export const t = {
       notifAGDesc: "الدعوات، التصويتات",
       notifSyndic: "إعلانات السنديك",
       notifSyndicDesc: "رسائل السنديك",
+      // Apparence
+      apparence: "المظهر",
       // Export
       exportTitle: "بياناتي",
       exportDesc: "حمّل سجل إقامتك الكامل.",

@@ -34,6 +34,7 @@ export interface Post {
   id: string;
   type: PostType;
   author: string;
+  authorId?: string | null;
   role: "syndic" | "resident";
   avatarColor: string;
   createdAt: string;

@@ -221,7 +221,7 @@ export default function SignalerScreen() {
           ) : (
             <div className="flex flex-col items-center py-10 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-50">
-                <Icon name="CheckCircle" className="h-7 w-7 text-palier-600" />
+                <Icon name="CircleCheck" className="h-7 w-7 text-palier-600" />
               </span>
               <p className="mt-4 text-[15px] font-bold text-ink">{T.aucunSignalement}</p>
               <p className="mt-1 max-w-[16rem] text-[13px] text-ink-soft">{T.aucunSignalementSub}</p>

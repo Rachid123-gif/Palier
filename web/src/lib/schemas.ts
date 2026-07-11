@@ -133,6 +133,7 @@ export const createAssemblySchema = z.object({
   date: isoDate,
   time: z.string().max(10),
   place: shortString,
+  type: z.enum(["ordinaire", "extraordinaire"]).optional(),
   agenda: z.array(z.object({
     n: z.number().int().positive(),
     t: shortString,
@@ -246,6 +247,9 @@ export const upsertCoproprieteRuleSchema = z.object({
 
 /* ─── Settings ─── */
 export const saveBuildingSettingsSchema = z.object({
+  syndic_phone: shortString.optional(),
+  syndic_email: shortString.optional(),
+  welcome_message: safeString.optional(),
   incident_categories: z.array(shortString).optional(),
   expense_categories: z.array(shortString).optional(),
   charge_categories: z.array(shortString).optional(),
@@ -253,6 +257,18 @@ export const saveBuildingSettingsSchema = z.object({
   gardien_name: shortString.optional(),
   gardien_phone: phone.optional(),
   gardien_hours: shortString.optional(),
+  gardien: z.object({
+    name: shortString,
+    phone: z.string().max(20),
+    horaires: z.record(z.string(), z.object({ de: z.string(), a: z.string(), repos: z.boolean() })),
+    taches: z.array(shortString),
+  }).nullable().optional(),
+  notifications: z.object({
+    whatsapp_enabled: z.boolean(),
+    inapp_enabled: z.boolean(),
+    events: z.record(z.string(), z.boolean()),
+    quiet_hours: z.object({ enabled: z.boolean(), from: z.string(), to: z.string() }),
+  }).nullable().optional(),
 }).strict();
 
 /* ─── Update Insurance ─── */
@@ -288,6 +304,26 @@ export const updateBudgetLineSchema = z.object({
   amountActual: amount.optional(),
   accountCode: z.string().max(10).optional(),
 }).strict();
+
+/* ─── Syndic Payment Recording ─── */
+export const recordPaymentSyndicSchema = z.object({
+  chargeId: uuid,
+  buildingId: uuid,
+  profileId: uuid.optional(),
+  amount: amount.positive(),
+  method: z.enum(["cash", "cheque", "virement", "autre"]),
+  note: z.string().max(500).optional(),
+});
+
+/* ─── Update Charge Call ─── */
+export const updateChargeCallSchema = z.object({
+  buildingId: uuid,
+  originalLabel: shortString,
+  originalDueDate: isoDate,
+  label: shortString.optional(),
+  category: shortString.optional(),
+  dueDate: isoDate.optional(),
+});
 
 /* ─── Votes ─── */
 export const castVoteSchema = z.object({

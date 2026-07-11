@@ -8,6 +8,13 @@ import { saveBuildingSettings, generateAccessCode } from "@/lib/actions";
 import { submitFeedback } from "@/lib/actions";
 import { logout } from "@/lib/auth";
 
+interface NotificationSettings {
+  whatsapp_enabled: boolean;
+  inapp_enabled: boolean;
+  events: Record<string, boolean>;
+  quiet_hours: { enabled: boolean; from: string; to: string };
+}
+
 interface BuildingSettings {
   enabled_categories: string[] | null;
   features: Record<string, boolean> | null;
@@ -19,6 +26,7 @@ interface BuildingSettings {
   charge_categories?: string[] | null;
   relance_message?: string | null;
   gardien?: GardienInfo | null;
+  notifications?: NotificationSettings | null;
 }
 
 interface GardienInfo {
@@ -34,6 +42,7 @@ const sections = [
   { key: "gardien", label: "Gardien", icon: "ShieldCheck" },
   { key: "categories", label: "Catégories", icon: "Tags" },
   { key: "codes", label: "Codes d'accès", icon: "KeyRound" },
+  { key: "notifications", label: "Notifications", icon: "BellRing" },
   { key: "relance", label: "Relances", icon: "Bell" },
   { key: "apparence", label: "Apparence", icon: "Palette" },
   { key: "feedback", label: "Retours", icon: "MessageCircle" },
@@ -53,6 +62,21 @@ const DEFAULT_EXPENSE_CATS = [
 const DEFAULT_CHARGE_CATS = [
   "Charges courantes", "Travaux", "Fonds de réserve",
 ];
+
+/* ── Notification events ── */
+const NOTIF_EVENTS: { key: string; label: string; desc: string; icon: string; color: string }[] = [
+  { key: "incident_new", label: "Nouvel incident", desc: "Un résident signale un problème", icon: "TriangleAlert", color: "text-amber-600" },
+  { key: "incident_resolved", label: "Incident résolu", desc: "Un incident est marqué comme résolu", icon: "CircleCheck", color: "text-emerald-600" },
+  { key: "payment_received", label: "Paiement reçu", desc: "Un résident effectue un paiement", icon: "Banknote", color: "text-emerald-600" },
+  { key: "charge_due", label: "Échéance charge", desc: "Un appel de fonds arrive à échéance", icon: "CalendarClock", color: "text-red-600" },
+  { key: "post_new", label: "Nouveau post voisinage", desc: "Un résident publie dans le fil voisinage", icon: "MessageSquare", color: "text-blue-600" },
+  { key: "ag_reminder", label: "Rappel AG", desc: "Rappel avant une assemblée générale", icon: "Users", color: "text-purple-600" },
+  { key: "insurance_expiry", label: "Expiration assurance", desc: "Une police d'assurance arrive à échéance", icon: "Shield", color: "text-red-600" },
+  { key: "mandate_expiry", label: "Expiration mandat", desc: "Le mandat du syndic arrive à terme", icon: "UserCheck", color: "text-amber-600" },
+  { key: "budget_alert", label: "Dépassement budget", desc: "Une catégorie dépasse le budget prévu", icon: "TrendingUp", color: "text-red-600" },
+];
+
+const DEFAULT_NOTIF_EVENTS: Record<string, boolean> = Object.fromEntries(NOTIF_EVENTS.map((e) => [e.key, true]));
 
 export function SettingsView({
   building,
@@ -118,6 +142,19 @@ export function SettingsView({
     "Bonjour, nous vous rappelons que votre cotisation est en attente de paiement. Merci de régulariser votre situation via l'application Palier."
   );
 
+  // ── Notifications ──
+  const savedNotif = settings?.notifications;
+  const [notifWhatsapp, setNotifWhatsapp] = useState(savedNotif?.whatsapp_enabled ?? true);
+  const [notifInapp, setNotifInapp] = useState(savedNotif?.inapp_enabled ?? true);
+  const [notifEvents, setNotifEvents] = useState<Record<string, boolean>>(savedNotif?.events ?? DEFAULT_NOTIF_EVENTS);
+  const [quietEnabled, setQuietEnabled] = useState(savedNotif?.quiet_hours?.enabled ?? false);
+  const [quietFrom, setQuietFrom] = useState(savedNotif?.quiet_hours?.from ?? "22:00");
+  const [quietTo, setQuietTo] = useState(savedNotif?.quiet_hours?.to ?? "07:00");
+
+  function toggleEvent(key: string) {
+    setNotifEvents((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
 
   function handleSave() {
@@ -136,6 +173,12 @@ export function SettingsView({
           horaires: gardienHoraires,
           taches: gardienTaches,
         } : null,
+        notifications: {
+          whatsapp_enabled: notifWhatsapp,
+          inapp_enabled: notifInapp,
+          events: notifEvents,
+          quiet_hours: { enabled: quietEnabled, from: quietFrom, to: quietTo },
+        },
       } as Record<string, unknown>);
       flash("Configuration sauvegardée");
       router.refresh();
@@ -556,6 +599,173 @@ export function SettingsView({
             </>
           )}
 
+          {/* ═══ NOTIFICATIONS ═══ */}
+          {activeSection === "notifications" && (
+            <>
+              <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+                <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                <p className="text-[12px] text-ink-soft">
+                  Configurez les notifications envoyées par l&apos;application. Choisissez les canaux et les événements qui déclenchent une notification.
+                </p>
+              </div>
+
+              {/* Channels */}
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-palier-100">
+                    <Icon name="Radio" className="h-4 w-4 text-palier-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Canaux de notification</h2>
+                    <p className="text-[12px] text-ink-soft">Activez ou désactivez les canaux de communication.</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {/* WhatsApp */}
+                  <div className="flex items-center justify-between rounded-lg border border-black/[0.06] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#25D366]/10">
+                        <Icon name="MessageCircle" className="h-4.5 w-4.5 text-[#25D366]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-ink">WhatsApp</p>
+                        <p className="text-[11px] text-ink-soft">Notifications envoyées via WhatsApp</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setNotifWhatsapp(!notifWhatsapp)}
+                      className={`flex h-[24px] w-[44px] items-center rounded-full p-0.5 transition-colors ${notifWhatsapp ? "bg-palier-600" : "bg-black/10"}`}
+                    >
+                      <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${notifWhatsapp ? "translate-x-[20px]" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                  {/* In-app */}
+                  <div className="flex items-center justify-between rounded-lg border border-black/[0.06] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                        <Icon name="Bell" className="h-4.5 w-4.5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-ink">In-app</p>
+                        <p className="text-[11px] text-ink-soft">Notifications dans l&apos;application résidents</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setNotifInapp(!notifInapp)}
+                      className={`flex h-[24px] w-[44px] items-center rounded-full p-0.5 transition-colors ${notifInapp ? "bg-palier-600" : "bg-black/10"}`}
+                    >
+                      <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${notifInapp ? "translate-x-[20px]" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Events */}
+              <Card>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                    <Icon name="Zap" className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">Événements</h2>
+                    <p className="text-[12px] text-ink-soft">Choisissez quels événements déclenchent une notification.</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-black/[0.04]">
+                  {NOTIF_EVENTS.map((evt) => (
+                    <div key={evt.key} className="flex items-center justify-between py-2.5">
+                      <div className="flex items-center gap-3">
+                        <Icon name={evt.icon} className={`h-4 w-4 ${evt.color}`} />
+                        <div>
+                          <p className="text-[13px] font-medium text-ink">{evt.label}</p>
+                          <p className="text-[11px] text-ink-soft">{evt.desc}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleEvent(evt.key)}
+                        className={`flex h-[22px] w-[40px] items-center rounded-full p-0.5 transition-colors ${notifEvents[evt.key] ? "bg-palier-600" : "bg-black/10"}`}
+                      >
+                        <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${notifEvents[evt.key] ? "translate-x-[18px]" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => setNotifEvents(DEFAULT_NOTIF_EVENTS)}
+                    className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft hover:bg-sand/50"
+                  >
+                    Tout activer
+                  </button>
+                  <button
+                    onClick={() => setNotifEvents(Object.fromEntries(NOTIF_EVENTS.map((e) => [e.key, false])))}
+                    className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft hover:bg-sand/50"
+                  >
+                    Tout désactiver
+                  </button>
+                </div>
+              </Card>
+
+              {/* Quiet hours */}
+              <Card>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
+                      <Icon name="Moon" className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-[14px] font-semibold text-ink">Heures calmes</h2>
+                      <p className="text-[12px] text-ink-soft">
+                        {quietEnabled
+                          ? `Actif · ${quietFrom} → ${quietTo}`
+                          : `Désactivé · ${quietFrom} → ${quietTo}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setQuietEnabled(!quietEnabled)}
+                    className={`flex h-[24px] w-[44px] items-center rounded-full p-0.5 transition-colors ${quietEnabled ? "bg-palier-600" : "bg-black/10"}`}
+                  >
+                    <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${quietEnabled ? "translate-x-[20px]" : "translate-x-0"}`} />
+                  </button>
+                </div>
+
+                <p className="mb-3 text-[12px] text-ink-soft">
+                  Aucune notification WhatsApp (relances, alertes, rappels) ne sera envoyée pendant cette plage. Les notifications in-app restent actives mais silencieuses — le résident les verra à sa prochaine connexion.
+                </p>
+
+                <div className="flex items-center gap-3 rounded-lg bg-sand/40 px-4 py-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">De</label>
+                    <input
+                      type="time"
+                      value={quietFrom}
+                      onChange={(e) => setQuietFrom(e.target.value)}
+                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
+                    />
+                  </div>
+                  <span className="mt-4 text-[12px] text-ink-faint">à</span>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">Jusqu&apos;à</label>
+                    <input
+                      type="time"
+                      value={quietTo}
+                      onChange={(e) => setQuietTo(e.target.value)}
+                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <Icon name="Lightbulb" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <p className="text-[12px] text-amber-800">
+                    Exemple : de {quietFrom} à {quietTo}, un rappel de paiement prévu à {quietFrom.replace(":00", ":30")} sera reporté au lendemain à {quietTo}.
+                  </p>
+                </div>
+              </Card>
+            </>
+          )}
+
           {/* ═══ RELANCES ═══ */}
           {activeSection === "relance" && (
             <Card>
@@ -589,10 +799,23 @@ export function SettingsView({
                 </div>
               </div>
 
+              <div className="mt-3 rounded-xl border border-palier-200 bg-palier-50/50 p-3.5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-palier-700">Format par défaut (si le champ est vide)</p>
+                <div className="space-y-1 text-[12px] text-ink-soft">
+                  <p className="font-medium text-ink">Bonjour [Prénom],</p>
+                  <p>Votre cotisation pour [Immeuble] (Lot [Réf]) reste en attente.</p>
+                  <p>• Montant dû : [Montant] MAD</p>
+                  <p>• Déjà payé : [Payé] MAD</p>
+                  <p>• Reste à régler : [Restant] MAD</p>
+                  <p>• Échéance : [Date]</p>
+                  <p>Merci de régulariser votre situation.</p>
+                </div>
+              </div>
+
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-3.5 py-2.5">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Ce message est envoyé comme notification dans l&apos;application du résident lorsque vous cliquez sur « Relancer » depuis la page Recouvrement.
+                  Ce message est envoyé comme notification dans l&apos;application du résident lorsque vous cliquez sur « Relancer » depuis la page Recouvrement. Si vous personnalisez le message ci-dessus, il remplacera le format par défaut (les informations détaillées du lot, montant et échéance ne seront pas incluses automatiquement).
                 </p>
               </div>
             </Card>
