@@ -21,6 +21,13 @@ export interface AppData {
   providers: Provider[];
   documents: DocFile[];
   assembly: Assembly | null;
+  assemblies: Assembly[];
+  gardien: { name: string; phone: string; horaires: Record<string, { de: string; a: string; repos: boolean }>; taches: string[] } | null;
+  welcomeMessage: string;
+  insurancePolicies: { insurer: string; coverageType: string; startDate: string; endDate: string }[];
+  mandate: { syndicName: string; syndicType: string; mandateEnd: string; electedAt: string } | null;
+  coproprieteRule: { title: string; fileUrl?: string; adoptedAt?: string } | null;
+  budgetSummary: { fiscalYear: number; totalAmount: number; status: string; lines: { label: string; category: string; amountBudgeted: number; amountActual: number }[] } | null;
   notifications: { id: string; title: string; body: string; created_at: string; kind: string }[];
   /** Multi-building: all buildings user has access to */
   buildings: UserBuilding[];
@@ -106,7 +113,7 @@ export async function getUserBuildings(profileId: string): Promise<UserBuilding[
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null, buildings?: UserBuilding[]): Promise<AppData> {
-  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes] = await Promise.all([
+  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes] = await Promise.all([
     supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
     profileId ? supabaseAdmin.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
     unitId ? supabaseAdmin.from("units").select("*").eq("id", unitId).single() : supabaseAdmin.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
@@ -119,6 +126,12 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     profileId ? supabaseAdmin.from("notifications").select("*").eq("profile_id", profileId).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
     supabaseAdmin.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
+    supabaseAdmin.from("building_settings").select("*").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("insurance_policies").select("insurer, coverage_type, start_date, end_date").eq("building_id", buildingId),
+    supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("copropriete_rules").select("title, file_url, adopted_at").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("budgets").select("*, budget_lines(*)").eq("building_id", buildingId).eq("status", "approved").order("fiscal_year", { ascending: false }).limit(1).single(),
   ]);
 
   const b = bRes.data;
@@ -173,6 +186,40 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       place: agRes.data.place ?? "Hall de la résidence",
       buildingName: b?.name ?? "",
       agenda: agRes.data.agenda ?? [], votes: agRes.data.votes ?? [],
+    } : null,
+    assemblies: (allAgRes.data ?? []).map((a: any) => ({
+      id: a.id, date: a.date, time: a.time ?? "18h30",
+      place: a.place ?? "Hall de la résidence",
+      buildingName: b?.name ?? "",
+      agenda: a.agenda ?? [], votes: a.votes ?? [],
+      pvUrl: a.pv_url ?? undefined,
+      status: a.status ?? "upcoming",
+    })),
+    gardien: settingsRes.data?.gardien ?? null,
+    welcomeMessage: settingsRes.data?.welcome_message ?? "",
+    insurancePolicies: (insurRes.data ?? []).map((p: any) => ({
+      insurer: p.insurer, coverageType: p.coverage_type,
+      startDate: p.start_date, endDate: p.end_date,
+    })),
+    mandate: mandateRes.data ? {
+      syndicName: mandateRes.data.syndic_name,
+      syndicType: mandateRes.data.syndic_type,
+      mandateEnd: mandateRes.data.mandate_end,
+      electedAt: mandateRes.data.elected_at,
+    } : null,
+    coproprieteRule: ruleRes.data ? {
+      title: ruleRes.data.title,
+      fileUrl: ruleRes.data.file_url ?? undefined,
+      adoptedAt: ruleRes.data.adopted_at ?? undefined,
+    } : null,
+    budgetSummary: budgetRes.data ? {
+      fiscalYear: budgetRes.data.fiscal_year,
+      totalAmount: budgetRes.data.total_amount,
+      status: budgetRes.data.status,
+      lines: (budgetRes.data.budget_lines ?? []).map((l: any) => ({
+        label: l.label, category: l.category,
+        amountBudgeted: Number(l.amount_budgeted), amountActual: Number(l.amount_actual),
+      })),
     } : null,
     notifications: (notifRes as any).data ?? [],
     buildings: buildings ?? [],

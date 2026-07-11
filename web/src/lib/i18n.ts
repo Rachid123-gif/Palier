@@ -176,6 +176,24 @@ export const t = {
       moisLabel: "Mois", anneeLabel: "Année",
       reinitialiser: "Réinitialiser", appliquer: "Appliquer",
       periode: "Période",
+      // Info immeuble
+      gardien: "Gardien",
+      horaires: "Horaires",
+      repos: "Repos",
+      taches: "Tâches",
+      assurance: "Assurance",
+      jusquAu: "jusqu'au",
+      reglement: "Règlement de copropriété",
+      adopte: "Adopté le",
+      voirDocument: "Voir le document",
+      mandatSyndic: "Mandat syndic",
+      elu: "Élu le",
+      echeance: "Échéance",
+      budget: "Budget",
+      budgetApprouve: "approuvé",
+      depenses: "Dépenses",
+      prevu: "Prévu",
+      reel: "Réel",
     },
 
     // ── Documents ──
@@ -198,6 +216,9 @@ export const t = {
       votePondere: "Vote pondéré par les tantièmes · clôture le",
       voteEnregistre: "Vote enregistré",
       voteBody: "Votre voix est prise en compte (pondérée par vos tantièmes). Modifiable jusqu'à la clôture.",
+      historique: "Historique",
+      telechargerPV: "Télécharger le PV",
+      prochaine: "Prochaine",
     },
 
     // ── Signaler ──
@@ -556,6 +577,23 @@ export const t = {
       moisLabel: "الشهر", anneeLabel: "السنة",
       reinitialiser: "إعادة تعيين", appliquer: "تطبيق",
       periode: "الفترة",
+      gardien: "الحارس",
+      horaires: "الأوقات",
+      repos: "راحة",
+      taches: "المهام",
+      assurance: "التأمين",
+      jusquAu: "حتى",
+      reglement: "نظام الملكية المشتركة",
+      adopte: "اعتُمد في",
+      voirDocument: "عرض الوثيقة",
+      mandatSyndic: "عهدة السنديك",
+      elu: "انتُخب في",
+      echeance: "الاستحقاق",
+      budget: "الميزانية",
+      budgetApprouve: "معتمدة",
+      depenses: "المصاريف",
+      prevu: "مقدر",
+      reel: "فعلي",
     },
 
     // ── Documents ──
@@ -578,6 +616,9 @@ export const t = {
       votePondere: "تصويت مرجح بالحصص · الإغلاق في",
       voteEnregistre: "تم تسجيل التصويت",
       voteBody: "تم احتساب صوتك (مرجح بحصصك). يمكن التعديل حتى الإغلاق.",
+      historique: "السجل",
+      telechargerPV: "تحميل المحضر",
+      prochaine: "القادم",
     },
 
     // ── Signaler ──

@@ -12,7 +12,7 @@ import { useLang } from "@/lib/LangProvider";
 const LEDGER_LIMIT = 3;
 
 export default function ImmeubleScreen() {
-  const { building, buildingKpis, ledger, incidents } = useData();
+  const { building, buildingKpis, ledger, incidents, gardien, welcomeMessage, insurancePolicies, mandate, coproprieteRule, budgetSummary } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.immeuble;
   const [ledgerCount, setLedgerCount] = useState(LEDGER_LIMIT);
@@ -244,6 +244,137 @@ export default function ImmeubleScreen() {
               <p className="text-sm font-bold text-ink">{building.syndic}</p>
             </div>
           </div>
+        )}
+
+        {/* ═══════ Infos immeuble (gardien, assurance, etc.) ═══════ */}
+        {(gardien || welcomeMessage || insurancePolicies.length > 0 || mandate || coproprieteRule || budgetSummary) && (
+          <>
+            <hr className="border-palier-100" />
+
+            {welcomeMessage && (
+              <div className="flex items-start gap-3 rounded-2xl bg-palier-50 p-4">
+                <Icon name="Info" className="mt-0.5 h-5 w-5 shrink-0 text-palier-600" />
+                <p className="text-[13px] leading-snug text-palier-800">{welcomeMessage}</p>
+              </div>
+            )}
+
+            {gardien && (
+              <div className="card space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="UserCheck" className="h-4 w-4 text-palier-600" />
+                  <h3 className="text-[14px] font-bold text-ink">{T.gardien}</h3>
+                </div>
+                <p className="text-[13px] font-semibold text-ink">{gardien.name}</p>
+                {gardien.phone && (
+                  <a href={`tel:${gardien.phone}`} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                    <Icon name="Phone" className="h-3.5 w-3.5" /> {gardien.phone}
+                  </a>
+                )}
+                {gardien.horaires && Object.keys(gardien.horaires).length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.horaires}</p>
+                    <div className="space-y-0.5">
+                      {Object.entries(gardien.horaires).map(([day, h]) => (
+                        <div key={day} className="flex items-center justify-between text-[12px]">
+                          <span className="text-ink-soft capitalize">{day}</span>
+                          <span className="font-medium text-ink">{h.repos ? T.repos : `${h.de} – ${h.a}`}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {gardien.taches && gardien.taches.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.taches}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {gardien.taches.map((t) => (
+                        <span key={t} className="rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-medium text-palier-700">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {insurancePolicies.length > 0 && (
+              <div className="card space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="Shield" className="h-4 w-4 text-palier-600" />
+                  <h3 className="text-[14px] font-bold text-ink">{T.assurance}</h3>
+                </div>
+                {insurancePolicies.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[13px]">
+                    <div>
+                      <p className="font-medium text-ink">{p.insurer}</p>
+                      <p className="text-[11px] text-ink-faint">{p.coverageType}</p>
+                    </div>
+                    <p className="text-[11px] text-ink-soft">{T.jusquAu} {shortDate(p.endDate, lang)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {coproprieteRule && (
+              <div className="card space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="Scale" className="h-4 w-4 text-palier-600" />
+                  <h3 className="text-[14px] font-bold text-ink">{T.reglement}</h3>
+                </div>
+                <p className="text-[13px] font-medium text-ink">{coproprieteRule.title}</p>
+                {coproprieteRule.adoptedAt && (
+                  <p className="text-[11px] text-ink-faint">{T.adopte} {shortDate(coproprieteRule.adoptedAt, lang)}</p>
+                )}
+                {coproprieteRule.fileUrl && (
+                  <a href={coproprieteRule.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                    <Icon name="ExternalLink" className="h-3.5 w-3.5" /> {T.voirDocument}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {mandate && (
+              <div className="card space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="Award" className="h-4 w-4 text-palier-600" />
+                  <h3 className="text-[14px] font-bold text-ink">{T.mandatSyndic}</h3>
+                </div>
+                <p className="text-[13px] font-medium text-ink">{mandate.syndicName}</p>
+                <div className="flex gap-4 text-[11px] text-ink-soft">
+                  <span>{T.elu} {shortDate(mandate.electedAt, lang)}</span>
+                  <span>{T.echeance} {shortDate(mandate.mandateEnd, lang)}</span>
+                </div>
+              </div>
+            )}
+
+            {budgetSummary && (
+              <div className="card space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="Calculator" className="h-4 w-4 text-palier-600" />
+                    <h3 className="text-[14px] font-bold text-ink">{T.budget} {budgetSummary.fiscalYear}</h3>
+                  </div>
+                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">{T.budgetApprouve}</span>
+                </div>
+                <p className="text-[20px] font-bold text-ink" dir="ltr">{num(budgetSummary.totalAmount, false)} <span className="text-[12px] font-semibold text-ink-faint">MAD</span></p>
+                {budgetSummary.lines.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.depenses}</p>
+                    <div className="space-y-1.5">
+                      {budgetSummary.lines.slice(0, 5).map((l, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[12px]">
+                          <span className="text-ink-soft">{l.label}</span>
+                          <div className="flex gap-3">
+                            <span className="text-ink-faint">{T.prevu}: {num(l.amountBudgeted, false)}</span>
+                            <span className="font-medium text-ink">{T.reel}: {num(l.amountActual, false)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         <p className="px-1 text-center text-[11px] text-ink-faint">{T.opsSignees}</p>

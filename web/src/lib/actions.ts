@@ -7,8 +7,6 @@ import type { SessionData } from "./session";
 import {
   createIncidentSchema,
   createPostSchema,
-  createBookingSchema,
-  createServiceRequestSchema,
   createLedgerEntrySchema,
   updateLedgerEntrySchema,
   sendRelanceSchema,
@@ -73,11 +71,12 @@ export async function createIncident(input: {
   reporter: string;
   imageUrl?: string;
 }) {
-  await requireAuth({ buildingId: input.buildingId });
+  const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(createIncidentSchema, input);
   return supabaseAdmin.from("incidents").insert({
     building_id: v.buildingId,
     unit_id: v.unitId,
+    reporter_id: session.profileId,
     reporter_name: v.reporter,
     category: v.category,
     title: v.title,
@@ -98,7 +97,7 @@ export async function createPostSyndic(input: {
 }) {
   const session = await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(createPostSchema, { ...input, author: "Syndic", avatarColor: "#1e5b50" });
-  return supabaseAdmin.from("posts").insert({
+  const res = await supabaseAdmin.from("posts").insert({
     building_id: v.buildingId,
     author_name: v.author,
     avatar_color: v.avatarColor,
@@ -109,6 +108,13 @@ export async function createPostSyndic(input: {
     title: v.title ?? null,
     image_url: v.imageUrl ?? null,
   });
+  // Notify all active residents
+  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
+  if (memberships?.length) {
+    const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
+    await notifyProfiles(profileIds, "Nouvelle annonce", v.title || v.body.slice(0, 60), "post");
+  }
+  return res;
 }
 
 export async function createPost(input: {
@@ -123,12 +129,13 @@ export async function createPost(input: {
   providerPhone?: string;
   imageUrl?: string;
 }) {
-  await requireAuth({ buildingId: input.buildingId });
+  const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(createPostSchema, input);
   return supabaseAdmin.from("posts").insert({
     building_id: v.buildingId,
     author_name: v.author,
     avatar_color: v.avatarColor,
+    profile_id: session.profileId,
     role: "resident",
     type: v.type ?? "general",
     body: v.body,
@@ -137,47 +144,6 @@ export async function createPost(input: {
     provider_name: v.providerName ?? null,
     provider_phone: v.providerPhone ?? null,
     image_url: v.imageUrl ?? null,
-  });
-}
-
-export async function createBooking(input: {
-  providerId: string;
-  profileId: string;
-  buildingId: string;
-  categorySlug: string;
-  whenType: "now" | "today" | "scheduled";
-  priceEstimate: number;
-}) {
-  const session = await requireAuth({ buildingId: input.buildingId });
-  if (session.profileId !== input.profileId) throw new Error("forbidden");
-  const v = validate(createBookingSchema, input);
-  return supabaseAdmin.from("bookings").insert({
-    provider_id: v.providerId,
-    profile_id: v.profileId,
-    building_id: v.buildingId,
-    category_slug: v.categorySlug,
-    when_type: v.whenType,
-    price_estimate: v.priceEstimate,
-    channel: "whatsapp",
-    status: "sent",
-  });
-}
-
-export async function createServiceRequest(input: {
-  profileId: string;
-  categorySlug: string;
-  citySlug: string;
-  details?: string;
-}) {
-  const session = await requireAuth();
-  if (session.profileId !== input.profileId) throw new Error("forbidden");
-  const v = validate(createServiceRequestSchema, input);
-  return supabaseAdmin.from("service_requests").insert({
-    profile_id: v.profileId,
-    category_slug: v.categorySlug,
-    city_slug: v.citySlug,
-    details: v.details ?? null,
-    status: "pending",
   });
 }
 
@@ -330,27 +296,6 @@ export async function likePost(postId: string) {
   const { data: post } = await supabaseAdmin.from("posts").select("id").eq("id", postId).eq("building_id", session.buildingId).single();
   if (!post) throw new Error("forbidden_building");
   return supabaseAdmin.rpc("increment_like_count", { post_id_input: postId });
-}
-
-export async function recordPayment(profileId: string, items: { id: string; amount: number }[], method: string) {
-  const session = await requireAuth();
-  if (session.profileId !== profileId) throw new Error("forbidden");
-  // Verify all charges belong to a unit in the resident's building
-  for (const item of items) {
-    const { data: charge } = await supabaseAdmin
-      .from("charges")
-      .select("id, unit_id")
-      .eq("id", item.id)
-      .eq("building_id", session.buildingId)
-      .single();
-    if (!charge) throw new Error("forbidden_charge");
-  }
-  await supabaseAdmin.from("payments").insert(
-    items.map((c) => ({ charge_id: c.id, profile_id: profileId, amount: c.amount, method, status: "paid" })),
-  );
-  await Promise.all(
-    items.map((c) => supabaseAdmin.from("charges").update({ status: "paid", paid: c.amount }).eq("id", c.id).eq("building_id", session.buildingId)),
-  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -524,19 +469,28 @@ export async function regenerateResidentCode(profileId: string): Promise<{ error
 /** Marquer un incident comme en cours de traitement */
 export async function markIncidentInProgress(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
-  return supabaseAdmin.from("incidents").update({ status: "in_progress" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  const res = await supabaseAdmin.from("incidents").update({ status: "in_progress" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident en cours", inc.title ?? "Votre incident est en cours de traitement", "incident");
+  return res;
 }
 
 /** Résoudre un incident */
 export async function resolveIncident(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
-  return supabaseAdmin.from("incidents").update({ status: "resolved" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  const res = await supabaseAdmin.from("incidents").update({ status: "resolved" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident résolu", inc.title ?? "Votre incident a été résolu", "incident");
+  return res;
 }
 
 /** Réouvrir un incident résolu */
 export async function reopenIncident(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
-  return supabaseAdmin.from("incidents").update({ status: "open" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  const res = await supabaseAdmin.from("incidents").update({ status: "open" }).eq("id", incidentId).eq("building_id", session.buildingId);
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident réouvert", inc.title ?? "Votre incident a été réouvert", "incident");
+  return res;
 }
 
 /** Changer l'urgence d'un incident */
@@ -1398,6 +1352,12 @@ export async function insertDocument(input: {
     url: input.url,
   }).select().single();
   if (error) throw new Error("insert_document_failed");
+  // Notify all active residents
+  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", input.buildingId).eq("status", "active").eq("role", "resident");
+  if (memberships?.length) {
+    const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
+    await notifyProfiles(profileIds, "Nouveau document", input.title, "document");
+  }
   return data;
 }
 

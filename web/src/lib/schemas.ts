@@ -38,24 +38,6 @@ export const createPostSchema = z.object({
   imageUrl: z.string().url().optional(),
 });
 
-/* ─── Bookings ─── */
-export const createBookingSchema = z.object({
-  providerId: uuid,
-  profileId: uuid,
-  buildingId: uuid,
-  categorySlug: shortString,
-  whenType: z.enum(["now", "today", "scheduled"]),
-  priceEstimate: amount,
-});
-
-/* ─── Service Requests ─── */
-export const createServiceRequestSchema = z.object({
-  profileId: uuid,
-  categorySlug: shortString,
-  citySlug: shortString,
-  details: safeString.optional(),
-});
-
 /* ─── Ledger ─── */
 export const createLedgerEntrySchema = z.object({
   buildingId: uuid,

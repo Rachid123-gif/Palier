@@ -129,6 +129,8 @@ export interface Assembly {
   buildingName: string;
   agenda: { n: number; t: string; d: string }[];
   votes: { id: string; q: string; options: string[]; closesAt: string }[];
+  pvUrl?: string;
+  status?: string;
 }
 
 export type MajorityType = "simple" | "trois_quarts" | "unanimite";
