@@ -335,7 +335,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       </div>
 
       {/* KPIs */}
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total assemblées</p>
           <p className="text-[28px] font-bold leading-none text-ink">{totalAgs}</p>
@@ -516,8 +516,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           DETAIL MODAL
           ═══════════════════════════════════════════ */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setSelected(null)}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div>
                 <h2 className="text-[16px] font-semibold text-ink">Assemblée du {longDate(selected.date)}</h2>
@@ -636,7 +636,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           RESULTS MODAL (with attendance + resolutions)
           ═══════════════════════════════════════════ */}
       {showResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowResults(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowResults(null)}>
           <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -657,9 +657,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
 
               {/* ─── SECTION 1: Feuille de présence ─── */}
               <div>
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-[13px] font-semibold text-ink">Feuille de présence</h3>
-                  <div className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${quorumMet ? "bg-emerald-50 text-emerald-700" : presentIds.size > 0 ? "bg-red-50 text-red-600" : "bg-sand/50 text-ink-faint"}`}>
+                  <div className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold ${quorumMet ? "bg-emerald-50 text-emerald-700" : presentIds.size > 0 ? "bg-red-50 text-red-600" : "bg-sand/50 text-ink-faint"}`}>
                     {presentTantiemes}/{totalTantiemes} tantièmes ({quorumPct}%)
                     {presentIds.size > 0 && (quorumMet ? " — Quorum atteint" : " — Quorum non atteint")}
                   </div>
@@ -771,7 +771,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                         </div>
 
                         {/* Tantièmes vote entry */}
-                        <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="grid grid-cols-2 gap-2 mb-2 sm:grid-cols-3">
                           <div>
                             <label className="mb-0.5 block text-[10px] font-semibold text-emerald-600">Pour (tantièmes)</label>
                             <input type="number" min="0" value={rd.pour || ""} onChange={(e) => {
@@ -799,7 +799,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                         </div>
 
                         {/* Result selector */}
-                        <div className="flex gap-1.5">
+                        <div className="flex flex-wrap gap-1.5">
                           {(["adoptee", "rejetee", "reportee"] as const).map((opt) => (
                             <button
                               key={opt}
@@ -870,8 +870,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           CREATE AG MODAL
           ═══════════════════════════════════════════ */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowCreate(false); resetCreate(); }}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowCreate(false); resetCreate(); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -904,7 +904,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date</label>
                   <input
@@ -957,8 +957,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
 
       {/* Delete confirmation */}
       {showDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowDelete(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowDelete(null)}>
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[16px] font-semibold text-ink">Annuler cette assemblée ?</h2>
             <p className="mt-1 text-[13px] text-ink-soft">L&apos;assemblée du {longDate(showDelete.date)} à {showDelete.place} sera définitivement supprimée.</p>
             <div className="mt-5 flex gap-3">

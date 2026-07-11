@@ -390,8 +390,8 @@ export function BudgetView({
 
       {/* ═══ Detail modal ═══ */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setSelected(null); setShowAddLine(false); }}>
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setSelected(null); setShowAddLine(false); }}>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="mb-5 flex items-start justify-between">
               <div>
@@ -558,8 +558,8 @@ export function BudgetView({
 
       {/* ═══ Create budget modal ═══ */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowCreate(false); resetCreate(); }}>
-          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowCreate(false); resetCreate(); }}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -613,7 +613,7 @@ export function BudgetView({
                         onChange={(e) => updateFormLine(i, "label", e.target.value)}
                         className={`mb-1 ${inputCls}`}
                       />
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                         <select
                           value={line.category}
                           onChange={(e) => updateFormLine(i, "category", e.target.value)}
@@ -672,8 +672,8 @@ export function BudgetView({
 
       {/* ═══ Delete confirmation ═══ */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowDeleteConfirm(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[16px] font-semibold text-ink">Supprimer ce budget ?</h2>
             <p className="mt-1 text-[13px] text-ink-soft">
               Le budget de l&apos;exercice {showDeleteConfirm.fiscalYear} et toutes ses lignes seront définitivement supprimés.

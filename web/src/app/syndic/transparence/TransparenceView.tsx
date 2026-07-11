@@ -479,7 +479,7 @@ export function TransparenceView({
             </div>
 
             {/* Montant + Catégorie */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-ink">Montant (MAD)</label>
                 <input
@@ -592,7 +592,7 @@ export function TransparenceView({
             {/* Mois */}
             <div>
               <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {MONTHS.map((m, idx) => (
                   <button
                     key={m}
@@ -656,8 +656,8 @@ export function TransparenceView({
 
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={onClose}>
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

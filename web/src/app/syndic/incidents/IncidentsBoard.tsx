@@ -417,10 +417,10 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
               <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
               {pages > 1 && (
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
@@ -472,7 +472,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
           <div className="space-y-4">
             <div>
               <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {MONTHS.map((m, idx) => (
                   <button
                     key={m}
@@ -569,8 +569,8 @@ function ReopenBtn({ id, onReopen }: { id: string; onReopen: (id: string) => voi
 
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={onClose}>
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -672,7 +672,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-black/10 bg-white p-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Signalé par</p>
             <p className="mt-1 text-[13px] font-medium text-ink">{incident.reporter_name}</p>

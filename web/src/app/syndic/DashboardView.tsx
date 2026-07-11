@@ -12,12 +12,12 @@ import type { InsurancePolicy, SyndicMandate, Budget } from "@/lib/types";
 
 type Period = "month" | "quarter" | "year" | "all" | "custom";
 
-const PERIOD_TABS: { key: Period; label: string }[] = [
-  { key: "month", label: "Ce mois" },
-  { key: "quarter", label: "Ce trimestre" },
-  { key: "year", label: "Cette année" },
-  { key: "all", label: "Tout" },
-  { key: "custom", label: "Personnalisé" },
+const PERIOD_TABS: { key: Period; label: string; short: string }[] = [
+  { key: "month", label: "Ce mois", short: "Mois" },
+  { key: "quarter", label: "Ce trimestre", short: "Trim." },
+  { key: "year", label: "Cette année", short: "Année" },
+  { key: "all", label: "Tout", short: "Tout" },
+  { key: "custom", label: "Personnalisé", short: "Custom" },
 ];
 
 function defaultPeriodRange(period: Exclude<Period, "custom">): { from: string; to: string } {
@@ -249,35 +249,36 @@ export function DashboardView({ data: d }: DashboardProps) {
         </div>
         {/* Period filter */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-0.5 rounded-lg border border-black/[0.08] bg-white p-0.5">
+          <div className="no-scrollbar flex gap-0.5 overflow-x-auto rounded-lg border border-black/[0.08] bg-white p-0.5">
             {PERIOD_TABS.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setPeriod(t.key)}
-                className={`rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
                   period === t.key
                     ? "bg-palier-600 text-white"
                     : "text-ink-soft hover:bg-sand/50 hover:text-ink"
                 }`}
               >
-                {t.label}
+                <span className="sm:hidden">{t.short}</span>
+                <span className="hidden sm:inline">{t.label}</span>
               </button>
             ))}
           </div>
           {period === "custom" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="h-8 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[12px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[12px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400 sm:flex-none"
               />
               <span className="text-[12px] text-ink-faint">→</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="h-8 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[12px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[12px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400 sm:flex-none"
               />
             </div>
           )}
@@ -322,7 +323,7 @@ export function DashboardView({ data: d }: DashboardProps) {
           </div>
 
           {/* Summary */}
-          <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-emerald-50 p-3">
               <p className="text-[11px] font-medium text-emerald-700">Encaissements</p>
               <p className="mt-1 text-[16px] font-bold text-emerald-700">{num(totalIn, false)}</p>
@@ -341,7 +342,7 @@ export function DashboardView({ data: d }: DashboardProps) {
 
           {/* 6-month trend bars */}
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Tendance 6 mois</p>
-          <div className="flex items-end gap-2">
+          <div className="flex min-w-0 items-end gap-2">
             {monthlyTrend.map((m, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-1">
                 <div className="flex w-full gap-0.5" style={{ height: 60 }}>

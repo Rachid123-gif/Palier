@@ -162,7 +162,7 @@ export function TravauxUrgentsView({
       </div>
 
       {/* Status tabs */}
-      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-black/[0.06] sm:gap-3">
         {statusTabs.map((tab) => {
           const count =
             tab.key === "all" ? urgentWorks.length : urgentWorks.filter((w) => w.status === tab.key).length;
@@ -170,11 +170,11 @@ export function TravauxUrgentsView({
             <button
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
-              className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+              className={`relative whitespace-nowrap pb-2.5 text-[12px] font-semibold transition-colors sm:text-[13px] ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
             >
               {tab.label}
               <span
-                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}
+                className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1.5 sm:text-[11px] ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}
               >
                 {count}
               </span>
@@ -485,9 +485,9 @@ function DeleteBtn({ id, onDelete }: { id: string; onDelete: (id: string) => Pro
 
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={onClose}>
       <div
-        className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

@@ -284,16 +284,17 @@ export function SettingsView({
           </div>
         </nav>
 
-        {/* ── Mobile tabs ── */}
-        <div className="flex gap-1 overflow-x-auto md:hidden">
+        {/* ── Mobile tabs (grid so all are visible) ── */}
+        <div className="grid grid-cols-4 gap-1.5 md:hidden">
           {sections.map((s) => (
             <button
               key={s.key}
               onClick={() => setActiveSection(s.key)}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                activeSection === s.key ? "bg-palier-600 text-white" : "bg-sand/50 text-ink-soft"
+              className={`flex flex-col items-center gap-1 rounded-xl border py-2 text-[10px] font-semibold transition-colors ${
+                activeSection === s.key ? "border-palier-600 bg-palier-600 text-white" : "border-black/[0.08] bg-cream-card text-ink"
               }`}
             >
+              <Icon name={s.icon} className="h-4 w-4" strokeWidth={1.8} />
               {s.label}
             </button>
           ))}
@@ -405,30 +406,30 @@ export function SettingsView({
                   {DAYS.map((day) => {
                     const h = gardienHoraires[day];
                     return (
-                      <div key={day} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-sand/30">
-                        <span className="w-[80px] text-[13px] font-medium text-ink">{day}</span>
+                      <div key={day} className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 hover:bg-sand/30 sm:flex-nowrap sm:gap-3">
+                        <span className="w-[70px] shrink-0 text-[13px] font-medium text-ink sm:w-[80px]">{day}</span>
                         {h.repos ? (
                           <span className="flex-1 text-[12px] text-ink-faint">Repos</span>
                         ) : (
-                          <div className="flex flex-1 items-center gap-1.5">
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
                             <input
                               type="time"
                               value={h.de}
                               onChange={(e) => setHoraire(day, "de", e.target.value)}
-                              className="h-8 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400"
+                              className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none"
                             />
                             <span className="text-[11px] text-ink-faint">à</span>
                             <input
                               type="time"
                               value={h.a}
                               onChange={(e) => setHoraire(day, "a", e.target.value)}
-                              className="h-8 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400"
+                              className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none"
                             />
                           </div>
                         )}
                         <button
                           onClick={() => setHoraire(day, "repos", !h.repos)}
-                          className={`flex h-[22px] w-[40px] items-center rounded-full p-0.5 transition-colors ${h.repos ? "bg-black/10" : "bg-palier-600"}`}
+                          className={`flex h-[22px] w-[40px] shrink-0 items-center rounded-full p-0.5 transition-colors ${h.repos ? "bg-black/10" : "bg-palier-600"}`}
                           title={h.repos ? "Activer" : "Jour de repos"}
                         >
                           <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${h.repos ? "translate-x-0" : "translate-x-[18px]"}`} />
@@ -637,37 +638,37 @@ export function SettingsView({
                 </div>
                 <div className="space-y-3">
                   {/* WhatsApp */}
-                  <div className="flex items-center justify-between rounded-lg border border-black/[0.06] px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#25D366]/10">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.06] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#25D366]/10">
                         <Icon name="MessageCircle" className="h-4.5 w-4.5 text-[#25D366]" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-ink">WhatsApp</p>
                         <p className="text-[11px] text-ink-soft">Notifications envoyées via WhatsApp</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setNotifWhatsapp(!notifWhatsapp)}
-                      className={`flex h-[24px] w-[44px] items-center rounded-full p-0.5 transition-colors ${notifWhatsapp ? "bg-palier-600" : "bg-black/10"}`}
+                      className={`flex h-[24px] w-[44px] shrink-0 items-center rounded-full p-0.5 transition-colors ${notifWhatsapp ? "bg-palier-600" : "bg-black/10"}`}
                     >
                       <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${notifWhatsapp ? "translate-x-[20px]" : "translate-x-0"}`} />
                     </button>
                   </div>
                   {/* In-app */}
-                  <div className="flex items-center justify-between rounded-lg border border-black/[0.06] px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.06] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
                         <Icon name="Bell" className="h-4.5 w-4.5 text-blue-600" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-ink">In-app</p>
                         <p className="text-[11px] text-ink-soft">Notifications dans l&apos;application résidents</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setNotifInapp(!notifInapp)}
-                      className={`flex h-[24px] w-[44px] items-center rounded-full p-0.5 transition-colors ${notifInapp ? "bg-palier-600" : "bg-black/10"}`}
+                      className={`flex h-[24px] w-[44px] shrink-0 items-center rounded-full p-0.5 transition-colors ${notifInapp ? "bg-palier-600" : "bg-black/10"}`}
                     >
                       <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${notifInapp ? "translate-x-[20px]" : "translate-x-0"}`} />
                     </button>
@@ -688,17 +689,17 @@ export function SettingsView({
                 </div>
                 <div className="divide-y divide-black/[0.04]">
                   {NOTIF_EVENTS.map((evt) => (
-                    <div key={evt.key} className="flex items-center justify-between py-2.5">
-                      <div className="flex items-center gap-3">
-                        <Icon name={evt.icon} className={`h-4 w-4 ${evt.color}`} />
-                        <div>
+                    <div key={evt.key} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Icon name={evt.icon} className={`h-4 w-4 shrink-0 ${evt.color}`} />
+                        <div className="min-w-0">
                           <p className="text-[13px] font-medium text-ink">{evt.label}</p>
                           <p className="text-[11px] text-ink-soft">{evt.desc}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => toggleEvent(evt.key)}
-                        className={`flex h-[22px] w-[40px] items-center rounded-full p-0.5 transition-colors ${notifEvents[evt.key] ? "bg-palier-600" : "bg-black/10"}`}
+                        className={`flex h-[22px] w-[40px] shrink-0 items-center rounded-full p-0.5 transition-colors ${notifEvents[evt.key] ? "bg-palier-600" : "bg-black/10"}`}
                       >
                         <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${notifEvents[evt.key] ? "translate-x-[18px]" : "translate-x-0"}`} />
                       </button>
@@ -749,24 +750,24 @@ export function SettingsView({
                   Aucune notification WhatsApp (relances, alertes, rappels) ne sera envoyée pendant cette plage. Les notifications in-app restent actives mais silencieuses — le résident les verra à sa prochaine connexion.
                 </p>
 
-                <div className="flex items-center gap-3 rounded-lg bg-sand/40 px-4 py-3">
-                  <div>
+                <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sand/40 px-4 py-3 sm:flex-nowrap">
+                  <div className="min-w-0 flex-1">
                     <label className="mb-1 block text-[11px] font-semibold text-ink-soft">De</label>
                     <input
                       type="time"
                       value={quietFrom}
                       onChange={(e) => setQuietFrom(e.target.value)}
-                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
+                      className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
                     />
                   </div>
                   <span className="mt-4 text-[12px] text-ink-faint">à</span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <label className="mb-1 block text-[11px] font-semibold text-ink-soft">Jusqu&apos;à</label>
                     <input
                       type="time"
                       value={quietTo}
                       onChange={(e) => setQuietTo(e.target.value)}
-                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
+                      className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
                     />
                   </div>
                 </div>
@@ -1009,8 +1010,8 @@ export function SettingsView({
 
       {/* Logout confirmation */}
       {showLogout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowLogout(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowLogout(false)}>
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="LogOut" className="h-4 w-4 text-red-600" />

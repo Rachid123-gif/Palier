@@ -341,13 +341,14 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     <div>
       {/* View toggle */}
       <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-        {([["suivi", "Suivi des paiements"], ["historique", "Historique des appels"], ["paiements", "Historique des paiements"]] as const).map(([key, label]) => (
+        {([["suivi", "Suivi", "Suivi des paiements"], ["historique", "Appels", "Historique des appels"], ["paiements", "Paiements", "Historique des paiements"]] as const).map(([key, mobileLabel, label]) => (
           <button
             key={key}
             onClick={() => { setView(key); if (key === "paiements") loadPayHistory(); }}
             className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${view === key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
-            {label}
+            <span className="sm:hidden">{mobileLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
             {view === key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
           </button>
         ))}
@@ -398,15 +399,15 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       </div>
 
       {/* Status tabs */}
-      <div className="no-scrollbar mb-3 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
+      <div className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-black/[0.06] sm:gap-3">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => { setStatusFilter(tab.key); setPage(0); }}
-            className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
+            className={`relative whitespace-nowrap pb-2.5 text-[12px] font-semibold transition-colors sm:text-[13px] ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
-            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{statusCounts[tab.key]}</span>
+            <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1.5 sm:text-[11px] ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{statusCounts[tab.key]}</span>
             {statusFilter === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
           </button>
         ))}
@@ -541,51 +542,49 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 const isPaid = r.status === "paid";
                 const isOverdue = r.dueDate && new Date(r.dueDate) < new Date() && !isPaid;
                 return (
-                  <div key={r.unitId} className={`p-4 ${isPaid ? "opacity-60" : ""}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: r.avatarColor }}>
+                  <div key={r.unitId} className={`p-3 ${isPaid ? "opacity-60" : ""}`}>
+                    <div className="flex items-start gap-2.5">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: r.avatarColor }}>
                         {r.ownerName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-medium text-ink">{r.ownerName}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-[13px] font-semibold text-ink">{r.ownerName}</p>
                           <StatusPill status={r.status} />
                         </div>
-                        <p className="mt-0.5 text-[12px] text-ink-soft">Lot {r.ref} · {r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-[12px]">
-                        <span className="font-medium text-ink">{mad(r.amount, { decimals: false })}</span>
-                        {r.status === "partial" && <span className="text-blue-600">{mad(remaining, { decimals: false })} restant</span>}
-                        {r.dueDate && (
-                          <span className={isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}>{shortDate(r.dueDate)}</span>
-                        )}
-                      </div>
-                      {!isPaid && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <button onClick={() => { setShowPayment(r); setPayAmount((r.amount - r.paid).toString()); }} disabled={!r.chargeId} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
-                            <Icon name="Banknote" className="h-3 w-3" /> Encaisser
-                          </button>
-                          <button onClick={() => relance(r)} disabled={!r.profileId} className="inline-flex items-center gap-1 rounded-md bg-palier-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
-                            <Icon name="Bell" className="h-3 w-3" /> Relancer
-                          </button>
-                          <button onClick={() => relanceWhatsApp(r)} disabled={!r.phone} className="inline-flex items-center gap-1 rounded-md bg-[#25D366] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
-                            <Icon name="MessageCircle" className="h-3 w-3" /> WhatsApp
-                          </button>
+                        <p className="mt-0.5 text-[11px] text-ink-soft">Lot {r.ref} · {r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px]">
+                          <span className="font-semibold text-ink">{mad(r.amount, { decimals: false })}</span>
+                          {r.status === "partial" && <span className="text-blue-600">{mad(remaining, { decimals: false })} restant</span>}
+                          {r.dueDate && (
+                            <span className={isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}>{shortDate(r.dueDate)}</span>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
+                    {!isPaid && (
+                      <div className="mt-2 flex items-center gap-1.5 pl-[42px]">
+                        <button onClick={() => { setShowPayment(r); setPayAmount((r.amount - r.paid).toString()); }} disabled={!r.chargeId} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
+                          <Icon name="Banknote" className="h-3 w-3" /> Encaisser
+                        </button>
+                        <button onClick={() => relance(r)} disabled={!r.profileId} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-palier-600 px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
+                          <Icon name="Bell" className="h-3 w-3" /> Relancer
+                        </button>
+                        <button onClick={() => relanceWhatsApp(r)} disabled={!r.phone} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#25D366] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
+                          <Icon name="MessageCircle" className="h-3 w-3" /> WA
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
-              <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+            <div className="flex flex-col items-center gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft sm:flex-row sm:justify-between">
+              <span className="shrink-0">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
               {pages > 1 && (
-                <div className="flex gap-1">
+                <div className="flex flex-wrap justify-center gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
@@ -791,8 +790,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         )}
       {/* Hist period picker modal */}
       {histPeriodOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setHistPeriodOpen(false)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setHistPeriodOpen(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -810,7 +809,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {MONTHS.map((m, idx) => (
                     <button
                       key={m}
@@ -1006,8 +1005,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Emit charges modal */}
       {showEmit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowEmit(false); resetEmit(); }}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowEmit(false); resetEmit(); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -1031,7 +1030,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Détail</label>
                 <input type="text" value={emitDetail} onChange={(e) => setEmitDetail(e.target.value)} placeholder="Syndic + ascenseur + nettoyage" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Montant / lot (MAD)</label>
                   <input type="number" value={emitAmount} onChange={(e) => setEmitAmount(e.target.value)} placeholder="500" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
@@ -1059,8 +1058,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Period picker modal */}
       {periodOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setPeriodOpen(false)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setPeriodOpen(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -1079,7 +1078,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {MONTHS.map((m, idx) => (
                     <button
                       key={m}
@@ -1130,8 +1129,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Payment modal */}
       {showPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote(""); }}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote(""); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
@@ -1158,7 +1157,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Mode de paiement</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {([["cash", "Espèces"], ["cheque", "Chèque"], ["virement", "Virement"], ["autre", "Autre"]] as const).map(([key, label]) => (
                     <button key={key} type="button" onClick={() => setPayMethod(key)} className={`rounded-xl py-2 text-[13px] font-semibold transition-colors ${payMethod === key ? "bg-emerald-600 text-white" : "border border-black/[0.08] bg-white text-ink hover:bg-sand/50"}`}>
                       {label}
@@ -1180,8 +1179,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Edit charge call modal */}
       {editCall && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setEditCall(null)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setEditCall(null)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -1201,7 +1200,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Libellé</label>
                 <input type="text" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Catégorie</label>
                   <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20">
@@ -1225,8 +1224,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Delete charge call confirmation */}
       {deleteCallTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setDeleteCallTarget(null)}>
-          <div className="w-full max-w-md rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setDeleteCallTarget(null)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
                 <Icon name="Trash2" className="h-5 w-5 text-red-600" />
@@ -1253,8 +1252,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
       {/* Receipt modal (after payment success) */}
       {receiptInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setReceiptInfo(null)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setReceiptInfo(null)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">

@@ -256,8 +256,8 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
 
       {/* Form modal (create or edit rule) */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowForm(false); resetForm(); }}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowForm(false); resetForm(); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -315,8 +315,8 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
 
       {/* Add annexe modal */}
       {showAddAnnexe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowAddAnnexe(false); setAnnexeTitle(""); setAnnexeFile(null); }}>
-          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowAddAnnexe(false); setAnnexeTitle(""); setAnnexeFile(null); }}>
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[16px] font-semibold text-ink">Ajouter une annexe</h2>
               <button onClick={() => { setShowAddAnnexe(false); setAnnexeTitle(""); setAnnexeFile(null); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">

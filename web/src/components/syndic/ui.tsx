@@ -45,5 +45,5 @@ export function StatusPill({ status }: { status: string }) {
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card", className)}>{children}</div>;
+  return <div className={cn("rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card sm:p-5", className)}>{children}</div>;
 }

@@ -205,7 +205,7 @@ export function ResidentsView({
       </div>
 
       {/* Stats row */}
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-100">
@@ -425,9 +425,9 @@ export function ResidentsView({
             </div>
 
             {pages > 1 && (
-              <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
                 <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
@@ -505,7 +505,7 @@ export function ResidentsView({
                 {/* Logement */}
                 <div className="space-y-3 rounded-xl border border-black/10 bg-white p-4">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-ink">Logement</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Numéro de lot" value={addForm.unit} onChange={(v) => { setAddForm({ ...addForm, unit: v }); setAddError(""); }} placeholder="Ex: 1, A3, RDC-2" required />
                     <div>
                       <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
@@ -739,8 +739,8 @@ export function ResidentsView({
 
 function Overlay({ onClose, wide, children }: { onClose: () => void; wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className={`w-full ${wide ? "max-w-lg" : "max-w-md"} max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card`} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={onClose}>
+      <div className={`w-full ${wide ? "max-w-lg" : "max-w-md"} max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card`} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

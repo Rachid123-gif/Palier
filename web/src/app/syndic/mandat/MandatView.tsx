@@ -234,8 +234,8 @@ export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | n
 
       {/* Form modal (create or edit) */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => { setShowForm(false); resetForm(); }}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setShowForm(false); resetForm(); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
@@ -266,7 +266,7 @@ export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | n
                 <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Adjoint du syndic</label>
                 <input type="text" value={fDeputy} onChange={(e) => setFDeputy(e.target.value)} placeholder="Nom de l'adjoint (optionnel)" className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date d&apos;élection *</label>
                   <input type="date" required value={fElectedAt} onChange={(e) => handleElectedAtChange(e.target.value)} className={inputCls} />
@@ -295,8 +295,8 @@ export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | n
 
       {/* Delete confirmation */}
       {showDelete && mandate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowDelete(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowDelete(false)}>
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="Trash2" className="h-4 w-4 text-red-600" />
