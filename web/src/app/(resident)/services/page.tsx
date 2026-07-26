@@ -582,6 +582,24 @@ export default function ServicesScreen() {
               </div>
             )}
 
+            {/* Category (reco only) */}
+            {editPost.type === "recommendation" && categories.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.categorieLabel}</label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => setEditCat(editCat === c.name ? "" : c.name)}
+                      className={`tap rounded-full px-3 py-1.5 text-[12px] font-semibold ${editCat === c.name ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Body */}
             <textarea
               autoFocus value={editBody} onChange={(e) => setEditBody(e.target.value.slice(0, 300))} rows={4}
@@ -770,7 +788,7 @@ function RecoCard({ p, isOwn, onComment, onEdit, onDelete, lang, T }: {
             <a href={telLink(p.providerPhone)} className="tap flex items-center gap-1.5 rounded-full bg-sand px-3 py-1.5 text-[12px] font-semibold text-ink">
               <Icon name="Phone" className="h-3.5 w-3.5" /> {T.appeler}
             </a>
-            <a href={`https://wa.me/${p.providerPhone.replace(/\s/g, "")}`} target="_blank" rel="noopener"
+            <a href={whatsappLink(p.providerPhone, T.whatsappMessage)} target="_blank" rel="noopener noreferrer"
               className="tap flex items-center gap-1.5 rounded-full bg-[#25D366]/10 px-3 py-1.5 text-[12px] font-semibold text-[#25D366]">
               <Icon name="MessageCircle" className="h-3.5 w-3.5" /> {T.whatsapp}
             </a>
