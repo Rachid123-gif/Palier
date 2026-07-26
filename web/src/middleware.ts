@@ -36,8 +36,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Beta gate — skip for /beta itself, admin routes, static assets, and API
+  const betaEnabled = !!process.env.BETA_ACCESS_CODE;
+  const hasBetaCookie = !!request.cookies.get("palier_beta")?.value;
+  if (
+    betaEnabled &&
+    !hasBetaCookie &&
+    pathname !== "/beta" &&
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next") &&
+    pathname !== "/sw.js" &&
+    pathname !== "/manifest.webmanifest"
+  ) {
+    return NextResponse.redirect(new URL("/beta", request.url));
+  }
+
   // Public routes — always accessible
-  if (pathname === "/bienvenue" || pathname === "/site" || pathname === "/admin/login" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+  if (pathname === "/beta" || pathname === "/bienvenue" || pathname === "/site" || pathname === "/admin/login" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
     // If already authenticated and visiting /bienvenue, redirect to home
     if (pathname === "/bienvenue" && session) {
       const dest = session.role === "syndic" ? "/syndic" : "/";

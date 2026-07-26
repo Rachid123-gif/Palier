@@ -390,3 +390,29 @@ export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   BETA GATE — accès anticipé
+   ═══════════════════════════════════════════════════════════════ */
+
+const BETA_COOKIE = "palier_beta";
+
+export async function validateBetaCode(
+  code: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const expected = process.env.BETA_ACCESS_CODE;
+  if (!expected) {
+    // No beta gate configured → allow everyone
+    const cookieStore = await cookies();
+    cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
+    return { ok: true };
+  }
+
+  if (code.trim().toUpperCase() !== expected.trim().toUpperCase()) {
+    return { ok: false, error: "invalid_code" };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
+  return { ok: true };
+}
