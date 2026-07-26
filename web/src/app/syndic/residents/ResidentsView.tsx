@@ -307,7 +307,6 @@ export function ResidentsView({
                   <th className="px-4 py-2.5">Lot</th>
                   <th className="px-4 py-2.5">Nom</th>
                   <th className="px-4 py-2.5">Statut</th>
-                  <th className="px-4 py-2.5 whitespace-nowrap">Tantièmes</th>
                   <th className="px-4 py-2.5">Téléphone</th>
                   <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
@@ -336,7 +335,6 @@ export function ResidentsView({
                           {r.role === "tenant" ? "Locataire" : "Propriétaire"}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-ink-soft">{r.tantiemes > 0 ? r.tantiemes : "—"}</td>
                       <td className="px-4 py-2.5 text-ink-soft">
                         {r.phone}
                         {isInactive && r.deactivatedAt && (
@@ -400,7 +398,6 @@ export function ResidentsView({
                           <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === "tenant" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
                             {r.role === "tenant" ? "Locataire" : "Propriétaire"}
                           </span>
-                          {r.tantiemes > 0 && <span className="text-[10px] text-ink-faint">{r.tantiemes} t.</span>}
                         </div>
                         <p className="mt-0.5 text-[12px] text-ink-soft">{r.phone}</p>
                       </div>

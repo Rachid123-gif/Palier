@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME, decodeSession } from "./lib/session";
 
+/** Constant-time string comparison to prevent timing attacks */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+  return result === 0;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -24,7 +37,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes — always accessible
-  if (pathname === "/bienvenue" || pathname === "/site" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+  if (pathname === "/bienvenue" || pathname === "/site" || pathname === "/admin/login" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
     // If already authenticated and visiting /bienvenue, redirect to home
     if (pathname === "/bienvenue" && session) {
       const dest = session.role === "syndic" ? "/syndic" : "/";
@@ -39,7 +52,7 @@ export async function middleware(request: NextRequest) {
     if (pathname === "/api/dev-login") return NextResponse.next();
     const internalSecret = process.env.INTERNAL_API_SECRET;
     const requestSecret = request.headers.get("x-internal-secret");
-    if (internalSecret && requestSecret === internalSecret) {
+    if (internalSecret && requestSecret && timingSafeEqual(internalSecret, requestSecret)) {
       return NextResponse.next(); // Internal server-to-server call
     }
     if (!session) {
@@ -53,9 +66,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/site", request.url));
   }
 
+  // Admin routes require admin role
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    if (session.role !== "admin") {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
   // Syndic routes require syndic role
   if (pathname.startsWith("/syndic") && session.role !== "syndic") {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Admin users trying to access non-admin pages → redirect to admin
+  if (session.role === "admin" && !pathname.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   // Resident routes — syndic users trying to access resident pages redirect to /syndic
@@ -67,5 +93,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon\\.svg|.*\\.svg$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon\\.svg|.*\\.svg$|.*\\.png$|screens/.*).*)"],
 };

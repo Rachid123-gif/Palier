@@ -12,7 +12,7 @@ export interface SessionData {
   profileId: string | null;
   buildingId: string;
   unitId: string | null;
-  role: "resident" | "syndic";
+  role: "resident" | "syndic" | "admin";
 }
 
 export const SESSION_COOKIE_NAME = COOKIE_NAME;
@@ -48,7 +48,7 @@ export async function decodeSession(value: string): Promise<SessionData | null> 
       profileId: (payload.profileId as string) ?? null,
       buildingId: payload.buildingId as string,
       unitId: (payload.unitId as string) ?? null,
-      role: payload.role as "resident" | "syndic",
+      role: payload.role as "resident" | "syndic" | "admin",
     };
   } catch {
     return null;

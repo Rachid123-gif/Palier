@@ -132,10 +132,10 @@ export default function ImmeubleScreen() {
           <div>
             <div className="flex items-center justify-between text-[12px]">
               <span className="text-ink-soft">{T.chargesPayees}</span>
-              <span className="font-bold text-ink">{buildingKpis.paymentRate}%</span>
+              <span className="font-bold text-ink">{Math.max(0, Math.min(100, buildingKpis.paymentRate))}%</span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sand">
-              <div className="h-full rounded-full bg-success" style={{ width: `${buildingKpis.paymentRate}%` }} />
+              <div className="h-full rounded-full bg-success" style={{ width: `${Math.max(0, Math.min(100, buildingKpis.paymentRate))}%` }} />
             </div>
           </div>
         </div>
@@ -384,6 +384,7 @@ export default function ImmeubleScreen() {
                 {urgentWorks.map((w) => {
                   const statusCls = w.status === "completed" ? "bg-emerald-50 text-emerald-700"
                     : w.status === "in_progress" ? "bg-amber-50 text-amber-700"
+                    : w.status === "approved" ? "bg-blue-50 text-blue-700"
                     : "bg-red-50 text-red-700";
                   const statusLabel = w.status === "completed" ? T.travauxTermine
                     : w.status === "in_progress" ? T.travauxEnCours

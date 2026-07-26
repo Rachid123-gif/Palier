@@ -1,6 +1,8 @@
 /** Construit un deeplink WhatsApp avec message pré-rempli (wa.me). */
 export function whatsappLink(phoneIntl: string, message: string): string {
-  const digits = phoneIntl.replace(/[^0-9]/g, "");
+  let digits = phoneIntl.replace(/[^0-9]/g, "");
+  // Moroccan domestic → international (06… → 2126…)
+  if (digits.startsWith("0") && digits.length === 10) digits = "212" + digits.slice(1);
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 

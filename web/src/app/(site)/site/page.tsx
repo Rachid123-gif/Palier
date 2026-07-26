@@ -3,295 +3,315 @@ import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { Icon } from "@/components/ui/Icon";
 
 export const metadata = {
-  title: "Palier — La super-app des copropriétés marocaines",
+  title: "Palier | La super-app des copropriétés marocaines",
   description:
-    "Gérez vos charges, signalez les incidents, communiquez avec vos voisins et trouvez des prestataires vérifiés. Disponible sur iOS et Android.",
+    "Gérez vos charges, signalez les incidents, communiquez avec vos voisins. La plateforme tout-en-un pour résidents et syndics.",
 };
 
-const features = [
-  {
-    icon: "ReceiptText",
-    title: "Charges transparentes",
-    desc: "Suivez vos charges en temps réel, payez en ligne et accédez à l'historique complet.",
-    tint: "bg-palier-50",
-    color: "text-palier-600",
-  },
-  {
-    icon: "TriangleAlert",
-    title: "Signalement d'incidents",
-    desc: "Signalez un problème en quelques taps. Suivi en temps réel jusqu'à la résolution.",
-    tint: "bg-amber-50",
-    color: "text-amber-600",
-  },
-  {
-    icon: "Users",
-    title: "Espace voisinage",
-    desc: "Annonces, entraide, recommandations — la vie de l'immeuble au bout des doigts.",
-    tint: "bg-blue-50",
-    color: "text-blue-600",
-  },
-  {
-    icon: "HandHelping",
-    title: "Prestataires vérifiés",
-    desc: "Plombier, électricien, femme de ménage — trouvez le bon prestataire par bouche à oreille.",
-    tint: "bg-coral-400/20",
-    color: "text-coral-600",
-  },
-  {
-    icon: "ShieldCheck",
-    title: "Transparence financière",
-    desc: "Comptabilité conforme au Décret 2.23.700. Budget, dépenses, annexes réglementaires.",
-    tint: "bg-emerald-50",
-    color: "text-emerald-600",
-  },
-  {
-    icon: "Building2",
-    title: "Multi-immeubles",
-    desc: "Gérez plusieurs résidences depuis un seul compte. Basculez en un clic.",
-    tint: "bg-purple-100",
-    color: "text-purple-600",
-  },
-];
+/* ═══════════════════════════════════════════════
+   Device mockup shells
+   ═══════════════════════════════════════════════ */
 
-const syndicFeatures = [
-  "Tableau de bord complet avec KPIs",
-  "Recouvrement et relances WhatsApp",
-  "Gestion des incidents et résidents",
-  "Assemblées générales et PV",
-  "Comptabilité conforme (annexes I à V)",
-  "Documents et stockage sécurisé",
-];
+function PhoneFrame({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
+  return (
+    <div className={className}>
+      <div className="overflow-hidden rounded-[2.2rem] border-[5px] border-[#1a1a1a] bg-[#1a1a1a] shadow-2xl">
+        <div className="relative pt-[3px]">
+          <div className="absolute left-1/2 top-[1px] z-10 h-[8px] w-[40px] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
+          <img src={src} alt={alt} className="block w-full" draggable={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MacFrame({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="mx-auto max-w-[1100px]">
+      <div className="overflow-hidden rounded-xl shadow-2xl">
+        <div className="flex items-center bg-[#1a1a1a] px-3 py-[6px]">
+          <div className="flex items-center gap-[6px]">
+            <span className="h-[11px] w-[11px] rounded-full bg-[#ff5f56]" />
+            <span className="h-[11px] w-[11px] rounded-full bg-[#ffbd2e]" />
+            <span className="h-[11px] w-[11px] rounded-full bg-[#27c93f]" />
+          </div>
+          <div className="mx-auto flex items-center gap-1 rounded-md bg-white/10 px-3 py-[3px]">
+            <svg className="h-[9px] w-[9px] text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            <span className="text-[10px] font-medium text-white/50">palier.ma</span>
+          </div>
+          <div className="w-[52px]" />
+        </div>
+        <img src={src} alt={alt} className="block w-full" draggable={false} />
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   Store badges (reusable)
+   ═══════════════════════════════════════════════ */
+
+function StoreBadges({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+      <span className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-xl bg-[#111815] py-2.5 pl-3.5 pr-5 opacity-60">
+        <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 21.99 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 21.99C7.79 22.03 6.8 20.68 5.96 19.47C4.25 17 2.94 12.45 4.7 9.39C5.57 7.87 7.13 6.91 8.82 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z" /></svg>
+        <div className="flex flex-col leading-none">
+          <span className="text-[10px] text-white/60">Bientôt sur</span>
+          <span className="text-[15px] font-semibold text-white">App Store</span>
+        </div>
+      </span>
+      <span className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-xl bg-[#111815] py-2.5 pl-3.5 pr-5 opacity-60">
+        <svg className="h-6 w-6" viewBox="0 0 512 512" fill="none"><path d="M239.2 270.9L44.5 471.7a47.9 47.9 0 0 0 31.4 11.8c10.4 0 20-3.3 28.2-9L325 347.2 239.2 270.9Z" fill="#EA4335"/><path d="M382.3 233.7l-57.3-32.5L244 270.9l81 76.3 57.2-32.4c17.3-9.8 27.8-27.5 27.8-40.6s-10.5-30.7-27.7-40.5Z" fill="#FBBC04"/><path d="M44.5 40.3C42.9 45.5 42 51.2 42 57.4v397.2c0 6.2.9 11.9 2.5 17.1L239.2 270.9 44.5 40.3Z" fill="#4285F4"/><path d="M241.4 256L325 164.8l-221-125.3A47.3 47.3 0 0 0 75.9 28.7c-12.1 0-23.2 4.3-31.4 11.6L241.4 256Z" fill="#34A853"/></svg>
+        <div className="flex flex-col leading-none">
+          <span className="text-[10px] text-white/60">Bientôt sur</span>
+          <span className="text-[15px] font-semibold text-white">Google Play</span>
+        </div>
+      </span>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   Page
+   ═══════════════════════════════════════════════ */
 
 export default function SitePage() {
   return (
-    <div className="min-h-dvh bg-cream text-ink">
+    <div
+      className="min-h-dvh scroll-smooth antialiased"
+      style={{ color: "#111815", colorScheme: "light" } as React.CSSProperties}
+    >
       {/* ═══ Nav ═══ */}
-      <nav className="sticky top-0 z-50 border-b border-black/5 bg-cream/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={36} />
+      <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
+          <Link href="/site" className="flex items-center gap-2">
+            <LogoMark size={32} />
             <Wordmark />
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/bienvenue"
-              className="hidden rounded-full border border-palier-200 px-5 py-2 text-[14px] font-semibold text-palier-700 transition-colors hover:bg-palier-50 sm:inline-flex"
-            >
-              Espace Résident
-            </Link>
-            <Link
-              href="/bienvenue"
-              className="rounded-full bg-palier-600 px-5 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-palier-700"
-            >
-              Espace Syndic
-            </Link>
+          </Link>
+          <div className="flex items-center gap-5">
+            <a href="#fonctionnalites" className="hidden text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#111815] sm:block">Fonctionnalités</a>
+            <Link href="/bienvenue?role=syndic" className="rounded-full bg-[#111815] px-5 py-[7px] text-[13px] font-semibold text-white transition-opacity hover:opacity-85">Espace Syndic</Link>
           </div>
         </div>
       </nav>
 
       {/* ═══ Hero ═══ */}
-      <section className="relative overflow-hidden bg-palier-950">
-        {/* Decorative orbs */}
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-palier-600/20 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-olive-500/15 blur-3xl" />
-
-        <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 sm:pb-28 sm:pt-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-[13px] font-semibold text-white/90 backdrop-blur-sm">
-              <Icon name="Sparkles" className="h-4 w-4" />
-              Disponible sur iOS et Android
+      <section className="overflow-hidden bg-white">
+        <div className="mx-auto max-w-6xl px-5 pt-20 pb-20 sm:px-8 sm:pt-28 sm:pb-28 lg:pt-32 lg:pb-32">
+          <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-12">
+            <div className="text-center lg:text-left">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0B7A57]/15 bg-[#0B7A57]/[0.06] px-4 py-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#0B7A57]" />
+                <span className="text-[13px] font-semibold text-[#0B7A57]">La super-app des copropriétés</span>
+              </div>
+              <h1 className="text-[38px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[52px] lg:text-[60px]">
+                Votre résidence<br />
+                <span className="text-[#0B7A57]">mérite mieux.</span>
+              </h1>
+              <p className="mx-auto mt-6 max-w-[420px] text-[16px] leading-relaxed text-[#6b7280] sm:text-[18px] lg:mx-0">
+                Palier connecte résidents et syndics sur une seule plateforme. Charges, transparence financière, incidents, voisinage.
+              </p>
+              <StoreBadges className="mt-9 justify-center lg:justify-start" />
+              <div className="mt-6 flex items-center justify-center lg:justify-start">
+                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#111815]">
+                  Vous êtes syndic ? Accédez à votre espace <Icon name="ArrowRight" className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
-            <h1 className="text-[38px] font-extrabold leading-[1.08] tracking-tight text-white sm:text-[56px]">
-              La copropriété,
-              <br />
-              <span className="text-olive-400">simplifiée.</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-lg text-[16px] leading-relaxed text-white/70 sm:text-[18px]">
-              Charges, incidents, voisinage, prestataires — tout ce dont votre résidence a besoin, dans une seule app.
-            </p>
-            <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <a
-                href="#telecharger"
-                style={{ backgroundColor: "#fff", color: "#194a42" }}
-                className="tap inline-flex items-center gap-2.5 rounded-full px-8 py-4 text-[15px] font-bold shadow-lg transition-transform hover:scale-[1.02]"
-              >
-                <Icon name="Download" className="h-5 w-5" />
-                Télécharger l&apos;app
-              </a>
-              <Link
-                href="/bienvenue"
-                className="tap inline-flex items-center gap-2 rounded-full border border-white/20 px-8 py-4 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
-              >
-                Accéder au web
-                <Icon name="ArrowRight" className="h-4 w-4" />
-              </Link>
+
+            <div className="relative mx-auto flex max-w-[560px] items-end justify-center pb-8 lg:mx-0 lg:max-w-none lg:pb-0">
+              <div className="absolute inset-[-10%] rounded-full bg-[#0B7A57]/[0.07] blur-[90px]" />
+              <PhoneFrame src="/screens/charges.png" alt="Suivi des charges" className="relative z-0 -mr-3 mb-10 w-[135px] -rotate-6 opacity-90 sm:-mr-4 sm:w-[160px] lg:w-[170px]" />
+              <PhoneFrame src="/screens/home.png" alt="Accueil résident" className="relative z-10 w-[170px] sm:w-[210px] lg:w-[220px]" />
+              <PhoneFrame src="/screens/immeuble.png" alt="Transparence financière" className="relative z-0 -ml-3 mb-10 w-[135px] rotate-6 opacity-90 sm:-ml-4 sm:w-[160px] lg:w-[170px]" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══ Features ═══ */}
-      <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-[28px] font-extrabold tracking-tight sm:text-[36px]">
-            Tout pour votre résidence
-          </h2>
-          <p className="mt-3 text-[15px] text-ink-soft sm:text-[16px]">
-            Palier réunit résidents, syndic et prestataires sur une plateforme unique, transparente et conforme à la loi marocaine.
-          </p>
-        </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div key={f.title} className="card p-6">
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${f.tint}`}>
-                <Icon name={f.icon} className={`h-6 w-6 ${f.color}`} strokeWidth={2} />
-              </span>
-              <h3 className="mt-4 text-[16px] font-bold">{f.title}</h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{f.desc}</p>
+      {/* ═══ Feature: Incidents ═══ */}
+      <section id="fonctionnalites" className="scroll-mt-14 bg-[#f4f5f2]">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <div className="mx-auto max-w-[260px] lg:mx-0">
+              <PhoneFrame src="/screens/incident.png" alt="Signalement d'incident" />
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══ Espace Syndic ═══ */}
-      <section className="bg-palier-950 py-16 sm:py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-palier-600/30 px-4 py-1.5 text-[13px] font-semibold text-palier-300">
-                <Icon name="Shield" className="h-4 w-4" />
-                Espace Syndic
-              </div>
-              <h2 className="text-[28px] font-extrabold leading-tight tracking-tight text-white sm:text-[36px]">
-                Gérez votre copropriété
-                <br />
-                depuis n&apos;importe où
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-[#0B7A57]">Incidents</p>
+              <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-[#111815] sm:text-[34px]">
+                Signalez un problème en 10 secondes
               </h2>
-              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/70">
-                Un tableau de bord complet, accessible depuis votre navigateur. Recouvrement, incidents, AG, comptabilité — tout est centralisé.
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#6b7280] sm:text-[16px]">
+                Ascenseur en panne, fuite d'eau, problème de sécurité. Plus besoin d'appeler ou d'envoyer un message WhatsApp au syndic.
               </p>
-              <ul className="mt-8 space-y-3">
-                {syndicFeatures.map((f) => (
-                  <li key={f} className="flex items-center gap-3 text-[14px] text-white/90">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-palier-600/40">
-                      <Icon name="Check" className="h-3.5 w-3.5 text-palier-300" strokeWidth={3} />
-                    </span>
-                    {f}
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Choisissez la catégorie et le niveau d'urgence",
+                  "Ajoutez une photo pour illustrer le problème",
+                  "Le syndic est notifié instantanément dans son tableau de bord",
+                  "Suivez la résolution en temps réel avec un fil de discussion",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14px] leading-relaxed text-[#374151]">
+                    <Icon name="Check" className="mt-0.5 h-4 w-4 shrink-0 text-[#0B7A57]" strokeWidth={3} />
+                    {t}
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/bienvenue"
-                style={{ backgroundColor: "#fff", color: "#194a42" }}
-                className="tap mt-8 inline-flex items-center gap-2.5 rounded-full px-7 py-3.5 text-[15px] font-bold shadow-lg transition-transform hover:scale-[1.02]"
-              >
-                Accéder à l&apos;espace syndic
-                <Icon name="ArrowRight" className="h-4.5 w-4.5" />
-              </Link>
             </div>
-            <div className="hidden items-center justify-center lg:flex">
-              <div className="relative h-[400px] w-[340px] overflow-hidden rounded-[32px] border-[8px] border-white/10 bg-palier-900 shadow-2xl">
-                <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-                  <LogoMark size={64} />
-                  <Wordmark light className="text-2xl" />
-                  <p className="text-[14px] text-white/60">Tableau de bord syndic</p>
-                  <div className="mt-4 grid w-full grid-cols-2 gap-3">
-                    {[
-                      { label: "Résidents", value: "24", icon: "Users" },
-                      { label: "Taux paie.", value: "87%", icon: "TrendingUp" },
-                      { label: "Incidents", value: "3", icon: "TriangleAlert" },
-                      { label: "Balance", value: "+12K", icon: "Wallet" },
-                    ].map((s) => (
-                      <div key={s.label} className="rounded-xl bg-white/10 p-3 text-left">
-                        <Icon name={s.icon} className="mb-1 h-4 w-4 text-palier-300" />
-                        <p className="text-[18px] font-bold text-white">{s.value}</p>
-                        <p className="text-[10px] text-white/50">{s.label}</p>
-                      </div>
-                    ))}
-                  </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Feature: Voisinage ═══ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <div className="order-2 lg:order-1">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-[#0B7A57]">Voisinage</p>
+              <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-[#111815] sm:text-[34px]">
+                Votre communauté, connectée
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#6b7280] sm:text-[16px]">
+                Un espace social pour votre immeuble. Annonces du syndic, événements, entraide entre voisins — tout au même endroit.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Annonces officielles du syndic avec badge vérifié",
+                  "Entraide, objets trouvés, événements entre voisins",
+                  "Réactions et commentaires pour échanger facilement",
+                  "Le syndic peut épingler les annonces importantes",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14px] leading-relaxed text-[#374151]">
+                    <Icon name="Check" className="mt-0.5 h-4 w-4 shrink-0 text-[#0B7A57]" strokeWidth={3} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="order-1 mx-auto max-w-[260px] lg:order-2 lg:mx-0 lg:ml-auto">
+              <PhoneFrame src="/screens/voisinage.png" alt="Voisinage" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Feature: Services ═══ */}
+      <section className="bg-[#f4f5f2]">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <div className="mx-auto max-w-[260px] lg:mx-0">
+              <PhoneFrame src="/screens/services.png" alt="Services" />
+            </div>
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-[#0B7A57]">Services</p>
+              <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-[#111815] sm:text-[34px]">
+                Les bons plans de vos voisins
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#6b7280] sm:text-[16px]">
+                Besoin d'un plombier ? D'une femme de ménage ? Vos voisins ont déjà testé et recommandé les meilleurs prestataires du quartier.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Recommandations vérifiées par vos voisins",
+                  "Contact direct par téléphone ou WhatsApp",
+                  "Postez une demande et recevez des suggestions",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14px] leading-relaxed text-[#374151]">
+                    <Icon name="Check" className="mt-0.5 h-4 w-4 shrink-0 text-[#0B7A57]" strokeWidth={3} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Syndic ═══ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.15em] text-[#0B7A57]">Pour le syndic</p>
+          <h2 className="mb-4 text-center text-[26px] font-extrabold tracking-tight text-[#111815] sm:text-[34px]">
+            Tout centraliser, ne rien oublier
+          </h2>
+          <p className="mx-auto mb-12 max-w-lg text-center text-[15px] leading-relaxed text-[#6b7280] sm:text-[16px]">
+            Recouvrement en un clic, relances WhatsApp, comptabilité conforme à la loi 18-00, assemblées générales digitalisées. Palier remplace vos fichiers Excel.
+          </p>
+          <MacFrame src="/screens/syndic-dashboard.png" alt="Tableau de bord syndic" />
+          <div className="mt-8">
+            <MacFrame src="/screens/syndic-recouvrement.png" alt="Recouvrement syndic" />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Plus de fonctionnalités ═══ */}
+      <section className="bg-[#111815]">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <h2 className="mb-4 text-center text-[24px] font-extrabold tracking-tight text-white sm:text-[32px]">Et bien plus encore</h2>
+          <p className="mx-auto mb-14 max-w-md text-center text-[15px] leading-relaxed text-[#9ca3af]">Tout ce dont votre résidence a besoin, sur une seule plateforme.</p>
+
+          <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: "Eye", title: "Transparence financière", desc: "Chaque centime du budget de votre immeuble, visible en temps réel. Encaissements, dépenses, solde de caisse." },
+              { icon: "Banknote", title: "Charges & paiements", desc: "Consultez vos charges, leur détail, les échéances. Recevez vos reçus de paiement numériques." },
+              { icon: "FileText", title: "Documents", desc: "PV d'assemblées, règlement de copropriété, contrats d'assurance. Tout accessible à tout moment." },
+              { icon: "CalendarDays", title: "Assemblées générales", desc: "Convocations, ordre du jour, votes pondérés par tantièmes depuis votre téléphone, comptes-rendus." },
+              { icon: "Receipt", title: "Comptabilité légale", desc: "Annexes comptables générées automatiquement, conformes au Décret 2.23.700. Plus besoin d'Excel." },
+              { icon: "Shield", title: "Conformité & assurance", desc: "Mandat syndic, règlement, assurances avec alertes d'expiration. Tout est suivi automatiquement." },
+            ].map((f) => (
+              <div key={f.title} className="flex gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0B7A57]/20">
+                  <Icon name={f.icon} className="h-5 w-5 text-[#34d399]" strokeWidth={2} />
+                </span>
+                <div>
+                  <h3 className="text-[15px] font-bold text-white">{f.title}</h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[#9ca3af]">{f.desc}</p>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══ Télécharger ═══ */}
-      <section id="telecharger" className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-[28px] font-extrabold tracking-tight sm:text-[36px]">
-            Téléchargez Palier
-          </h2>
-          <p className="mt-3 text-[15px] text-ink-soft sm:text-[16px]">
-            Disponible gratuitement sur iOS et Android. Aucun compte à créer — votre syndic vous fournit un code d&apos;accès.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <a
-              href="#"
-              style={{ backgroundColor: "#14201d", color: "#fff" }}
-              className="tap flex items-center gap-3 rounded-2xl px-6 py-3.5 transition-transform hover:scale-[1.02]"
-            >
-              <Icon name="Apple" className="h-8 w-8" />
-              <div className="text-left">
-                <p className="text-[10px] font-medium uppercase tracking-wider opacity-70">Télécharger sur</p>
-                <p className="text-[17px] font-bold leading-tight">App Store</p>
-              </div>
-            </a>
-            <a
-              href="#"
-              style={{ backgroundColor: "#14201d", color: "#fff" }}
-              className="tap flex items-center gap-3 rounded-2xl px-6 py-3.5 transition-transform hover:scale-[1.02]"
-            >
-              <Icon name="Play" className="h-8 w-8" />
-              <div className="text-left">
-                <p className="text-[10px] font-medium uppercase tracking-wider opacity-70">Disponible sur</p>
-                <p className="text-[17px] font-bold leading-tight">Google Play</p>
-              </div>
-            </a>
-          </div>
-          <div className="mt-6 flex flex-col items-center gap-2 text-[13px] text-ink-faint">
-            <p>
-              <Icon name="Smartphone" className="mr-1.5 inline h-4 w-4" />
-              iOS 15+ · Android 10+
-            </p>
-            <p>Version actuelle : 1.0.0</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ Conformité ═══ */}
-      <section className="border-t border-black/5 bg-sand/50 py-12">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-50">
-              <Icon name="Scale" className="h-7 w-7 text-palier-600" />
-            </span>
-            <div>
-              <h3 className="text-[16px] font-bold">Conforme à la loi marocaine</h3>
-              <p className="mt-1 max-w-xl text-[14px] leading-relaxed text-ink-soft">
-                Palier respecte la loi 18-00 sur la copropriété et le Décret 2.23.700. Comptabilité réglementaire, tantièmes, budget prévisionnel, assemblées générales — tout est conforme.
+      {/* ═══ CTA ═══ */}
+      <section className="bg-[#111815]">
+        <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8 sm:pb-28">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B7A57] to-[#096b4c] px-6 py-14 text-center sm:px-12 sm:py-20">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_60%)]" />
+            <div className="relative">
+              <h2 className="text-[24px] font-extrabold tracking-tight text-white sm:text-[34px]">
+                Prêt à transformer votre résidence ?
+              </h2>
+              <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-white/70">
+                Téléchargez Palier et rejoignez les copropriétés marocaines qui ont choisi la transparence.
               </p>
+              <StoreBadges className="mt-8 justify-center" />
             </div>
           </div>
         </div>
       </section>
 
       {/* ═══ Footer ═══ */}
-      <footer className="border-t border-black/5 bg-cream py-10">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <LogoMark size={28} />
-              <Wordmark className="text-lg" />
+      <footer className="border-t border-white/[0.06] bg-[#0c1210] py-12">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col items-center gap-3 sm:items-start">
+              <div className="flex items-center gap-2"><LogoMark size={22} /><Wordmark className="text-base text-white" /></div>
+              <p className="max-w-[260px] text-center text-[13px] leading-relaxed text-white/40 sm:text-left">La super-app des copropriétés marocaines.</p>
             </div>
-            <div className="flex items-center gap-6 text-[13px] text-ink-soft">
-              <Link href="/bienvenue" className="hover:text-ink">Commencer</Link>
-              <a href="#telecharger" className="hover:text-ink">Télécharger</a>
-              <a href="mailto:contact@palier.ma" className="hover:text-ink">Contact</a>
+            <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[13px] text-white/50">
+              <Link href="/bienvenue" className="transition-colors hover:text-white/80">Télécharger</Link>
+              <a href="#fonctionnalites" className="transition-colors hover:text-white/80">Fonctionnalités</a>
+              <a href="mailto:contact@palier.ma" className="transition-colors hover:text-white/80">Contact</a>
             </div>
           </div>
-          <div className="mt-8 border-t border-black/5 pt-6 text-center text-[12px] text-ink-faint">
-            © {new Date().getFullYear()} Palier. Tous droits réservés.
+          <div className="mt-10 flex flex-col items-center gap-3 border-t border-white/[0.06] pt-6 sm:flex-row sm:justify-between">
+            <p className="text-[11px] text-white/30">© {new Date().getFullYear()} Palier. Tous droits réservés.</p>
+            <div className="flex gap-5 text-[11px] text-white/30">
+              <a href="mailto:contact@palier.ma" className="transition-colors hover:text-white/50">Conditions d&apos;utilisation</a>
+              <a href="mailto:contact@palier.ma" className="transition-colors hover:text-white/50">Politique de confidentialité</a>
+            </div>
           </div>
         </div>
       </footer>

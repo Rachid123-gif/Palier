@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
     }
 
+    // Validate push subscription keys are present
+    if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      return NextResponse.json({ error: "invalid_subscription" }, { status: 400 });
+    }
+
     // Verify profileId matches session
     if (session.profileId !== profileId) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });

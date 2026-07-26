@@ -130,7 +130,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
   // Renewal badge
   function renewalBadge(p: InsurancePolicy) {
     const days = daysUntil(p.endDate);
-    if (days < 0) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Expirée</span>;
+    if (days <= 0) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Expirée</span>;
     if (days <= p.renewalAlertDays) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Renouvellement dans {days} j</span>;
     return null;
   }

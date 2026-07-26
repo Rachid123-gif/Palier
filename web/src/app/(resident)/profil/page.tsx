@@ -41,7 +41,6 @@ export default function ProfilPage() {
     { icon: "Phone", label: p.telephone, value: currentUser.phone || "—" },
     { icon: "DoorOpen", label: p.lot, value: currentUser.unit },
     { icon: "Building2", label: p.residence, value: building.name },
-    ...(currentUser.tantiemes > 0 ? [{ icon: "PieChart", label: "Tantièmes", value: `${currentUser.tantiemes}` }] : []),
   ];
 
   /* ── Notification preferences (local state, persisted to localStorage) ── */

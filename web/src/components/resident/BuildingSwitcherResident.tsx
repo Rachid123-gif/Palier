@@ -10,6 +10,7 @@ export function BuildingSwitcherResident() {
   const { buildings, buildingId } = useData();
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,12 +35,20 @@ export function BuildingSwitcherResident() {
       window.location.href = "/";
     } catch {
       setSwitching(false);
-      alert("Impossible de changer d'immeuble. Veuillez réessayer.");
+      setSwitchError(true);
     }
   }
 
+  // Auto-dismiss error toast
+  useEffect(() => { if (switchError) { const t = setTimeout(() => setSwitchError(false), 3500); return () => clearTimeout(t); } }, [switchError]);
+
   return (
     <div ref={ref} className="relative mx-4 mt-2">
+      {switchError && (
+        <div className="fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 animate-[fade_0.3s_ease] rounded-xl bg-red-600 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg">
+          Impossible de changer d&apos;immeuble. Réessayez.
+        </div>
+      )}
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-3 py-2 shadow-sm"

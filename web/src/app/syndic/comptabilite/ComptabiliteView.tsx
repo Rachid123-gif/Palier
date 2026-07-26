@@ -92,9 +92,19 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
   const previousBudget = budgets.find((b) => b.fiscalYear === fiscalYear - 1);
   const nextBudget = budgets.find((b) => b.fiscalYear === fiscalYear + 1);
 
-  // N-1 balance/unpaid (0 if no prior data)
-  const balanceN1 = 0;
-  const unpaidN1 = 0;
+  // N-1 balance/unpaid — computed from previous year ledger entries
+  const balanceN1 = useMemo(() => {
+    const incomeN1 = ledgerInputsN1.reduce((s, e) => s + (e.type === "in" ? e.amount : 0), 0);
+    const expenseN1 = ledgerInputsN1.reduce((s, e) => s + (e.type === "out" ? e.amount : 0), 0);
+    return incomeN1 - expenseN1;
+  }, [ledgerInputsN1]);
+  const unpaidN1 = useMemo(() => {
+    const prevBudget = budgets.find((b) => b.fiscalYear === fiscalYear - 1);
+    if (!prevBudget) return 0;
+    return recouvrement
+      .filter((r) => r.dueDate && new Date(r.dueDate).getFullYear() === fiscalYear - 1)
+      .reduce((s, r) => s + Math.max(0, r.amount - r.paid), 0);
+  }, [budgets, recouvrement, fiscalYear]);
 
   // Export annexe
   function exportAnnexe(annexeId: string) {

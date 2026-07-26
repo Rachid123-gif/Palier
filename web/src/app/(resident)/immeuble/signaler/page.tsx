@@ -34,6 +34,7 @@ export default function SignalerScreen() {
   const [toast, setToast] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [selectedInc, setSelectedInc] = useState<typeof incidents[0] | null>(null);
@@ -129,6 +130,12 @@ export default function SignalerScreen() {
       {/* ═══ Tab: Signaler ═══ */}
       {tab === "signaler" && (
         <div className="space-y-5 px-4 pt-4">
+          {isInactive && (
+            <div className="flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+              <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+              <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
+            </div>
+          )}
           <div className="flex items-center gap-3 rounded-2xl bg-palier-50 p-4">
             <Icon name="Wrench" className="h-7 w-7 shrink-0 text-palier-600" />
             <p className="text-[13px] leading-snug text-palier-800">{T.info} <b>{T.infoSuite}</b> {T.infoFin}</p>
@@ -192,9 +199,12 @@ export default function SignalerScreen() {
             ) : (
               <label className="tap flex w-fit cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-black/10 bg-cream-card px-4 py-3 text-[13px] font-semibold text-ink-soft">
                 <Icon name="Camera" className="h-4 w-4" /> {T.ajouterPhoto}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
+                  setPhotoError("");
+                  if (f.size > 5 * 1024 * 1024) { setPhotoError("Image trop volumineuse (max 5 Mo)"); return; }
+                  if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) { setPhotoError("Format non supporté (JPG, PNG, WebP)"); return; }
                   setPhoto(f);
                   setPhotoPreview(URL.createObjectURL(f));
                 }} />
@@ -202,6 +212,7 @@ export default function SignalerScreen() {
             )}
           </div>
 
+          {photoError && <p className="px-1 text-[12px] font-medium text-red-600">{photoError}</p>}
           <Button full disabled={!canSubmit || submitting || isInactive} onClick={submit} className={!canSubmit || submitting || isInactive ? "opacity-50" : ""} icon="Send">
             {submitting ? T.envoi : T.envoyerSignalement}
           </Button>

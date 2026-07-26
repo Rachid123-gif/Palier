@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
-import { mad, num, timeAgo, currentPeriod, shortDate } from "@/lib/format";
+import { mad, num, timeAgo, currentPeriod, shortDate, shortName } from "@/lib/format";
 import { sendRelance, emitCharges, logDunning, syndicRecordPayment, updateChargeCall, deleteChargeCall, fetchBuildingPayments } from "@/lib/actions";
 import { dunningMessage } from "@/lib/whatsapp";
 import { longDate } from "@/lib/format";
@@ -86,7 +86,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
 
   async function handlePayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!showPayment?.chargeId || !payAmount) return;
+    if (!showPayment?.chargeId || !payAmount || payPending) return;
     setPayPending(true);
     const res = await syndicRecordPayment({
       chargeId: showPayment.chargeId,
@@ -97,7 +97,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
       note: payNote || undefined,
     });
     setPayPending(false);
-    if (res?.error) { flash(res.error === "already_paid" ? "Déjà payé" : "Erreur lors de l'enregistrement"); return; }
+    if (res?.error) { flash(res.error === "already_paid" ? "Déjà payé" : res.error === "duplicate_payment" ? "Paiement déjà enregistré" : "Erreur lors de l'enregistrement"); return; }
     // Prepare receipt
     const receipt: ReceiptInfo = {
       building,
@@ -488,7 +488,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                             {r.ownerName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate text-ink">{r.ownerName}</p>
+                            <p className="truncate text-ink">{shortName(r.ownerName)}</p>
                             <p className="text-[11px] text-ink-soft">{r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
                           </div>
                         </div>
@@ -549,7 +549,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-[13px] font-semibold text-ink">{r.ownerName}</p>
+                          <p className="truncate text-[13px] font-semibold text-ink">{shortName(r.ownerName)}</p>
                           <StatusPill status={r.status} />
                         </div>
                         <p className="mt-0.5 text-[11px] text-ink-soft">Lot {r.ref} · {r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
@@ -923,7 +923,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: row.avatarColor }}>
                                   {row.ownerName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                                 </span>
-                                <span className="text-ink">{row.ownerName}</span>
+                                <span className="text-ink">{shortName(row.ownerName)}</span>
                               </div>
                             ) : <span className="text-ink-soft">—</span>}
                           </td>
@@ -967,7 +967,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                               </span>
                             )}
                             <div>
-                              <p className="text-[14px] font-medium text-ink">{row?.ownerName ?? "—"}</p>
+                              <p className="text-[14px] font-medium text-ink">{row ? shortName(row.ownerName) : "—"}</p>
                               <p className="text-[12px] text-ink-soft">Lot {row?.ref ?? "—"} · {longDate(p.created_at)}</p>
                             </div>
                           </div>

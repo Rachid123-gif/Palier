@@ -4,7 +4,18 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/Icon";
 import { switchBuilding } from "@/lib/auth";
+import { shortBuilding } from "@/lib/format";
 import type { UserBuilding } from "@/lib/queries";
+
+function SwitchErrorToast({ show, onClose }: { show: boolean; onClose: () => void }) {
+  useEffect(() => { if (show) { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); } }, [show, onClose]);
+  if (!show) return null;
+  return (
+    <div className="fixed bottom-4 left-1/2 z-[100] -translate-x-1/2 animate-[fade_0.3s_ease] rounded-xl bg-red-600 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg">
+      Impossible de changer d&apos;immeuble. Réessayez.
+    </div>
+  );
+}
 
 export function BuildingSwitcher({
   buildings,
@@ -17,6 +28,7 @@ export function BuildingSwitcher({
 }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const found = buildings.find((b) => b.buildingId === currentBuildingId);
@@ -37,7 +49,7 @@ export function BuildingSwitcher({
     return (
       <div className="rounded-lg bg-black/[0.03] px-2.5 py-2">
         <p className="text-[11px] font-medium text-ink-soft">Résidence</p>
-        <p className="text-[13px] font-semibold text-ink">{current?.name ?? "—"}</p>
+        <p className="text-[13px] font-semibold text-ink">{current ? shortBuilding(current.name) : "—"}</p>
         <p className="text-[11px] text-ink-soft">{current?.city ?? ""}</p>
       </div>
     );
@@ -53,12 +65,13 @@ export function BuildingSwitcher({
       window.location.href = "/syndic";
     } catch {
       setSwitching(false);
-      alert("Impossible de changer d'immeuble. Veuillez réessayer.");
+      setSwitchError(true);
     }
   }
 
   return (
     <div ref={ref} className="relative">
+      <SwitchErrorToast show={switchError} onClose={() => setSwitchError(false)} />
       <button
         onClick={() => setOpen(!open)}
         className="w-full rounded-lg bg-black/[0.03] px-2.5 py-2 text-left transition-colors hover:bg-black/[0.06]"
@@ -66,7 +79,7 @@ export function BuildingSwitcher({
         <p className="text-[11px] font-medium text-ink-soft">Résidence</p>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-semibold text-ink">{current?.name ?? "—"}</p>
+            <p className="text-[13px] font-semibold text-ink">{current ? shortBuilding(current.name) : "—"}</p>
             <p className="text-[11px] text-ink-soft">{current?.city ?? ""}</p>
           </div>
           <Icon

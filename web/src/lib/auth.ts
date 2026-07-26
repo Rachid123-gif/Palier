@@ -11,6 +11,7 @@ import {
   type SessionData,
 } from "./session";
 import { checkRateLimit, RATE_LIMITS } from "./rate-limit";
+import { sendSMS } from "./sms";
 
 /* ─── Read session (server components + actions) ─── */
 
@@ -272,10 +273,13 @@ export async function requestRecoveryOtp(
     unitId: membership.unit_id,
   });
 
-  // TODO: Send OTP via SMS (Twilio, Infobip, etc.)
-  // await sendSMS(cleaned, `Votre code Palier : ${otp}`);
-  // For dev: log to console
-  console.log(`[PALIER OTP] ${cleaned} → ${otp}`);
+  // Send OTP via SMS (Twilio or Infobip — configured via SMS_PROVIDER env var)
+  try {
+    await sendSMS(cleaned, `Votre code Palier : ${otp}`);
+  } catch {
+    otpStore.delete(cleaned);
+    return { ok: false, error: "sms_failed" };
+  }
 
   return { ok: true };
 }

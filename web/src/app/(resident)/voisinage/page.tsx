@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { timeAgo } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { createPost, createComment, fetchComments, likeComment, likePost } from "@/lib/actions";
+import { createPost, createComment, fetchComments, likeComment, likePost, deletePost, updatePost } from "@/lib/actions";
 import type { Post, PostType, Comment } from "@/lib/types";
 
 const POST_LIMIT = 6;
@@ -29,7 +29,7 @@ function filterByTime(posts: Post[], period: TimePeriod): Post[] {
 }
 
 export default function VoisinageScreen() {
-  const { posts, currentUser, buildingId } = useData();
+  const { posts, currentUser, buildingId, profileId } = useData();
   const { lang, i } = useLang();
   const T = i.voisinage;
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function VoisinageScreen() {
   const [composer, setComposer] = useState(false);
   const [text, setText] = useState("");
   const [postType, setPostType] = useState<PostType | null>(null);
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState<{ icon: string; title: string; body: string } | null>(null);
   const [visibleCount, setVisibleCount] = useState(POST_LIMIT);
 
   const [commentPost, setCommentPost] = useState<Post | null>(null);
@@ -50,6 +50,13 @@ export default function VoisinageScreen() {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+
+  // Edit state
+  const [editPost, setEditPost] = useState<Post | null>(null);
+  const [editText, setEditText] = useState("");
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<Post | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tabs: { key: PostType | "all"; label: string; icon: string }[] = [
     { key: "all", label: T.tabs.all, icon: "Sparkles" },
@@ -112,7 +119,8 @@ export default function VoisinageScreen() {
       imageUrl = await uploadPostImage(mediaFile);
     }
     await createPost({ buildingId: buildingId!, author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl });
-    setComposer(false); setText(""); setPostType(null); setToast(true);
+    setComposer(false); setText(""); setPostType(null);
+    setToast({ icon: "Check", title: T.publie, body: T.publieBody });
     clearMedia();
     router.refresh();
   }
@@ -139,6 +147,32 @@ export default function VoisinageScreen() {
     setLikedComments((prev) => new Set(prev).add(commentId));
     await likeComment(commentId);
     setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, likes: c.likes + 1 } : c));
+  }
+
+  function openEdit(post: Post) {
+    setEditPost(post);
+    setEditText(post.body);
+  }
+
+  async function submitEdit() {
+    if (!editPost || !editText.trim()) return;
+    await updatePost({ postId: editPost.id, body: editText.trim(), title: editPost.title });
+    setEditPost(null); setEditText("");
+    setToast({ icon: "Check", title: T.postModifie, body: T.postModifieBody });
+    router.refresh();
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await deletePost(deleteConfirm.id);
+      setDeleteConfirm(null);
+      setToast({ icon: "Trash2", title: T.postSupprime, body: T.postSupprimeBody });
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -187,7 +221,15 @@ export default function VoisinageScreen() {
         {filtered.length > 0 ? (
           <div className="space-y-3 pb-2">
             {filtered.slice(0, visibleCount).map((p) => (
-              <PostCard key={p.id} p={p} onComment={() => openComments(p)} onLike={(id) => { if (!likedPosts.has(id)) { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }} typeBadge={typeBadge} lang={lang} T={T} syndicBadge={i.syndicBadge} />
+              <PostCard
+                key={p.id} p={p}
+                isOwn={p.authorId === profileId}
+                onComment={() => openComments(p)}
+                onLike={(id) => { if (!likedPosts.has(id)) { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }}
+                onEdit={() => openEdit(p)}
+                onDelete={() => setDeleteConfirm(p)}
+                typeBadge={typeBadge} lang={lang} T={T} syndicBadge={i.syndicBadge}
+              />
             ))}
             {filtered.length > visibleCount && (
               <button
@@ -207,6 +249,7 @@ export default function VoisinageScreen() {
         )}
       </div>
 
+      {/* ═══ Composer Sheet ═══ */}
       <Sheet open={composer} onClose={() => { setComposer(false); clearMedia(); }} title={T.publierDans}>
         <div className="flex gap-3">
           <LetterAvatar letter={currentUser.name[0]} color={currentUser.avatarColor} size={40} />
@@ -229,7 +272,6 @@ export default function VoisinageScreen() {
           </div>
         </div>
 
-        {/* Media preview */}
         {mediaFile && (
           <div className="mt-3 flex items-start gap-2">
             {mediaPreview ? (
@@ -257,11 +299,63 @@ export default function VoisinageScreen() {
             ))}
           </div>
         </div>
+        {isInactive && (
+          <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
+          </div>
+        )}
         <button onClick={publish} disabled={!text.trim() || isInactive} className={`tap mt-4 w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white ${!text.trim() || isInactive ? "opacity-50" : ""}`}>
           {T.publier}
         </button>
       </Sheet>
 
+      {/* ═══ Edit Sheet ═══ */}
+      <Sheet open={!!editPost} onClose={() => { setEditPost(null); setEditText(""); }} title={T.modifierPost}>
+        {editPost && (
+          <div className="space-y-4">
+            <textarea
+              autoFocus value={editText} onChange={(e) => setEditText(e.target.value.slice(0, 300))} rows={4}
+              className="w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-300"
+            />
+            <span className="block px-1 text-[12px] text-ink-faint">{editText.length}/300</span>
+            <button
+              onClick={submitEdit}
+              disabled={!editText.trim()}
+              className="tap w-full rounded-full bg-palier-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {T.modifier}
+            </button>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ═══ Delete Confirmation ═══ */}
+      <Sheet open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title={T.supprimerPost}>
+        {deleteConfirm && (
+          <div className="space-y-4">
+            <p className="text-[14px] text-ink">{T.confirmerSuppression}</p>
+            <p className="text-[12px] text-ink-faint">{T.confirmerSuppressionBody}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="tap flex-1 rounded-full border border-black/10 py-3 text-[13px] font-semibold text-ink-soft"
+              >
+                {T.annuler}
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="tap flex-1 rounded-full bg-red-600 py-3 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {T.supprimer}
+              </button>
+            </div>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ═══ Comments Sheet ═══ */}
       <Sheet open={!!commentPost} onClose={() => { setCommentPost(null); setComments([]); setCommentText(""); }} title={T.commentaires}>
         {commentPost && (
           <div className="space-y-4">
@@ -333,13 +427,14 @@ export default function VoisinageScreen() {
         )}
       </Sheet>
 
-      <Toast open={toast} onClose={() => setToast(false)} icon="Check" title={T.publie} body={T.publieBody} />
+      {toast && <Toast open onClose={() => setToast(null)} icon={toast.icon} title={toast.title} body={toast.body} />}
     </div>
   );
 }
 
-function PostCard({ p, onComment, onLike, typeBadge, lang, T, syndicBadge }: {
-  p: Post; onComment: () => void; onLike: (postId: string) => void;
+function PostCard({ p, isOwn, onComment, onLike, onEdit, onDelete, typeBadge, lang, T, syndicBadge }: {
+  p: Post; isOwn: boolean; onComment: () => void; onLike: (postId: string) => void;
+  onEdit: () => void; onDelete: () => void;
   typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" }>;
   lang: "fr" | "ar";
   T: typeof import("@/lib/i18n").t.fr.voisinage;
@@ -347,6 +442,7 @@ function PostCard({ p, onComment, onLike, typeBadge, lang, T, syndicBadge }: {
 }) {
   const [liked, setLiked] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const tb = typeBadge[p.type];
   const totalReactions = p.reactions.like + p.reactions.love + p.reactions.haha + p.reactions.wow + (liked ? 1 : 0);
   const isLong = p.body.length > BODY_LIMIT;
@@ -368,6 +464,33 @@ function PostCard({ p, onComment, onLike, typeBadge, lang, T, syndicBadge }: {
           </div>
           <p className="text-[11px] text-ink-faint">{timeAgo(p.createdAt, lang)}</p>
         </div>
+        {/* Edit/Delete menu for own posts */}
+        {isOwn && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="tap flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-sand">
+              <Icon name="MoreVertical" className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute end-0 top-9 z-20 w-44 rounded-xl border border-black/[0.06] bg-white py-1 shadow-lg">
+                  <button
+                    onClick={() => { setMenuOpen(false); onEdit(); }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-ink hover:bg-sand"
+                  >
+                    <Icon name="Pencil" className="h-4 w-4 text-ink-faint" /> {T.modifier}
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); onDelete(); }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <Icon name="Trash2" className="h-4 w-4" /> {T.supprimer}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {p.title && (

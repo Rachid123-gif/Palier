@@ -203,7 +203,7 @@ export default function HomeScreen() {
               <p className="text-sm font-bold text-ink">{building.syndic}</p>
               <p className="text-[12px] text-ink-soft">{building.name} · {building.lots} {i.home.lots}</p>
             </div>
-            <a href={`https://wa.me/${building.syndicPhone.replace(/\s/g, "")}`} target="_blank" rel="noopener" className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-100">
+            <a href={`https://wa.me/${building.syndicPhone.replace(/\s/g, "").replace(/^0/, "212")}`} target="_blank" rel="noopener" className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-100">
               <Icon name="MessageCircle" className="h-4 w-4 text-palier-600" strokeWidth={2.3} />
             </a>
           </div>

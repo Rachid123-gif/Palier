@@ -11,6 +11,15 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
 ]);
 
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "application/pdf": "pdf",
+};
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 function validateFile(file: File): string | null {
@@ -19,12 +28,16 @@ function validateFile(file: File): string | null {
   return null;
 }
 
+/** Get safe extension from MIME type (not from user-provided filename) */
+function safeExt(file: File): string {
+  return MIME_TO_EXT[file.type] ?? "bin";
+}
+
 /** Upload an image for a voisinage post and return its public URL. */
 export async function uploadPostImage(file: File): Promise<string | undefined> {
   const err = validateFile(file);
   if (err) { console.warn("[Upload] Rejected:", err); return undefined; }
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt(file)}`;
   const path = `posts/${safeName}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
   if (error) { console.warn("[Upload] Failed"); return undefined; }
@@ -36,8 +49,7 @@ export async function uploadPostImage(file: File): Promise<string | undefined> {
 export async function uploadIncidentPhoto(file: File): Promise<string | undefined> {
   const err = validateFile(file);
   if (err) { console.warn("[Upload] Rejected:", err); return undefined; }
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt(file)}`;
   const path = `incidents/${safeName}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
   if (error) { console.warn("[Upload] Failed"); return undefined; }

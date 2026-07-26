@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "palier-v1";
+// Cache version — bump this on each deployment to bust stale caches
+const CACHE_VERSION = 2;
+const CACHE_NAME = `palier-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -15,7 +17,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — clean ALL old caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -31,6 +33,9 @@ self.addEventListener("fetch", (event) => {
 
   // Skip non-GET requests
   if (request.method !== "GET") return;
+
+  // Skip API calls — always go to network
+  if (request.url.includes("/api/")) return;
 
   // For navigation requests (HTML pages): network-first
   if (request.mode === "navigate") {

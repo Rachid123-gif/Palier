@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { PageHeader, KpiCard, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
@@ -31,6 +31,8 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
   const [showUpload, setShowUpload] = useState(false);
   const [showDelete, setShowDelete] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
   // Upload form state
   const [upTitle, setUpTitle] = useState("");
@@ -93,7 +95,7 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       setUpFile(null);
       setShowUpload(false);
     } catch {
-      // Upload failed
+      flash("Erreur lors de l'upload du document");
     } finally {
       setUploading(false);
     }
@@ -101,8 +103,12 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
 
   // Delete handler
   async function handleDelete(id: string) {
-    await deleteDocument(id, buildingId);
-    setDocs((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await deleteDocument(id, buildingId);
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+    } catch {
+      flash("Erreur lors de la suppression");
+    }
     setShowDelete(null);
   }
 
@@ -356,6 +362,13 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 animate-[rise_0.25s_ease] rounded-lg bg-palier-600 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg">
+          {toast}
         </div>
       )}
     </div>

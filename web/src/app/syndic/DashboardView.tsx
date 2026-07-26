@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { KpiCard, Card, StatusPill } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
-import { num, mad, timeAgo, shortDate } from "@/lib/format";
+import { num, mad, timeAgo, shortDate, shortName, shortBuilding } from "@/lib/format";
 import type { SyndicData } from "@/lib/syndic";
 import type { InsurancePolicy, SyndicMandate, Budget } from "@/lib/types";
 
@@ -181,12 +181,12 @@ export function DashboardView({ data: d }: DashboardProps) {
     [d.posts, from, rangeTo],
   );
 
-  /* ── Monthly trend (last 6 months) ── */
+  /* ── Monthly trend (last 12 months) ── */
   const monthlyTrend = useMemo(() => {
     const now = new Date();
     const months: { label: string; inAmt: number; outAmt: number }[] = [];
     const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const d2 = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}`;
       const label = monthNames[d2.getMonth()];
@@ -244,7 +244,7 @@ export function DashboardView({ data: d }: DashboardProps) {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[18px] font-bold tracking-tight text-ink md:text-[22px]">Tableau de bord</h1>
-            <p className="mt-0.5 text-[13px] text-ink-soft">{d.building.name} · {periodLabel(period, customFrom, customTo)}</p>
+            <p className="mt-0.5 text-[13px] text-ink-soft">{shortBuilding(d.building.name)} · {periodLabel(period, customFrom, customTo)}</p>
           </div>
         </div>
         {/* Period filter */}
@@ -299,13 +299,13 @@ export function DashboardView({ data: d }: DashboardProps) {
       )}
 
       {/* ═══ KPIs ═══ */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <KpiCard label="Taux de recouvrement" value={`${k.rate}%`} hint={`${counts.paid} lots à jour sur ${k.lots}`} />
         <KpiCard label="Encaissé" value={num(k.collected, false)} unit="MAD" hint={`sur ${num(k.expected, false)} appelés`} />
-        <KpiCard label="Reste à recouvrer" value={num(k.outstanding, false)} unit="MAD" hint={`${k.lateCount} en retard`} />
+        <KpiCard label="Restant dû" value={num(k.outstanding, false)} unit="MAD" hint={`${k.lateCount} en retard`} />
         <KpiCard label="Solde de caisse" value={num(k.balance, false)} unit="MAD" />
         <KpiCard
-          label="Budget exécuté"
+          label="Budget dépensé"
           value={budgetTotal > 0 ? `${budgetPct}%` : "—"}
           hint={budgetTotal > 0 ? `${num(budgetSpent, false)} / ${num(budgetTotal, false)} MAD` : "Aucun budget"}
         />
@@ -340,11 +340,11 @@ export function DashboardView({ data: d }: DashboardProps) {
             </div>
           </div>
 
-          {/* 6-month trend bars */}
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Tendance 6 mois</p>
-          <div className="flex min-w-0 items-end gap-2">
+          {/* 12-month trend bars */}
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Tendance 12 mois</p>
+          <div className="no-scrollbar flex items-end gap-2 overflow-x-auto">
             {monthlyTrend.map((m, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+              <div key={i} className="flex w-10 shrink-0 flex-col items-center gap-1">
                 <div className="flex w-full gap-0.5" style={{ height: 60 }}>
                   <div className="flex-1 flex flex-col justify-end">
                     <div
@@ -405,7 +405,7 @@ export function DashboardView({ data: d }: DashboardProps) {
                       {r.ownerName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12px] font-medium text-ink">{r.ownerName}</p>
+                      <p className="truncate text-[12px] font-medium text-ink">{shortName(r.ownerName)}</p>
                       <p className="text-[11px] text-ink-faint">Lot {r.ref}</p>
                     </div>
                     <span className="text-[12px] font-semibold text-red-600">{mad(r.amount - r.paid, { decimals: false })}</span>

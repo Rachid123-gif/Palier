@@ -12,12 +12,24 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+  return result === 0;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Auth: accept internal server-to-server calls OR authenticated syndic sessions
     const internalSecret = process.env.INTERNAL_API_SECRET;
     const requestSecret = request.headers.get("x-internal-secret");
-    const isInternal = internalSecret && requestSecret === internalSecret;
+    const isInternal = internalSecret && requestSecret && timingSafeEqual(internalSecret, requestSecret);
 
     if (!isInternal) {
       const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;

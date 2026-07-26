@@ -74,6 +74,7 @@ export function BudgetView({
   // Search / filter
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | Budget["status"]>("all");
+  const [yearFilter, setYearFilter] = useState<"all" | string>("all");
 
   // Create form state
   const [saving, setSaving] = useState(false);
@@ -105,6 +106,12 @@ export function BudgetView({
     { key: "closed", label: "Clôturé" },
   ];
 
+  // Available years from budgets
+  const availableYears = useMemo(() => {
+    const yrs = [...new Set(budgets.map((b) => b.fiscalYear))].sort((a, b) => b - a);
+    return yrs;
+  }, [budgets]);
+
   const counts = useMemo(() => ({
     all: budgets.length,
     draft: budgets.filter((b) => b.status === "draft").length,
@@ -115,6 +122,7 @@ export function BudgetView({
 
   const filtered = useMemo(() => {
     let result = [...budgets];
+    if (yearFilter !== "all") result = result.filter((b) => b.fiscalYear.toString() === yearFilter);
     if (statusFilter !== "all") result = result.filter((b) => b.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -124,7 +132,7 @@ export function BudgetView({
       );
     }
     return result;
-  }, [budgets, statusFilter, search]);
+  }, [budgets, yearFilter, statusFilter, search]);
 
   // ── Create form helpers ──
   function resetCreate() {
@@ -295,14 +303,14 @@ export function BudgetView({
         ))}
       </div>
 
-      {/* Search */}
-      <div className="mb-3">
-        <div className="relative">
+      {/* Search + Year filter */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative flex-1">
           <Icon name="Search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par année ou poste..."
+            placeholder="Rechercher par poste..."
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -311,6 +319,14 @@ export function BudgetView({
             </button>
           )}
         </div>
+        <select
+          value={yearFilter}
+          onChange={(e) => setYearFilter(e.target.value)}
+          className="h-9 shrink-0 rounded-lg border border-black/[0.08] bg-white px-3 pr-8 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+        >
+          <option value="all">Toutes les années</option>
+          {availableYears.map((y) => <option key={y} value={y.toString()}>{y}</option>)}
+        </select>
       </div>
 
       {/* Budget list */}
@@ -322,7 +338,7 @@ export function BudgetView({
             {budgets.length === 0 ? (
               <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Créer un budget</button>
             ) : (
-              <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
+              <button onClick={() => { setStatusFilter("all"); setYearFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
             )}
           </div>
         ) : (

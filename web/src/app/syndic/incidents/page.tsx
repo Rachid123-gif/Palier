@@ -5,5 +5,5 @@ import { IncidentsBoard } from "./IncidentsBoard";
 export default async function SyndicIncidents() {
   const session = await requireSyndicSession();
   const d = await fetchSyndicData(session.buildingId);
-  return <IncidentsBoard incidents={d.incidents} openCount={d.kpis.openIncidents} />;
+  return <IncidentsBoard incidents={d.incidents} openCount={d.kpis.openIncidents} customCategories={d.settings?.incident_categories ?? null} />;
 }

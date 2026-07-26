@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
@@ -203,7 +203,16 @@ const cities = [
 type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-success" | "recover" | "recover-otp" | "recover-success";
 
 export default function BienvenuePage() {
+  return (
+    <Suspense>
+      <BienvenueContent />
+    </Suspense>
+  );
+}
+
+function BienvenueContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lang, setLang] = useState<Lang>("fr");
   const [step, setStep] = useState<Step>("lang");
   const [slide, setSlide] = useState(0);
@@ -214,6 +223,14 @@ export default function BienvenuePage() {
   const isAr = lang === "ar";
 
   const [role, setRole] = useState<"resident" | "syndic" | null>(null);
+
+  // Deep-link: ?role=syndic skips role selection, keeps lang + welcome
+  const [roleFromUrl] = useState(() => searchParams.get("role"));
+  useEffect(() => {
+    if (roleFromUrl === "syndic") {
+      setRole("syndic");
+    }
+  }, [roleFromUrl]);
 
   // Registration form state
   const [regName, setRegName] = useState("");
@@ -241,6 +258,7 @@ export default function BienvenuePage() {
 
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
+    else if (roleFromUrl === "syndic") setStep("syndic-choice");
     else setStep("role");
   }
 
@@ -511,7 +529,7 @@ export default function BienvenuePage() {
 
           {slide === 0 && (
             <button
-              onClick={() => setStep("role")}
+              onClick={() => roleFromUrl === "syndic" ? setStep("syndic-choice") : setStep("role")}
               className="tap mt-3 w-full py-2 text-center text-[13px] font-semibold text-ink-faint"
             >
               {i.skip}
@@ -582,7 +600,7 @@ export default function BienvenuePage() {
         <StatusBar />
 
         <div className="flex items-center justify-between px-6 pt-6">
-          {backBtn(() => setStep("role"))}
+          {backBtn(() => setStep(roleFromUrl === "syndic" ? "welcome" : "role"))}
           {langBtn}
         </div>
 
@@ -841,7 +859,7 @@ export default function BienvenuePage() {
             <p className="text-[12px] leading-snug text-palier-800">{role === "syndic" ? i.codeInfoSyndic : i.codeInfoResident}</p>
           </div>
 
-          {role === "syndic" && (
+          {role === "syndic" && roleFromUrl !== "syndic" && (
             <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-sand/60 px-4 py-3">
               <Icon name="Monitor" className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
               <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener" className="font-semibold text-palier-600 underline">palier.ma</a></p>

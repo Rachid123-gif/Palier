@@ -17,6 +17,7 @@ export default function AgScreen() {
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [toast, setToast] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const isInactive = currentUser.membershipStatus === "inactive";
 
   useEffect(() => {
     if (!assembly || !profileId) return;
@@ -81,6 +82,12 @@ export default function AgScreen() {
             {!isPast && assembly.votes.length > 0 && (
               <div>
                 <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">{T.votesOuverts}</h2>
+                {isInactive && (
+                  <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                    <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
+                  </div>
+                )}
                 {assembly.votes.map((v) => (
                   <div key={v.id} className="card p-4">
                     <p className="text-[14px] font-bold text-ink">{v.q}</p>
@@ -91,16 +98,16 @@ export default function AgScreen() {
                         return (
                           <button
                             key={o}
-                            disabled={isPending}
+                            disabled={isPending || isInactive}
                             onClick={() => {
-                              if (!profileId || currentUser.membershipStatus === "inactive") return;
+                              if (!profileId) return;
                               setChoice((c) => ({ ...c, [v.id]: o }));
                               setToast(true);
                               startTransition(() => {
                                 castVote({ assemblyId: assembly.id, voteId: v.id, profileId, choice: o });
                               });
                             }}
-                            className={`tap flex w-full items-center justify-between rounded-2xl border p-3 ${active ? "border-palier-500 bg-palier-50" : "border-black/5 bg-white"}`}
+                            className={`tap flex w-full items-center justify-between rounded-2xl border p-3 ${active ? "border-palier-500 bg-palier-50" : "border-black/5 bg-white"} ${isPending || isInactive ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             <span className="text-[14px] font-semibold text-ink">{o}</span>
                             <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${active ? "border-palier-600 bg-palier-600" : "border-ink-faint/40"}`}>

@@ -33,6 +33,7 @@ import {
   saveBuildingSettingsSchema,
   recordPaymentSyndicSchema,
   updateChargeCallSchema,
+  updatePostSchema,
 } from "./schemas";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -143,7 +144,7 @@ export async function createPost(input: {
 }) {
   const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(createPostSchema, input);
-  return supabaseAdmin.from("posts").insert({
+  const res = await supabaseAdmin.from("posts").insert({
     building_id: v.buildingId,
     author_name: v.author,
     avatar_color: v.avatarColor,
@@ -157,6 +158,18 @@ export async function createPost(input: {
     provider_phone: v.providerPhone ?? null,
     image_url: v.imageUrl ?? null,
   });
+  // Notify syndic members of new resident post
+  const { data: syndicMembers } = await supabaseAdmin
+    .from("memberships")
+    .select("profile_id")
+    .eq("building_id", v.buildingId)
+    .eq("role", "syndic")
+    .eq("status", "active");
+  if (syndicMembers?.length) {
+    const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter(Boolean);
+    await notifyProfiles(syndicIds, "Nouvelle publication", v.title || v.body.slice(0, 60), "post");
+  }
+  return res;
 }
 
 export async function createLedgerEntry(input: {
@@ -268,12 +281,20 @@ export async function createComment(input: {
   });
   if (!error) {
     await supabaseAdmin.rpc("increment_comments_count", { post_id_input: v.postId });
+    // Notify post author (if commenter is not the author)
+    const { data: postData } = await supabaseAdmin.from("posts").select("profile_id, title, body").eq("id", v.postId).single();
+    if (postData?.profile_id && postData.profile_id !== session.profileId) {
+      await notifyProfiles([postData.profile_id], "Nouveau commentaire", `${v.author} a commenté : ${v.body.slice(0, 60)}`, "post");
+    }
   }
   return { error };
 }
 
 export async function fetchComments(postId: string): Promise<Comment[]> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Verify post belongs to user's building
+  const { data: postCheck } = await supabaseAdmin.from("posts").select("id").eq("id", postId).eq("building_id", session.buildingId).single();
+  if (!postCheck) return [];
   const { data } = await supabaseAdmin
     .from("post_comments")
     .select("*")
@@ -591,6 +612,17 @@ export async function syndicRecordPayment(input: {
   if (fetchErr || !charge) return { error: "charge_not_found" };
   if (charge.status === "paid") return { error: "already_paid" };
 
+  // Idempotency: reject duplicate payment on same charge within 30 seconds
+  const { data: recentPayment } = await supabaseAdmin
+    .from("payments")
+    .select("id")
+    .eq("charge_id", v.chargeId)
+    .eq("amount", v.amount)
+    .gte("created_at", new Date(Date.now() - 30_000).toISOString())
+    .limit(1)
+    .maybeSingle();
+  if (recentPayment) return { error: "duplicate_payment" };
+
   const newPaid = Math.min(Number(charge.amount), Number(charge.paid) + v.amount);
   const newStatus = newPaid >= Number(charge.amount) ? "paid" : "partial";
 
@@ -604,21 +636,29 @@ export async function syndicRecordPayment(input: {
   if (v.profileId) paymentRecord.profile_id = v.profileId;
   if (v.note) paymentRecord.note = v.note;
 
-  const { data: payment } = await supabaseAdmin
+  const { data: payment, error: payErr } = await supabaseAdmin
     .from("payments")
     .insert(paymentRecord)
     .select("id, created_at")
     .single();
 
-  // Update charge totals
-  await supabaseAdmin
+  if (payErr || !payment) return { error: "payment_insert_failed" };
+
+  // Update charge totals — only if payment insert succeeded
+  const { error: updateErr } = await supabaseAdmin
     .from("charges")
     .update({ paid: newPaid, status: newStatus })
     .eq("id", v.chargeId);
 
+  if (updateErr) {
+    // Rollback: delete the orphaned payment record
+    await supabaseAdmin.from("payments").delete().eq("id", payment.id);
+    return { error: "charge_update_failed" };
+  }
+
   return {
-    paymentId: payment?.id ?? null,
-    createdAt: payment?.created_at ?? new Date().toISOString(),
+    paymentId: payment.id,
+    createdAt: payment.created_at,
     chargeLabel: charge.label,
     chargeDueDate: charge.due_date,
   };
@@ -710,7 +750,7 @@ export async function createAssembly(input: {
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(createAssemblySchema, input);
-  return supabaseAdmin.from("assemblies").insert({
+  const res = await supabaseAdmin.from("assemblies").insert({
     building_id: v.buildingId,
     date: v.date,
     time: v.time,
@@ -720,6 +760,20 @@ export async function createAssembly(input: {
     votes: [],
     quorum: 0,
   });
+  // Auto-notify all active residents
+  const { data: members } = await supabaseAdmin
+    .from("memberships")
+    .select("profile_id")
+    .eq("building_id", v.buildingId)
+    .eq("status", "active")
+    .eq("role", "resident");
+  if (members?.length) {
+    const profileIds = members.map((m: any) => m.profile_id).filter(Boolean);
+    const title = "Assemblée générale convoquée";
+    const body = `Assemblée prévue le ${v.date} à ${v.place}. Consultez l'ordre du jour dans votre application.`;
+    await notifyProfiles(profileIds, title, body, "ag");
+  }
+  return res;
 }
 
 /** Mettre à jour les résultats d'une assemblée */
@@ -858,12 +912,54 @@ export async function fetchResidentHistory(profileId: string, buildingId: string
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   VOISINAGE — Modération syndic
+   VOISINAGE — Gestion des posts
    ═══════════════════════════════════════════════════════════════ */
 
+/** Delete a post — allowed for the post author OR any syndic of the building */
 export async function deletePost(postId: string) {
-  const session = await requireAuth({ role: "syndic" });
-  return supabaseAdmin.from("posts").delete().eq("id", postId).eq("building_id", session.buildingId);
+  const session = await requireAuth();
+  // Fetch post to check ownership
+  const { data: post } = await supabaseAdmin
+    .from("posts")
+    .select("id, profile_id, building_id")
+    .eq("id", postId)
+    .eq("building_id", session.buildingId)
+    .single();
+  if (!post) throw new Error("post_not_found");
+  // Allow if syndic OR post author
+  const isAuthor = post.profile_id === session.profileId;
+  const isSyndic = session.role === "syndic";
+  if (!isAuthor && !isSyndic) throw new Error("forbidden");
+  return supabaseAdmin.from("posts").delete().eq("id", post.id);
+}
+
+/** Update a post — only allowed for the post author */
+export async function updatePost(input: {
+  postId: string;
+  body: string;
+  title?: string;
+  category?: string;
+  providerName?: string;
+  providerPhone?: string;
+}) {
+  const session = await requireAuth();
+  const v = validate(updatePostSchema, input);
+  // Verify ownership
+  const { data: post } = await supabaseAdmin
+    .from("posts")
+    .select("id, profile_id, building_id")
+    .eq("id", v.postId)
+    .eq("building_id", session.buildingId)
+    .single();
+  if (!post) throw new Error("post_not_found");
+  if (post.profile_id !== session.profileId) throw new Error("forbidden");
+  return supabaseAdmin.from("posts").update({
+    body: v.body,
+    title: v.title ?? null,
+    category: v.category ?? null,
+    provider_name: v.providerName ?? null,
+    provider_phone: v.providerPhone ?? null,
+  }).eq("id", post.id);
 }
 
 export async function togglePinPost(postId: string, pinned: boolean) {
@@ -896,12 +992,35 @@ export async function createIncidentComment(input: {
   });
   if (!error) {
     await supabaseAdmin.rpc("increment_incident_messages", { incident_id_input: v.incidentId });
+    // Notify incident reporter (if commenter is different)
+    const { data: incidentData } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", v.incidentId).single();
+    if (incidentData?.reporter_id && incidentData.reporter_id !== session.profileId) {
+      await notifyProfiles([incidentData.reporter_id], "Réponse à votre signalement", `${v.author} : ${v.body.slice(0, 60)}`, "incident");
+    }
+    // If commenter is resident, also notify syndic members
+    if (v.role === "resident") {
+      const { data: syndicMembers } = await supabaseAdmin
+        .from("memberships")
+        .select("profile_id")
+        .eq("building_id", session.buildingId)
+        .eq("role", "syndic")
+        .eq("status", "active");
+      if (syndicMembers?.length) {
+        const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter((id: string) => id !== session.profileId);
+        if (syndicIds.length) {
+          await notifyProfiles(syndicIds, "Nouveau message incident", `${incidentData?.title ?? "Incident"} — ${v.body.slice(0, 60)}`, "incident");
+        }
+      }
+    }
   }
   return { error };
 }
 
 export async function fetchIncidentComments(incidentId: string): Promise<IncidentComment[]> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Verify incident belongs to user's building
+  const { data: incidentCheck } = await supabaseAdmin.from("incidents").select("id").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  if (!incidentCheck) return [];
   const { data } = await supabaseAdmin
     .from("incident_comments")
     .select("*")
@@ -931,6 +1050,14 @@ export async function castVote(input: {
 }) {
   const session = await requireAuth();
   if (session.profileId !== input.profileId) throw new Error("forbidden");
+  // Block inactive members from voting
+  const { data: membership } = await supabaseAdmin
+    .from("memberships")
+    .select("status")
+    .eq("profile_id", session.profileId)
+    .eq("building_id", session.buildingId)
+    .single();
+  if (membership?.status === "inactive") throw new Error("inactive_member");
   const v = validate(castVoteSchema, input);
   return supabaseAdmin.from("assembly_votes").upsert({
     assembly_id: v.assemblyId,

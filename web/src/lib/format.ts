@@ -59,6 +59,21 @@ export function greeting(lang: Lang = "fr"): string {
   return i.bonsoir;
 }
 
+/** "Othmane Fassi" → "Othmane F." — abrège le nom de famille */
+export function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length <= 1) return full;
+  return `${parts[0]} ${parts.slice(1).map((w) => w[0] + ".").join(" ")}`;
+}
+
+/** "Résidence Al Manar" → "Résidence Al M." — abrège le dernier mot */
+export function shortBuilding(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length <= 1) return full;
+  const last = parts[parts.length - 1];
+  return `${parts.slice(0, -1).join(" ")} ${last[0]}.`;
+}
+
 /** Jours restants avant une date */
 export function daysUntil(iso: string): number {
   const target = new Date(iso);

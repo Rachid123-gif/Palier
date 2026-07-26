@@ -22,8 +22,8 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     screenshots: [
-      { src: "/screenshots/dashboard.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Tableau de bord" },
-      { src: "/screenshots/charges.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Mes charges" },
+      { src: "/screenshots/resident-01-home.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Accueil" },
+      { src: "/screenshots/resident-03-charges.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Mes charges" },
     ],
   };
 }

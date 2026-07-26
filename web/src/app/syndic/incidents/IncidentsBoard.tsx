@@ -52,7 +52,7 @@ const PER_PAGE = 15;
 
 /* ── Main ── */
 
-export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; openCount: number }) {
+export function IncidentsBoard({ incidents, openCount, customCategories }: { incidents: Inc[]; openCount: number; customCategories?: string[] | null }) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -126,6 +126,17 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   const resolvedInc = periodFiltered.filter((i) => i.status === "resolved").length;
   const urgentOpen = periodFiltered.filter((i) => i.status !== "resolved" && (i.urgency === "urgent" || i.urgency === "high")).length;
 
+  // Merge default + custom category labels
+  const allCatLabels = useMemo(() => {
+    const merged = { ...catLabels };
+    if (customCategories) {
+      for (const c of customCategories) {
+        if (!merged[c]) merged[c] = c;
+      }
+    }
+    return merged;
+  }, [customCategories]);
+
   // Categories present in data
   const usedCategories = useMemo(() => {
     const cats = new Set(incidents.map((i) => i.category).filter(Boolean));
@@ -166,7 +177,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
   function exportCSV() {
     const header = "Date,Titre,Catégorie,Urgence,Statut,Signalé par";
     const csvRows = filtered.map((i) =>
-      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${catLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : i.status === "in_progress" ? "En cours" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
+      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${allCatLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : i.status === "in_progress" ? "En cours" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -291,7 +302,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
               className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
               <option value="all">Toutes catégories</option>
-              {usedCategories.map((c) => <option key={c} value={c}>{catLabels[c] ?? c}</option>)}
+              {usedCategories.map((c) => <option key={c} value={c}>{allCatLabels[c] ?? c}</option>)}
             </select>
           )}
         </div>
@@ -329,7 +340,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                       <td className="overflow-hidden px-4 py-2.5">
                         <button onClick={() => setSelected(inc)} className="block w-full text-left">
                           <p className="truncate font-medium text-ink hover:text-palier-700 hover:underline">{inc.title}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-ink-soft">{catLabels[inc.category] ?? inc.category}{inc.details ? ` · ${inc.details}` : ""}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-ink-soft">{allCatLabels[inc.category] ?? inc.category}{inc.details ? ` · ${inc.details}` : ""}</p>
                         </button>
                       </td>
                       <td className="px-4 py-2.5">
@@ -381,7 +392,7 @@ export function IncidentsBoard({ incidents, openCount }: { incidents: Inc[]; ope
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <button onClick={() => setSelected(inc)} className="min-w-0 flex-1 text-left">
                         <p className="text-[14px] font-medium text-ink">{inc.title}</p>
-                        <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[inc.category] ?? inc.category}</p>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">{allCatLabels[inc.category] ?? inc.category}</p>
                       </button>
                       {isResolved ? (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">

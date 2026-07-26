@@ -38,6 +38,15 @@ export const createPostSchema = z.object({
   imageUrl: z.string().url().optional(),
 });
 
+export const updatePostSchema = z.object({
+  postId: uuid,
+  body: safeString,
+  title: shortString.optional(),
+  category: shortString.optional(),
+  providerName: shortString.optional(),
+  providerPhone: phone.optional(),
+});
+
 /* ─── Ledger ─── */
 export const createLedgerEntrySchema = z.object({
   buildingId: uuid,
