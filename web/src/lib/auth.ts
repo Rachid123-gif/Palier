@@ -400,19 +400,71 @@ const BETA_COOKIE = "palier_beta";
 export async function validateBetaCode(
   code: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const expected = process.env.BETA_ACCESS_CODE;
-  if (!expected) {
-    // No beta gate configured → allow everyone
+  const betaEnabled = !!process.env.BETA_ACCESS_CODE;
+  if (!betaEnabled) {
     const cookieStore = await cookies();
     cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
     return { ok: true };
   }
 
-  if (code.trim().toUpperCase() !== expected.trim().toUpperCase()) {
-    return { ok: false, error: "invalid_code" };
-  }
+  const upper = code.trim().toUpperCase();
+  if (!upper) return { ok: false, error: "invalid_code" };
+
+  const { data: invite } = await supabaseAdmin
+    .from("beta_invites")
+    .select("id, used_at")
+    .eq("code", upper)
+    .single();
+
+  if (!invite) return { ok: false, error: "invalid_code" };
+  if (invite.used_at) return { ok: false, error: "already_used" };
+
+  // Mark as used
+  await supabaseAdmin
+    .from("beta_invites")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", invite.id);
 
   const cookieStore = await cookies();
   cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
   return { ok: true };
+}
+
+/** Generate unique beta invite codes (admin only) */
+export async function generateBetaInvites(
+  count: number,
+): Promise<{ codes: string[] }> {
+  const generated: string[] = [];
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  for (let i = 0; i < Math.min(count, 50); i++) {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    let code = "BETA-";
+    for (let j = 0; j < 8; j++) {
+      code += chars[bytes[j] % chars.length];
+    }
+
+    const { error } = await supabaseAdmin.from("beta_invites").insert({ code });
+    if (!error) generated.push(code);
+  }
+
+  return { codes: generated };
+}
+
+/** List all beta invites (admin only) */
+export async function listBetaInvites(): Promise<
+  { id: string; code: string; usedAt: string | null; createdAt: string }[]
+> {
+  const { data } = await supabaseAdmin
+    .from("beta_invites")
+    .select("id, code, used_at, created_at")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    code: r.code,
+    usedAt: r.used_at,
+    createdAt: r.created_at,
+  }));
 }

@@ -14,6 +14,7 @@ const navItems = [
   { href: "/admin/immeubles", label: "Immeubles", icon: "Building2" },
   { href: "/admin/syndics", label: "Syndics", icon: "Users" },
   { href: "/admin/activite", label: "Activité", icon: "Activity" },
+  { href: "/admin/invitations", label: "Invitations", icon: "Ticket" },
 ];
 
 export function AdminShell({ data, children }: { data: AdminData; children: React.ReactNode }) {

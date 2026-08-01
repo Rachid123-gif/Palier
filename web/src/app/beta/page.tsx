@@ -24,7 +24,7 @@ export default function BetaGatePage() {
         router.push("/site");
         router.refresh();
       } else {
-        setError(res.error === "invalid_code" ? "Code invalide. Vérifiez et réessayez." : "Erreur inattendue.");
+        setError("Code invalide. Vérifiez et réessayez.");
       }
     } catch {
       setError("Erreur de connexion. Réessayez.");
@@ -51,7 +51,10 @@ export default function BetaGatePage() {
         </div>
 
         {/* Description */}
-        <p className="mt-5 text-center text-[15px] leading-relaxed text-[#3d3d3d]">
+        <p className="mt-5 text-center text-[14px] leading-relaxed text-[#888]">
+          La plateforme tout-en-un pour les copropriétés marocaines. Charges, voisinage, services, incidents, transparence financière.
+        </p>
+        <p className="mt-4 text-center text-[15px] leading-relaxed text-[#3d3d3d]">
           Palier est actuellement en <span className="font-semibold">accès anticipé</span>.
           Entrez votre code d&apos;invitation pour découvrir l&apos;application.
         </p>
