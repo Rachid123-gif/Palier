@@ -21,7 +21,7 @@ export default function BetaGatePage() {
     try {
       const res = await validateBetaCode(trimmed);
       if (res.ok) {
-        router.push("/site");
+        router.push("/bienvenue");
         router.refresh();
       } else {
         setError("Code invalide. Vérifiez et réessayez.");
