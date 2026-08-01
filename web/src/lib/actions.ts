@@ -360,8 +360,10 @@ export async function generateAccessCode(input: {
   });
 
   // Generate and link the code
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const _b1 = new Uint8Array(6);
+  crypto.getRandomValues(_b1);
+  const _c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from(_b1, (b) => _c[b % _c.length]).join("");
   const { data, error } = await supabaseAdmin.from("access_codes").insert({
     building_id: input.buildingId,
     code,
@@ -437,8 +439,10 @@ export async function addResident(input: {
 
   if (memberErr) return { error: "membership_error" };
 
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const _b2 = new Uint8Array(6);
+  crypto.getRandomValues(_b2);
+  const _ch = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from(_b2, (b) => _ch[b % _ch.length]).join("");
   await supabaseAdmin.from("access_codes").insert({
     building_id: v.buildingId,
     code,
@@ -486,8 +490,10 @@ export async function regenerateResidentCode(profileId: string): Promise<{ error
     .is("used_at", null);
 
   // Generate new code
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const code = "RES-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const _b3 = new Uint8Array(6);
+  crypto.getRandomValues(_b3);
+  const _chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from(_b3, (b) => _chars[b % _chars.length]).join("");
   await supabaseAdmin.from("access_codes").insert({
     building_id: session.buildingId,
     code,

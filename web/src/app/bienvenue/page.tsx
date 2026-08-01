@@ -286,22 +286,15 @@ function BienvenueContent() {
         localStorage.setItem("palier_lang", lang);
         router.push(selectedRole === "syndic" ? "/syndic" : "/");
       } else {
-        const errorMessages: Record<string, string> = lang === "fr" ? {
-          code_not_found: "Code introuvable. Vérifiez le code et réessayez.",
-          code_not_linked: "Ce code n'est pas encore associé à un compte. Contactez votre syndic.",
-          too_many_attempts: "Trop de tentatives. Veuillez réessayer dans quelques minutes.",
-          wrong_role: role === "syndic"
-            ? "Ce code est réservé aux résidents. Utilisez votre code syndic."
-            : "Ce code est réservé au syndic. Demandez un code résident à votre syndic.",
-        } : {
-          code_not_found: "الرمز غير موجود. تحقق من الرمز وأعد المحاولة.",
-          code_not_linked: "هذا الرمز غير مرتبط بحساب بعد. تواصل مع السنديك.",
-          too_many_attempts: "محاولات كثيرة. يرجى إعادة المحاولة بعد بضع دقائق.",
-          wrong_role: role === "syndic"
-            ? "هذا الرمز مخصص للسكان. استخدم رمز السنديك الخاص بك."
-            : "هذا الرمز مخصص للسنديك. اطلب رمز ساكن من السنديك.",
-        };
-        setCodeError(errorMessages[result.error] ?? (role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident));
+        if (result.error === "too_many_attempts") {
+          setCodeError(lang === "fr"
+            ? "Trop de tentatives. Veuillez réessayer dans quelques minutes."
+            : "محاولات كثيرة. يرجى إعادة المحاولة بعد بضع دقائق.");
+        } else {
+          setCodeError(lang === "fr"
+            ? "Code invalide. Vérifiez et réessayez."
+            : "رمز غير صالح. تحقق وأعد المحاولة.");
+        }
       }
     } catch {
       setCodeError(role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident);
@@ -368,12 +361,15 @@ function BienvenueContent() {
         setOtpError("");
         setStep("recover-otp");
       } else {
-        const errorMap: Record<string, string> = {
-          too_many_attempts: lang === "fr"
+        if (result.error === "too_many_attempts") {
+          setRecoverError(lang === "fr"
             ? "Trop de tentatives. Réessayez dans quelques minutes."
-            : "محاولات كثيرة. أعد المحاولة بعد بضع دقائق.",
-        };
-        setRecoverError(errorMap[result.error] ?? i.recoverError);
+            : "محاولات كثيرة. أعد المحاولة بعد بضع دقائق.");
+        } else {
+          setRecoverError(lang === "fr"
+            ? "Impossible de vérifier ce numéro. Vérifiez et réessayez."
+            : "تعذر التحقق من هذا الرقم. تحقق وأعد المحاولة.");
+        }
       }
     } catch {
       setRecoverError(i.recoverError);

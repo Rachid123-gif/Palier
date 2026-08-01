@@ -13,6 +13,22 @@ import {
 import { checkRateLimit, RATE_LIMITS } from "./rate-limit";
 import { sendSMS } from "./sms";
 
+/* ─── Crypto-safe random code generation ─── */
+
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateCode(prefix: string, length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return prefix + Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+}
+
+function generateOtp(): string {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => String(b % 10)).join("");
+}
+
 /* ─── Read session (server components + actions) ─── */
 
 export async function getSession(): Promise<SessionData | null> {
@@ -188,9 +204,7 @@ export async function registerSyndic(input: {
   });
 
   // 4. Generate access code (best-effort — table may not exist yet)
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "SYN-";
-  for (let j = 0; j < 5; j++) code += chars[Math.floor(Math.random() * chars.length)];
+  const code = generateCode("SYN-", 6);
 
   await supabaseAdmin.from("access_codes").insert({
     building_id: building.id,
@@ -217,18 +231,7 @@ export async function registerSyndic(input: {
 
 /* ─── Recover syndic access (forgot code) — OTP flow ─── */
 
-// In-memory OTP store (production: use Redis or DB)
-const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number; profileId: string; buildingId: string; unitId: string | null }>();
-
-// Clean expired OTPs periodically
-function cleanExpiredOtps() {
-  const now = Date.now();
-  for (const [key, val] of otpStore) {
-    if (val.expiresAt < now) otpStore.delete(key);
-  }
-}
-
-/** Step 1: Request OTP — validates phone, generates code */
+/** Step 1: Request OTP — validates phone, generates code, stores in DB */
 export async function requestRecoveryOtp(
   phone: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -238,7 +241,7 @@ export async function requestRecoveryOtp(
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const cleaned = phone.trim().replace(/\s+/g, "");
-  if (!cleaned) return { ok: false, error: "missing_phone" };
+  if (!cleaned) return { ok: false, error: "invalid_request" };
 
   // Find profile by phone
   const { data: profile } = await supabaseAdmin
@@ -246,7 +249,7 @@ export async function requestRecoveryOtp(
     .select("id")
     .eq("phone", cleaned)
     .single();
-  if (!profile) return { ok: false, error: "not_found" };
+  if (!profile) return { ok: false, error: "invalid_request" };
 
   // Check syndic membership
   const { data: membership } = await supabaseAdmin
@@ -257,34 +260,37 @@ export async function requestRecoveryOtp(
     .eq("status", "active")
     .limit(1)
     .single();
-  if (!membership) return { ok: false, error: "not_found" };
+  if (!membership) return { ok: false, error: "invalid_request" };
 
-  // Generate 6-digit OTP
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  // Generate 6-digit OTP (crypto-safe)
+  const otp = generateOtp();
 
-  // Store OTP (expires in 5 minutes, max 3 verification attempts)
-  cleanExpiredOtps();
-  otpStore.set(cleaned, {
+  // Clean old OTPs for this phone
+  await supabaseAdmin.from("otp_codes").delete().eq("phone", cleaned);
+
+  // Store OTP in database (expires in 5 minutes)
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  await supabaseAdmin.from("otp_codes").insert({
+    phone: cleaned,
     code: otp,
-    expiresAt: Date.now() + 5 * 60 * 1000,
-    attempts: 0,
-    profileId: profile.id,
-    buildingId: membership.building_id,
-    unitId: membership.unit_id,
+    profile_id: profile.id,
+    building_id: membership.building_id,
+    unit_id: membership.unit_id ?? null,
+    expires_at: expiresAt,
   });
 
-  // Send OTP via SMS (Twilio or Infobip — configured via SMS_PROVIDER env var)
+  // Send OTP via SMS
   try {
     await sendSMS(cleaned, `Votre code Palier : ${otp}`);
   } catch {
-    otpStore.delete(cleaned);
+    await supabaseAdmin.from("otp_codes").delete().eq("phone", cleaned);
     return { ok: false, error: "sms_failed" };
   }
 
   return { ok: true };
 }
 
-/** Step 2: Verify OTP — checks code, regenerates access code, creates session */
+/** Step 2: Verify OTP — checks code in DB, regenerates access code, creates session */
 export async function verifyRecoveryOtp(
   phone: string,
   otpCode: string,
@@ -295,58 +301,64 @@ export async function verifyRecoveryOtp(
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const cleaned = phone.trim().replace(/\s+/g, "");
-  const entry = otpStore.get(cleaned);
+
+  // Find OTP entry in database
+  const { data: entry } = await supabaseAdmin
+    .from("otp_codes")
+    .select("id, code, profile_id, building_id, unit_id, attempts, expires_at")
+    .eq("phone", cleaned)
+    .single();
 
   if (!entry) return { ok: false, error: "otp_expired" };
 
   // Check expiry
-  if (Date.now() > entry.expiresAt) {
-    otpStore.delete(cleaned);
+  if (new Date(entry.expires_at) < new Date()) {
+    await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
     return { ok: false, error: "otp_expired" };
   }
 
-  // Check attempts
-  entry.attempts++;
-  if (entry.attempts > 3) {
-    otpStore.delete(cleaned);
+  // Check attempts (max 3)
+  if (entry.attempts >= 3) {
+    await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
     return { ok: false, error: "too_many_attempts" };
   }
+
+  // Increment attempts
+  await supabaseAdmin.from("otp_codes").update({ attempts: entry.attempts + 1 }).eq("id", entry.id);
 
   // Verify code
   if (otpCode.trim() !== entry.code) {
     return { ok: false, error: "otp_invalid" };
   }
 
-  // OTP valid — regenerate access code + create session
-  otpStore.delete(cleaned);
+  // OTP valid — clean up
+  await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
 
-  // Generate new access code
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let newCode = "SYN-";
-  for (let j = 0; j < 5; j++) newCode += chars[Math.floor(Math.random() * chars.length)];
+  // Generate new access code (crypto-safe)
+  const newCode = generateCode("SYN-", 6);
 
   // Deactivate old codes and insert new one
   await supabaseAdmin
     .from("access_codes")
     .delete()
-    .eq("building_id", entry.buildingId)
-    .eq("used_by", entry.profileId)
+    .eq("building_id", entry.building_id)
+    .eq("used_by", entry.profile_id)
     .eq("role", "syndic");
 
   await supabaseAdmin.from("access_codes").insert({
-    building_id: entry.buildingId,
+    building_id: entry.building_id,
     code: newCode,
     role: "syndic",
-    label: "Syndic — Code régénéré",
-    used_by: entry.profileId,
+    label: "Syndic",
+    used_by: entry.profile_id,
     used_at: new Date().toISOString(),
   }).then(() => {}, () => {});
 
   // Create session
   const session: SessionData = {
-    profileId: entry.profileId,
-    buildingId: entry.buildingId,
-    unitId: entry.unitId,
+    profileId: entry.profile_id,
+    buildingId: entry.building_id,
+    unitId: entry.unit_id,
     role: "syndic",
   };
   const cookieStore = await cookies();
