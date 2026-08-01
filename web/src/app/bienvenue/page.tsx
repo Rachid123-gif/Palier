@@ -68,7 +68,7 @@ const t = {
     registerError: "Une erreur est survenue. Veuillez réessayer.",
     registerErrorPhone: "Numéro invalide. Format attendu : 06/07/05 suivi de 8 chiffres.",
     registerErrorLots: "Minimum 2 appartements.",
-    registerErrorPhoneExists: "Ce numéro est déjà associé à un compte syndic. Utilisez « Code oublié » pour récupérer votre accès.",
+    registerErrorPhoneExists: "Impossible de créer un compte avec ce numéro. Vérifiez ou utilisez « Code oublié ».",
     registerLoading: "Création en cours…",
     // Register success step
     successTitle: "Votre espace est prêt !",
@@ -158,7 +158,7 @@ const t = {
     registerError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
     registerErrorPhone: "رقم غير صالح. الصيغة المطلوبة: 06/07/05 متبوعاً بـ 8 أرقام.",
     registerErrorLots: "الحد الأدنى شقتان.",
-    registerErrorPhoneExists: "هذا الرقم مرتبط بحساب سنديك. استخدم «نسيت الرمز» لاسترجاع وصولك.",
+    registerErrorPhoneExists: "تعذر إنشاء حساب بهذا الرقم. تحقق أو استخدم «نسيت الرمز».",
     registerLoading: "جارٍ الإنشاء…",
     // Register success step
     successTitle: "مساحتك جاهزة!",

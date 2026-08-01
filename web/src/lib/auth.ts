@@ -187,21 +187,35 @@ export async function registerSyndic(input: {
     .single();
   if (bErr || !building) return { ok: false, error: "creation_failed" };
 
-  // 2. Create profile
-  const { data: profile, error: pErr } = await supabaseAdmin
-    .from("profiles")
-    .insert({ full_name: name, phone: phoneClean })
-    .select("id")
-    .single();
-  if (pErr || !profile) return { ok: false, error: "creation_failed" };
+  // 2. Reuse existing profile or create new one
+  let profileId: string;
+  if (existingProfile) {
+    profileId = existingProfile.id;
+    // Update name if needed
+    await supabaseAdmin.from("profiles").update({ full_name: name }).eq("id", profileId);
+  } else {
+    const { data: profile, error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .insert({ full_name: name, phone: phoneClean })
+      .select("id")
+      .single();
+    if (pErr || !profile) return { ok: false, error: "creation_failed" };
+    profileId = profile.id;
+  }
 
   // 3. Create membership
   await supabaseAdmin.from("memberships").insert({
-    profile_id: profile.id,
+    profile_id: profileId,
     building_id: building.id,
     role: "syndic",
     status: "active",
   });
+
+  // 3b. Create default building settings
+  await supabaseAdmin.from("building_settings").insert({
+    building_id: building.id,
+    syndic_phone: phoneClean,
+  }).then(() => {}, () => {});
 
   // 4. Generate access code (best-effort — table may not exist yet)
   const code = generateCode("SYN-", 6);
@@ -211,13 +225,13 @@ export async function registerSyndic(input: {
     code,
     role: "syndic",
     label: `Syndic — ${name}`,
-    used_by: profile.id,
+    used_by: profileId,
     used_at: new Date().toISOString(),
   }).then(() => {}, () => {});
 
   // 5. Set session cookie (auto-login)
   const session: SessionData = {
-    profileId: profile.id,
+    profileId,
     buildingId: building.id,
     unitId: null,
     role: "syndic",
