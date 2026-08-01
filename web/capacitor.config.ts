@@ -5,9 +5,8 @@ const config: CapacitorConfig = {
   appName: "Palier",
   webDir: "out",
   server: {
-    // In development, point to the local dev server
-    // url: "http://localhost:3000",
-    // cleartext: true,
+    url: "https://palier.ma",
+    cleartext: false,
   },
   plugins: {
     PushNotifications: {
@@ -26,6 +25,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: "automatic",
     scheme: "Palier",
+    preferredContentMode: "mobile",
   },
   android: {
     backgroundColor: "#f5f1ea",
