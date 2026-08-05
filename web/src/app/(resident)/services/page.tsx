@@ -519,7 +519,8 @@ export default function ServicesScreen() {
             <input
               type="tel" value={recoPhone} onChange={(e) => setRecoPhone(e.target.value)}
               placeholder={T.telephonePlaceholder}
-              className="h-11 w-full rounded-2xl border border-black/[0.06] bg-white px-4 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400"
+              dir="ltr"
+              className={`h-11 w-full rounded-2xl border border-black/[0.06] bg-white px-4 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 ${lang === "ar" ? "text-right" : ""}`}
             />
           </div>
 
@@ -615,7 +616,8 @@ export default function ServicesScreen() {
                 </label>
                 <input
                   type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)}
-                  className="h-11 w-full rounded-2xl border border-black/[0.06] bg-white px-4 text-[14px] text-ink outline-none focus:border-palier-400"
+                  dir="ltr"
+                  className={`h-11 w-full rounded-2xl border border-black/[0.06] bg-white px-4 text-[14px] text-ink outline-none focus:border-palier-400 ${lang === "ar" ? "text-right" : ""}`}
                 />
               </div>
             )}

@@ -793,7 +793,7 @@ function BienvenueContent() {
                 onChange={(e) => setRegPhone(e.target.value)}
                 placeholder="06XXXXXXXX"
                 dir="ltr"
-                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+                className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400 ${isAr ? "text-right" : ""}`}
               />
             </div>
 
@@ -848,7 +848,7 @@ function BienvenueContent() {
                 min="2"
                 max="500"
                 dir="ltr"
-                className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400"
+                className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400 ${isAr ? "text-right" : ""}`}
               />
             </div>
           </div>
