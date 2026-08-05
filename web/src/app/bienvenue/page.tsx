@@ -125,7 +125,7 @@ const t = {
     skip: "تخطي المقدمة",
     codeTitle: "رمز الدخول",
     codeDescResident: "أدخل الرمز الذي منحك إياه السنديك للوصول إلى إقامتك.",
-    codeDescSyndic: "أدخل رمز التفعيل الذي تلقيته عند تسجيلك في بالييه.",
+    codeDescSyndic: "أدخل رمز التفعيل الذي تلقيته عند تسجيلك في Palier.",
     codePlaceholder: "",
     codeErrorResident: "رمز غير صحيح. تحقق لدى السنديك.",
     codeErrorSyndic: "رمز غير صحيح. تحقق من بريدك الإلكتروني.",
@@ -145,7 +145,7 @@ const t = {
     syndicHasCode: "لديّ حساب",
     syndicHasCodeDesc: "أدخل برمز الوصول الخاص بي.",
     syndicRegister: "هذه أول مرة",
-    syndicRegisterDesc: "أسجّل لإدارة عمارتي على بالييه.",
+    syndicRegisterDesc: "أسجّل لإدارة عمارتي على Palier.",
     // Register step
     registerTitle: "أنشئ مساحتك",
     registerDesc: "املأ هذه المعلومات لبدء إدارة عمارتك.",

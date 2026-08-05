@@ -19,15 +19,15 @@ const texts = {
     noCodeDesc: "Contactez-nous pour rejoindre le programme d'accès anticipé et être parmi les premiers à utiliser Palier.",
   },
   ar: {
-    badge: "وصول مبكر",
+    badge: "نسخة تجريبية",
     desc: "المنصة الشاملة للملكية المشتركة في المغرب. المصاريف، الجوار، الخدمات، الحوادث، الشفافية المالية.",
-    invite: "بالييه متاح حالياً بوصول مبكر. أدخل رمز الدعوة لاكتشاف التطبيق.",
+    invite: "Palier متاح حالياً بنسخة تجريبية. أدخل رمز الدعوة لاكتشاف التطبيق.",
     placeholder: "رمز الدعوة",
-    button: "الدخول إلى بالييه",
+    button: "الدخول إلى Palier",
     errorInvalid: "رمز غير صالح. تحقق وأعد المحاولة.",
     errorConnection: "خطأ في الاتصال. أعد المحاولة.",
     noCode: "ليس لديك رمز؟",
-    noCodeDesc: "تواصل معنا للانضمام إلى برنامج الوصول المبكر وكن من أوائل مستخدمي بالييه.",
+    noCodeDesc: "تواصل معنا للانضمام إلى البرنامج التجريبي وكن من أوائل مستخدمي Palier.",
   },
 };
 
@@ -36,6 +36,7 @@ export default function BetaGatePage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [lang, setLang] = useState<"fr" | "ar">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("palier_lang");
@@ -78,9 +79,10 @@ export default function BetaGatePage() {
       {/* Language toggle */}
       <button
         onClick={toggleLang}
-        className="fixed top-4 right-4 z-50 rounded-full bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-[#3d3d3d] shadow-sm backdrop-blur transition-colors hover:bg-white"
+        className="fixed top-4 right-4 z-50 flex items-center gap-1 rounded-full bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-[#3d3d3d] shadow-sm backdrop-blur transition-colors hover:bg-white"
       >
-        {lang === "fr" ? "العربية" : "Français"}
+        <Icon name="Globe" className="h-3.5 w-3.5" />
+        {lang === "fr" ? <span style={{ fontFamily: "var(--font-cairo), sans-serif" }}>العربية</span> : "Français"}
       </button>
 
       <div className="w-full max-w-sm">
@@ -156,13 +158,13 @@ export default function BetaGatePage() {
               <Icon name="MessageCircle" className="h-4 w-4" />
               WhatsApp
             </a>
-            <a
-              href="mailto:contact@palier.ma?subject=Demande%20de%20code%20d'acc%C3%A8s%20Palier"
+            <button
+              onClick={() => { navigator.clipboard.writeText("contact@palier.ma"); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
               className="flex items-center justify-center gap-2 rounded-xl bg-black/[0.04] py-3 text-[13px] font-semibold text-[#3d3d3d] transition-colors hover:bg-black/[0.08]"
             >
-              <Icon name="Mail" className="h-4 w-4" />
-              contact@palier.ma
-            </a>
+              <Icon name={copied ? "Check" : "Mail"} className="h-4 w-4" />
+              {copied ? (lang === "fr" ? "Email copié !" : "تم نسخ البريد !") : "contact@palier.ma"}
+            </button>
           </div>
         </div>
 

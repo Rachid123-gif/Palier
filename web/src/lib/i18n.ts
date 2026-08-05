@@ -520,7 +520,7 @@ export const t = {
       recuPaiement: "وصل الدفع",
       paiementConfirme: "تم تأكيد الدفع",
       charge: "المصروف", detail: "التفاصيل", montant: "المبلغ", statut: "الحالة",
-      recuEnregistre: "هذا الوصل مسجل في نظام بالييه",
+      recuEnregistre: "هذا الوصل مسجل في نظام Palier",
       voirRecu: "عرض الوصل",
       sur: "من أصل",
     },
