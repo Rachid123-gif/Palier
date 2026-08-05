@@ -926,10 +926,12 @@ function BienvenueContent() {
 
           <button
             onClick={() => { setRegOtp(""); setRegOtpError(""); handleRegister(); }}
-            disabled={registering}
-            className="tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
+            disabled={registering || (otpCountdown !== null && otpCountdown > 270)}
+            className={`tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600 ${registering || (otpCountdown !== null && otpCountdown > 270) ? "opacity-40" : ""}`}
           >
-            {i.otpResend}
+            {otpCountdown !== null && otpCountdown > 270
+              ? (lang === "fr" ? `Renvoyer dans ${otpCountdown - 270}s` : `إعادة الإرسال خلال ${otpCountdown - 270}ث`)
+              : i.otpResend}
           </button>
         </div>
 
@@ -1223,10 +1225,12 @@ function BienvenueContent() {
 
           <button
             onClick={() => { setOtp(""); setOtpError(""); handleRecover(); }}
-            disabled={recovering}
-            className="tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
+            disabled={recovering || (otpCountdown !== null && otpCountdown > 270)}
+            className={`tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600 ${recovering || (otpCountdown !== null && otpCountdown > 270) ? "opacity-40" : ""}`}
           >
-            {i.otpResend}
+            {otpCountdown !== null && otpCountdown > 270
+              ? (lang === "fr" ? `Renvoyer dans ${otpCountdown - 270}s` : `إعادة الإرسال خلال ${otpCountdown - 270}ث`)
+              : i.otpResend}
           </button>
         </div>
 
