@@ -82,10 +82,12 @@ export function SettingsView({
   building,
   settings,
   units,
+  verifiedPhone,
 }: {
   building: { id: string; name: string; address: string; city: string; lots: number; syndic: string };
   settings: BuildingSettings | null;
   units: { id: string; ref: string; floor: number | null; tantiemes: number }[];
+  verifiedPhone: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -93,7 +95,7 @@ export function SettingsView({
   const [activeSection, setActiveSection] = useState<SectionKey>("general");
 
   // ── General ──
-  const [phone, setPhone] = useState(settings?.syndic_phone ?? "");
+  const phone = verifiedPhone || settings?.syndic_phone || "";
   const [email, setEmail] = useState(settings?.syndic_email ?? "");
   const [welcome, setWelcome] = useState(settings?.welcome_message ?? "");
 
@@ -192,7 +194,7 @@ export function SettingsView({
       router.refresh();
       setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }, [building.id, phone, email, welcome, incidentCats, expenseCats, chargeCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
+  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
 
   // Auto-save with 1s debounce
   useEffect(() => {
@@ -340,8 +342,12 @@ export function SettingsView({
                 <p className="mb-3 text-[12px] text-ink-soft">Ces informations sont visibles par les résidents dans leur application.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="06 XX XX XX XX" className={inputCls} />
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone vérifié</label>
+                    <div className={`${inputCls} flex items-center justify-between bg-sand/50 text-ink-soft`}>
+                      <span dir="ltr">{phone || "—"}</span>
+                      <Icon name="ShieldCheck" className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-faint">Numéro vérifié lors de l&apos;inscription. Non modifiable.</p>
                   </div>
                   <div>
                     <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Email</label>
