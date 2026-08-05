@@ -240,7 +240,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
   return {
     building: {
       id: b?.id, name: b?.name ?? "", address: b?.address ?? "", city: b?.city ?? "",
-      lots: units.length, balance: Number(b?.balance ?? 0), syndic: b?.syndic_name ?? "",
+      lots: Number(b?.lots_count ?? 0) || units.length, balance: Number(b?.balance ?? 0), syndic: b?.syndic_name ?? "",
       annualBudget: Number(b?.annual_budget ?? 0),
       accountingTier: b?.accounting_tier ?? "tier1",
     },
