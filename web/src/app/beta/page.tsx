@@ -122,7 +122,7 @@ export default function BetaGatePage() {
             />
             {error && (
               <p className="mt-2 flex items-center justify-center gap-1.5 text-[13px] font-medium text-red-600">
-                <Icon name="AlertCircle" className="h-3.5 w-3.5" />
+                <Icon name="CircleX" className="h-3.5 w-3.5" />
                 {error}
               </p>
             )}
