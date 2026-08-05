@@ -188,8 +188,8 @@ export async function requestSyndicRegistrationOtp(input: {
     }
   }
 
-  // Generate OTP
-  const otp = generateOtp();
+  // Generate OTP (fixed in test mode)
+  const otp = process.env.SKIP_SMS === "1" ? "123456" : generateOtp();
 
   // Clean old OTPs for this phone
   await supabaseAdmin.from("otp_codes").delete().eq("phone", phoneClean);
@@ -440,8 +440,8 @@ export async function requestRecoveryOtp(
     .single();
   if (!membership) return { ok: false, error: "invalid_request" };
 
-  // Generate 6-digit OTP (crypto-safe)
-  const otp = generateOtp();
+  // Generate 6-digit OTP (fixed in test mode)
+  const otp = process.env.SKIP_SMS === "1" ? "123456" : generateOtp();
 
   // Clean old OTPs for this phone
   await supabaseAdmin.from("otp_codes").delete().eq("phone", cleaned);

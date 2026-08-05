@@ -72,6 +72,11 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
  * Throws "sms_send_failed" in production if no provider is configured, or on provider error.
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
+  if (process.env.SKIP_SMS === "1") {
+    console.log(`[SMS/SKIP] → ${to}: ${message}`);
+    return;
+  }
+
   if (!provider) {
     if (process.env.NODE_ENV !== "production") {
       console.log(`[SMS/DEV] → ${to}: ${message}`);
