@@ -625,11 +625,15 @@ export async function validateBetaCode(
   const upper = code.trim().toUpperCase();
   if (!upper) return { ok: false, error: "invalid_code" };
 
-  const { data: invite } = await supabaseAdmin
+  const { data: invite, error: dbErr } = await supabaseAdmin
     .from("beta_invites")
     .select("id, used_at")
     .eq("code", upper)
     .single();
+
+  if (dbErr) {
+    console.error("[validateBetaCode] Supabase error:", dbErr.message, dbErr.code, "code:", upper);
+  }
 
   if (!invite) return { ok: false, error: "invalid_code" };
 
