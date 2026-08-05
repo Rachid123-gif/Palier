@@ -43,7 +43,8 @@ async function sendViaTwilio(to: string, message: string): Promise<void> {
 
 async function sendViaInfobip(to: string, message: string): Promise<void> {
   const apiKey = process.env.INFOBIP_API_KEY!;
-  const baseUrl = process.env.INFOBIP_BASE_URL!; // e.g. https://xxxxx.api.infobip.com
+  const rawBase = process.env.INFOBIP_BASE_URL!;
+  const baseUrl = rawBase.startsWith("http") ? rawBase : `https://${rawBase}`;
   const sender = process.env.INFOBIP_SENDER ?? "Palier";
 
   const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;

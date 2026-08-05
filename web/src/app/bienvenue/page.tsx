@@ -408,6 +408,9 @@ function BienvenueContent() {
           too_many_attempts: lang === "fr"
             ? "Trop de tentatives. Réessayez dans quelques minutes."
             : "محاولات كثيرة. أعد المحاولة بعد بضع دقائق.",
+          sms_failed: lang === "fr"
+            ? "Impossible d'envoyer le SMS. Vérifiez le numéro et réessayez."
+            : "تعذر إرسال الرسالة. تحقق من الرقم وأعد المحاولة.",
         };
         setRegError(errorMap[result.error] ?? i.registerError);
       }
