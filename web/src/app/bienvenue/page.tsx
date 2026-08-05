@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { loginWithCode, registerSyndic, requestRecoveryOtp, verifyRecoveryOtp } from "@/lib/auth";
+import { loginWithCode, requestSyndicRegistrationOtp, completeSyndicRegistration, requestRecoveryOtp, verifyRecoveryOtp } from "@/lib/auth";
 
 
 type Lang = "fr" | "ar";
@@ -200,7 +200,7 @@ const cities = [
   "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
 ];
 
-type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-success" | "recover" | "recover-otp" | "recover-success";
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-otp" | "register-success" | "recover" | "recover-otp" | "recover-success";
 
 export default function BienvenuePage() {
   return (
@@ -213,7 +213,13 @@ export default function BienvenuePage() {
 function BienvenueContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [lang, setLang] = useState<Lang>("fr");
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("palier_lang");
+      if (saved === "ar" || saved === "fr") return saved;
+    }
+    return "fr";
+  });
   const [step, setStep] = useState<Step>("lang");
   const [slide, setSlide] = useState(0);
   const [code, setCode] = useState("");
@@ -256,6 +262,62 @@ function BienvenueContent() {
   const [otpError, setOtpError] = useState("");
   const [verifying, setVerifying] = useState(false);
 
+  // Registration OTP state
+  const [regOtp, setRegOtp] = useState("");
+  const [regOtpError, setRegOtpError] = useState("");
+  const [regVerifying, setRegVerifying] = useState(false);
+
+  // OTP countdown timer
+  const [otpSentAt, setOtpSentAt] = useState<number | null>(null);
+  const [otpCountdown, setOtpCountdown] = useState<number | null>(null);
+
+  // OTP countdown timer effect
+  useEffect(() => {
+    if (!otpSentAt) { setOtpCountdown(null); return; }
+    const OTP_DURATION = 5 * 60; // 5 minutes in seconds
+
+    function tick() {
+      const elapsed = Math.floor((Date.now() - otpSentAt!) / 1000);
+      const remaining = OTP_DURATION - elapsed;
+      setOtpCountdown(remaining > 0 ? remaining : 0);
+    }
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [otpSentAt]);
+
+  // Persist onboarding state to sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("palier_onboarding", JSON.stringify({
+        step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, recoverPhone,
+      }));
+    }
+  }, [step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, recoverPhone]);
+
+  // Restore onboarding state from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("palier_onboarding");
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.step) setStep(data.step);
+          if (data.role) setRole(data.role);
+          if (data.code) setCode(data.code);
+          if (data.regName) setRegName(data.regName);
+          if (data.regPhone) setRegPhone(data.regPhone);
+          if (data.regBuilding) setRegBuilding(data.regBuilding);
+          if (data.regCity) setRegCity(data.regCity);
+          if (data.regCityCustom) setRegCityCustom(data.regCityCustom);
+          if (data.regLots) setRegLots(data.regLots);
+          if (data.recoverPhone) setRecoverPhone(data.recoverPhone);
+        } catch {}
+      }
+    }
+  }, []);
+
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
     else if (roleFromUrl === "syndic") setStep("syndic-choice");
@@ -284,7 +346,9 @@ function BienvenueContent() {
 
       if (result.ok) {
         localStorage.setItem("palier_lang", lang);
+        sessionStorage.removeItem("palier_onboarding");
         router.push(selectedRole === "syndic" ? "/syndic" : "/");
+        router.refresh();
       } else {
         if (result.error === "too_many_attempts") {
           setCodeError(lang === "fr"
@@ -297,7 +361,9 @@ function BienvenueContent() {
         }
       }
     } catch {
-      setCodeError(role === "syndic" ? i.codeErrorSyndic : i.codeErrorResident);
+      setCodeError(lang === "fr"
+        ? "Code invalide. Vérifiez et réessayez."
+        : "رمز غير صالح. تحقق وأعد المحاولة.");
     } finally {
       setValidating(false);
     }
@@ -310,7 +376,6 @@ function BienvenueContent() {
     if (!regName.trim() || !regPhone.trim() || !regBuilding.trim() || !regCity || !regLots) return;
     setRegError("");
 
-    // Client-side validation
     if (!isPhoneValid(regPhone)) {
       setRegError(i.registerErrorPhone);
       return;
@@ -321,9 +386,8 @@ function BienvenueContent() {
     }
 
     setRegistering(true);
-
     try {
-      const result = await registerSyndic({
+      const result = await requestSyndicRegistrationOtp({
         fullName: regName.trim(),
         phone: regPhone.trim(),
         buildingName: regBuilding.trim(),
@@ -332,14 +396,18 @@ function BienvenueContent() {
       });
 
       if (result.ok) {
-        localStorage.setItem("palier_lang", lang);
-        setAccessCode(result.accessCode);
-        setStep("register-success");
+        setRegOtp("");
+        setRegOtpError("");
+        setOtpSentAt(Date.now());
+        setStep("register-otp");
       } else {
         const errorMap: Record<string, string> = {
           invalid_phone: i.registerErrorPhone,
           invalid_lots: i.registerErrorLots,
           phone_already_registered: i.registerErrorPhoneExists,
+          too_many_attempts: lang === "fr"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : "محاولات كثيرة. أعد المحاولة بعد بضع دقائق.",
         };
         setRegError(errorMap[result.error] ?? i.registerError);
       }
@@ -350,8 +418,48 @@ function BienvenueContent() {
     }
   }
 
+  async function handleVerifyRegOtp() {
+    if (!regOtp.trim() || regOtp.length !== 6) return;
+    setRegVerifying(true);
+    setRegOtpError("");
+    try {
+      const result = await completeSyndicRegistration({
+        fullName: regName.trim(),
+        phone: regPhone.trim(),
+        buildingName: regBuilding.trim(),
+        city: resolvedCity,
+        lotsCount: parseInt(regLots) || 2,
+        otp: regOtp.trim(),
+      });
+
+      if (result.ok) {
+        localStorage.setItem("palier_lang", lang);
+        setAccessCode(result.accessCode);
+        setStep("register-success");
+      } else {
+        const errorMap: Record<string, string> = {
+          otp_invalid: i.otpError,
+          otp_expired: i.otpExpired,
+          too_many_attempts: lang === "fr"
+            ? "Trop de tentatives. Veuillez recommencer."
+            : "محاولات كثيرة. يرجى البدء من جديد.",
+        };
+        setRegOtpError(errorMap[result.error] ?? i.registerError);
+      }
+    } catch {
+      setRegOtpError(i.registerError);
+    } finally {
+      setRegVerifying(false);
+    }
+  }
+
   async function handleRecover() {
     if (!recoverPhone.trim()) return;
+    const cleaned = recoverPhone.trim().replace(/\s+/g, "");
+    if (!/^0[5-7]\d{8}$/.test(cleaned)) {
+      setRecoverError(lang === "fr" ? "Format invalide. Entrez un numéro 06/07/05 suivi de 8 chiffres." : "صيغة غير صالحة. أدخل رقم 06/07/05 متبوعاً بـ 8 أرقام.");
+      return;
+    }
     setRecovering(true);
     setRecoverError("");
     try {
@@ -359,6 +467,7 @@ function BienvenueContent() {
       if (result.ok) {
         setOtp("");
         setOtpError("");
+        setOtpSentAt(Date.now());
         setStep("recover-otp");
       } else {
         if (result.error === "too_many_attempts") {
@@ -372,7 +481,9 @@ function BienvenueContent() {
         }
       }
     } catch {
-      setRecoverError(i.recoverError);
+      setRecoverError(lang === "fr"
+        ? "Impossible de vérifier ce numéro. Vérifiez et réessayez."
+        : "تعذر التحقق من هذا الرقم. تحقق وأعد المحاولة.");
     } finally {
       setRecovering(false);
     }
@@ -411,7 +522,7 @@ function BienvenueContent() {
   // Bouton de langue (coin haut droit)
   const langBtn = (
     <button
-      onClick={() => { setLang(i.langSwitch); setCodeError(""); setRegError(""); }}
+      onClick={() => { const next = i.langSwitch; setLang(next); localStorage.setItem("palier_lang", next); setCodeError(""); setRegError(""); }}
       className="tap flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-soft shadow-sm"
     >
       <Icon name="Globe" className="h-3.5 w-3.5" />
@@ -441,7 +552,7 @@ function BienvenueContent() {
 
           <div className="mt-6 w-full max-w-[20rem] space-y-3">
             <button
-              onClick={() => { setLang("fr"); setStep("welcome"); }}
+              onClick={() => { setLang("fr"); setStep("welcome"); localStorage.setItem("palier_lang", "fr"); }}
               className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-palier-50">
@@ -455,7 +566,7 @@ function BienvenueContent() {
             </button>
 
             <button
-              onClick={() => { setLang("ar"); setStep("welcome"); }}
+              onClick={() => { setLang("ar"); setStep("welcome"); localStorage.setItem("palier_lang", "ar"); }}
               className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-end shadow-card"
               dir="rtl"
             >
@@ -763,6 +874,76 @@ function BienvenueContent() {
     );
   }
 
+  // ─── VÉRIFICATION OTP INSCRIPTION SYNDIC ──────────────────────
+  if (step === "register-otp") {
+    const maskedPhone = regPhone.trim().replace(/(\d{2})\d{4}(\d{4})/, "$1****$2");
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => { setStep("register"); setRegOtp(""); setRegOtpError(""); })}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="ShieldCheck" className="h-8 w-8 text-palier-600" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.otpTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">
+            {i.otpDesc}<span className="font-semibold" dir="ltr">{maskedPhone}</span>
+          </p>
+
+          <div className="mt-6">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={regOtp}
+              onChange={(e) => { setRegOtp(e.target.value.replace(/\D/g, "")); setRegOtpError(""); }}
+              placeholder={i.otpPlaceholder}
+              autoFocus
+              dir="ltr"
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[24px] font-bold tracking-[0.3em] text-ink outline-none placeholder:text-[18px] placeholder:font-normal placeholder:tracking-[0.3em] placeholder:text-ink-faint focus:border-palier-400"
+            />
+            {regOtpError && (
+              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
+                <Icon name="CircleAlert" className="h-4 w-4" /> {regOtpError}
+              </p>
+            )}
+          </div>
+
+          {otpCountdown !== null && otpCountdown > 0 && (
+            <p className="mt-3 text-center text-[12px] text-ink-faint">
+              {lang === "fr" ? `Expire dans ${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, "0")}` : `ينتهي خلال ${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, "0")}`}
+            </p>
+          )}
+
+          <button
+            onClick={() => { setRegOtp(""); setRegOtpError(""); handleRegister(); }}
+            disabled={registering}
+            className="tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
+          >
+            {i.otpResend}
+          </button>
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={handleVerifyRegOtp}
+            disabled={regOtp.length !== 6 || regVerifying}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${regOtp.length !== 6 || regVerifying ? "opacity-50" : ""}`}
+          >
+            {regVerifying ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
+            {regVerifying ? i.otpLoading : i.otpBtn}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── SUCCÈS INSCRIPTION SYNDIC ─────────────────────────────
   if (step === "register-success") {
     return (
@@ -783,8 +964,8 @@ function BienvenueContent() {
             </div>
 
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(accessCode);
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(accessCode); } catch {}
                 setCodeCopied(true);
                 setTimeout(() => setCodeCopied(false), 2000);
               }}
@@ -803,7 +984,7 @@ function BienvenueContent() {
 
         <div className="px-6 pb-10">
           <button
-            onClick={() => router.push("/syndic")}
+            onClick={() => { sessionStorage.removeItem("palier_onboarding"); router.push("/syndic"); router.refresh(); }}
             className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white"
           >
             {i.successContinue}
@@ -833,34 +1014,36 @@ function BienvenueContent() {
           <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.codeTitle}</h1>
           <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{role === "syndic" ? i.codeDescSyndic : i.codeDescResident}</p>
 
-          <div className="mt-6">
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(""); }}
-              placeholder={i.codePlaceholder}
-              autoFocus
-              dir="ltr"
-              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.15em] text-ink outline-none placeholder:text-[14px] placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400"
-            />
-            {codeError && (
-              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
-                <Icon name="CircleAlert" className="h-4 w-4" /> {codeError}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-palier-50 px-4 py-3">
-            <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
-            <p className="text-[12px] leading-snug text-palier-800">{role === "syndic" ? i.codeInfoSyndic : i.codeInfoResident}</p>
-          </div>
-
-          {role === "syndic" && roleFromUrl !== "syndic" && (
-            <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-sand/60 px-4 py-3">
-              <Icon name="Monitor" className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
-              <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener" className="font-semibold text-palier-600 underline">palier.ma</a></p>
+          <form onSubmit={(e) => { e.preventDefault(); validateCode(); }}>
+            <div className="mt-6">
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(""); }}
+                placeholder={i.codePlaceholder}
+                autoFocus
+                dir="ltr"
+                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.15em] text-ink outline-none placeholder:text-[14px] placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400"
+              />
+              {codeError && (
+                <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
+                  <Icon name="CircleAlert" className="h-4 w-4" /> {codeError}
+                </p>
+              )}
             </div>
-          )}
+
+            <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-palier-50 px-4 py-3">
+              <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
+              <p className="text-[12px] leading-snug text-palier-800">{role === "syndic" ? i.codeInfoSyndic : i.codeInfoResident}</p>
+            </div>
+
+            {role === "syndic" && roleFromUrl !== "syndic" && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-sand/60 px-4 py-3">
+                <Icon name="Monitor" className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
+                <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener" className="font-semibold text-palier-600 underline">palier.ma</a></p>
+              </div>
+            )}
+          </form>
         </div>
 
         <div className="px-6 pb-10">
@@ -904,8 +1087,8 @@ function BienvenueContent() {
             </div>
 
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(accessCode);
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(accessCode); } catch {}
                 setCodeCopied(true);
                 setTimeout(() => setCodeCopied(false), 2000);
               }}
@@ -924,7 +1107,7 @@ function BienvenueContent() {
 
         <div className="px-6 pb-10">
           <button
-            onClick={() => router.push("/syndic")}
+            onClick={() => { sessionStorage.removeItem("palier_onboarding"); router.push("/syndic"); router.refresh(); }}
             className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white"
           >
             {i.recoverSuccessContinue}
@@ -954,22 +1137,24 @@ function BienvenueContent() {
           <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">{i.recoverTitle}</h1>
           <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">{i.recoverDesc}</p>
 
-          <div className="mt-6">
-            <input
-              type="tel"
-              value={recoverPhone}
-              onChange={(e) => { setRecoverPhone(e.target.value); setRecoverError(""); }}
-              placeholder="06XXXXXXXX"
-              autoFocus
-              dir="ltr"
-              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.1em] text-ink outline-none placeholder:text-[14px] placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400"
-            />
-            {recoverError && (
-              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
-                <Icon name="CircleAlert" className="h-4 w-4" /> {recoverError}
-              </p>
-            )}
-          </div>
+          <form onSubmit={(e) => { e.preventDefault(); handleRecover(); }}>
+            <div className="mt-6">
+              <input
+                type="tel"
+                value={recoverPhone}
+                onChange={(e) => { setRecoverPhone(e.target.value); setRecoverError(""); }}
+                placeholder="06XXXXXXXX"
+                autoFocus
+                dir="ltr"
+                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.1em] text-ink outline-none placeholder:text-[14px] placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400"
+              />
+              {recoverError && (
+                <p className="mt-2 flex items-center gap-1.5 text-[13px] text-red-500">
+                  <Icon name="CircleAlert" className="h-4 w-4" /> {recoverError}
+                </p>
+              )}
+            </div>
+          </form>
         </div>
 
         <div className="px-6 pb-10">
@@ -1027,8 +1212,15 @@ function BienvenueContent() {
             )}
           </div>
 
+          {otpCountdown !== null && otpCountdown > 0 && (
+            <p className="mt-3 text-center text-[12px] text-ink-faint">
+              {lang === "fr" ? `Expire dans ${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, "0")}` : `ينتهي خلال ${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, "0")}`}
+            </p>
+          )}
+
           <button
             onClick={() => { setOtp(""); setOtpError(""); handleRecover(); }}
+            disabled={recovering}
             className="tap mt-4 w-full py-2 text-center text-[13px] font-semibold text-palier-600"
           >
             {i.otpResend}

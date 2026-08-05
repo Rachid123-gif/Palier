@@ -29,14 +29,14 @@ export default function ImmeubleScreen() {
     if (p === "tout") return entries;
     if (p === "custom") {
       return entries.filter((l) => {
-        const d = new Date(l.date);
+        const d = new Date(l.entry_date);
         const matchYear = !periodYear || d.getFullYear().toString() === periodYear;
         const matchMonth = !periodMonth || d.getMonth().toString() === periodMonth;
         return matchYear && matchMonth;
       });
     }
     return entries.filter((l) => {
-      const d = new Date(l.date);
+      const d = new Date(l.entry_date);
       if (p === "mois") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       const ago = new Date(now);
       ago.setMonth(ago.getMonth() - (p === "3mois" ? 3 : 6));
@@ -44,7 +44,7 @@ export default function ImmeubleScreen() {
     });
   }
 
-  const years = [...new Set(ledger.map((l) => new Date(l.date).getFullYear().toString()))].sort().reverse();
+  const years = [...new Set(ledger.map((l) => new Date(l.entry_date).getFullYear().toString()))].sort().reverse();
 
   const customLabel = movPeriod === "custom"
     ? [periodMonth ? i.months[parseInt(periodMonth)] : "", periodYear].filter(Boolean).join(" ") || T.periode
@@ -210,7 +210,7 @@ export default function ImmeubleScreen() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-ink">{l.label}</p>
-                    <p className="text-[11px] text-ink-faint">{shortDate(l.date, lang)} · {l.category}</p>
+                    <p className="text-[11px] text-ink-faint">{shortDate(l.entry_date, lang)} · {l.category}</p>
                   </div>
                   <p className={`text-[13px] font-bold ${l.type === "in" ? "text-success" : "text-ink"}`} dir="ltr">
                     {l.type === "in" ? "+" : "−"}{num(l.amount, false)} <span className="text-[10px] font-semibold text-ink-faint">MAD</span>

@@ -1,12 +1,33 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { SyndicShell } from "@/components/syndic/SyndicShell";
 import { fetchSyndicData } from "@/lib/syndic";
 import { getUserBuildings } from "@/lib/queries";
 import { requireSyndicSession } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import { RefreshOnFocus } from "@/components/RefreshOnFocus";
 
 export const dynamic = "force-dynamic";
 
 export default async function SyndicLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSyndicSession();
+
+  // Check membership is still active
+  if (session.profileId) {
+    const { data: membership } = await supabaseAdmin
+      .from("memberships")
+      .select("status")
+      .eq("profile_id", session.profileId)
+      .eq("building_id", session.buildingId)
+      .single();
+
+    if (!membership || membership.status === "inactive") {
+      const cookieStore = await cookies();
+      cookieStore.delete("palier_session");
+      redirect("/bienvenue");
+    }
+  }
+
   const [data, buildings] = await Promise.all([
     fetchSyndicData(session.buildingId),
     session.profileId ? getUserBuildings(session.profileId) : Promise.resolve([]),
@@ -18,8 +39,10 @@ export default async function SyndicLayout({ children }: { children: React.React
       syndicName={data.building.syndic || "Syndic"}
       buildings={buildings}
       currentBuildingId={session.buildingId}
+      profileId={session.profileId ?? ""}
     >
       {children}
+      <RefreshOnFocus />
     </SyndicShell>
   );
 }

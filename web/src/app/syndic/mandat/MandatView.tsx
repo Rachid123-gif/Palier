@@ -226,9 +226,15 @@ export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | n
       ) : (
         /* Empty state */
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
-          <Icon name="UserCheck" className="mx-auto h-8 w-8 text-ink-faint" />
-          <p className="mt-2 text-[13px] text-ink-soft">Aucun mandat enregistré</p>
-          <button onClick={openForm} className="mt-1 text-[13px] font-medium text-palier-600">Enregistrer le mandat du syndic</button>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-50">
+            <Icon name="UserCheck" className="h-7 w-7 text-palier-400" />
+          </span>
+          <p className="mt-3 text-[14px] font-semibold text-ink">Aucun mandat configuré</p>
+          <p className="mx-auto mt-1 max-w-xs text-[13px] text-ink-soft">Ajoutez les informations du mandat syndic pour suivre sa durée et son renouvellement.</p>
+          <button onClick={openForm} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
+            <Icon name="Plus" className="h-3.5 w-3.5" />
+            Enregistrer le mandat du syndic
+          </button>
         </div>
       )}
 

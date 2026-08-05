@@ -53,7 +53,7 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
   // Ledger inputs for current year (N)
   const ledgerInputs: LedgerInput[] = useMemo(() => ledger
     .filter((e: any) => {
-      const d = e.entry_date ?? e.date ?? "";
+      const d = e.entry_date ?? "";
       return d.startsWith(String(fiscalYear));
     })
     .map((e: any) => ({
@@ -61,13 +61,13 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
       label: e.label ?? "",
       amount: Number(e.amount ?? 0),
       category: e.category ?? "",
-      date: e.entry_date ?? e.date ?? "",
+      date: e.entry_date ?? "",
     })), [ledger, fiscalYear]);
 
   // Ledger inputs for previous year (N-1)
   const ledgerInputsN1: LedgerInput[] = useMemo(() => ledger
     .filter((e: any) => {
-      const d = e.entry_date ?? e.date ?? "";
+      const d = e.entry_date ?? "";
       return d.startsWith(String(fiscalYear - 1));
     })
     .map((e: any) => ({
@@ -75,7 +75,7 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
       label: e.label ?? "",
       amount: Number(e.amount ?? 0),
       category: e.category ?? "",
-      date: e.entry_date ?? e.date ?? "",
+      date: e.entry_date ?? "",
     })), [ledger, fiscalYear]);
 
   // If no entries match the fiscal year filter, fall back to all entries (for backwards compat)
@@ -84,7 +84,7 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
     label: e.label ?? "",
     amount: Number(e.amount ?? 0),
     category: e.category ?? "",
-    date: e.entry_date ?? e.date ?? "",
+    date: e.entry_date ?? "",
   })), [ledger]);
 
   // Budgets: current, previous, next

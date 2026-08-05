@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
-import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment } from "@/lib/actions";
+import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment, updatePost } from "@/lib/actions";
 
 type Post = {
   id: string;
@@ -82,6 +82,12 @@ export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post
   const [commentBody, setCommentBody] = useState("");
   const [isSendingComment, startSendingComment] = useTransition();
 
+  // Edit
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [isEditing, startEditing] = useTransition();
+
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
   async function handleDelete(postId: string) {
@@ -92,6 +98,27 @@ export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post
       flash("Publication supprimée");
       router.refresh();
     } catch { flash("Erreur lors de la suppression"); }
+  }
+
+  function openEdit(post: Post) {
+    setEditingPost(post);
+    setEditBody(post.body);
+    setEditTitle(post.title ?? "");
+    setSelected(null);
+  }
+
+  function handleSaveEdit() {
+    if (!editingPost || !editBody.trim()) return;
+    startEditing(async () => {
+      try {
+        await updatePost({ postId: editingPost.id, body: editBody.trim(), title: editTitle.trim() || undefined });
+        setEditingPost(null);
+        setEditBody("");
+        setEditTitle("");
+        flash("Publication modifiée");
+        router.refresh();
+      } catch { flash("Erreur lors de la modification"); }
+    });
   }
 
   function handleTogglePin(post: Post) {
@@ -609,6 +636,13 @@ export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post
             {/* Moderation actions */}
             <div className="mt-3 flex gap-2 border-t border-black/[0.06] pt-3">
               <button
+                onClick={() => openEdit(selected)}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-palier-50 hover:text-palier-700"
+              >
+                <Icon name="Pencil" className="h-3.5 w-3.5" />
+                Modifier
+              </button>
+              <button
                 onClick={() => handleTogglePin(selected)}
                 disabled={isPinning}
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-sand/50 disabled:opacity-50"
@@ -647,6 +681,51 @@ export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post
               </button>
               <button onClick={() => handleDelete(showDeleteConfirm)} className="flex-1 rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
                 Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editingPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-50">
+                  <Icon name="Pencil" className="h-4 w-4 text-palier-600" />
+                </div>
+                <h2 className="text-[15px] font-semibold text-ink">Modifier la publication</h2>
+              </div>
+              <button onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+                <Icon name="X" className="h-4 w-4" />
+              </button>
+            </div>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Titre (optionnel)"
+              className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+            />
+            <textarea
+              autoFocus
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              placeholder="Contenu de la publication…"
+              rows={5}
+              className="mb-2 w-full resize-none rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }} className="rounded-lg border border-black/[0.08] px-4 py-2 text-[12px] font-medium text-ink hover:bg-sand/50">
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editBody.trim() || isEditing}
+                className="rounded-lg bg-palier-600 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
+              >
+                {isEditing ? "Enregistrement…" : "Enregistrer"}
               </button>
             </div>
           </div>

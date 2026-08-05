@@ -46,6 +46,10 @@ export interface Post {
   comments: number;
   /** Optional attached image */
   imageUrl?: string;
+  /** Optional attached document (PDF, DOC, XLS) */
+  fileUrl?: string;
+  /** Original filename for document attachments */
+  fileName?: string;
   /** Recommandations only: category slug */
   category?: string;
   /** Recommandations only: provider name */
@@ -69,45 +73,9 @@ export interface LedgerEntry {
   type: "in" | "out";
   label: string;
   amount: number;
-  date: string;
+  entry_date: string;
   category: string;
   signed: boolean;
-}
-
-export interface ServiceCategory {
-  slug: string;
-  label: string;
-  short: string;
-  icon: string; // lucide name
-  tint: string; // bg tint class
-  accent: string; // text/icon class
-}
-
-export interface Provider {
-  id: string;
-  name: string;
-  categorySlug: string;
-  city: string;
-  district: string;
-  phone: string;
-  whatsapp: string;
-  rating: number;
-  reviews: number;
-  bio: string;
-  basePrice: number;
-  badges: string[];
-  verified: boolean;
-  insured: boolean;
-  topNeighbor?: boolean;
-  availableToday?: boolean;
-  /** Couleurs déterministes & uniques pour l'avatar (jamais dupliquées). */
-  avatar: { from: string; to: string; initials: string };
-}
-
-export interface City {
-  slug: string;
-  name: string;
-  providerCount: number;
 }
 
 export interface DocFile {

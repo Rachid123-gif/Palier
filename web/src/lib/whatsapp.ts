@@ -11,28 +11,6 @@ export function telLink(phone: string): string {
   return `tel:${phone.replace(/\s/g, "")}`;
 }
 
-export function contactMessage(params: {
-  providerName: string;
-  serviceLabel: string;
-  city: string;
-  building?: string;
-  userName?: string;
-}): string {
-  const { providerName, serviceLabel, city, building, userName } = params;
-  return [
-    `Bonjour ${providerName} 👋`,
-    ``,
-    `Je vous contacte via *Palier* pour un service de *${serviceLabel}*.`,
-    `• Adresse : ${building ? building + ", " : ""}${city}`,
-    userName ? `• De la part de : ${userName}` : ``,
-    ``,
-    `Êtes-vous disponible ? Quel serait le tarif ? Merci !`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-
 export function dunningMessage(params: {
   name: string;
   amount: number;

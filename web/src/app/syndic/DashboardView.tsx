@@ -91,7 +91,7 @@ export function DashboardView({ data: d }: DashboardProps) {
   /* ── Ledger filtered by period ── */
   const ledgerInPeriod = useMemo(
     () => d.ledger.filter((e: any) => {
-      const dt = e.entry_date ?? e.date;
+      const dt = e.entry_date;
       return dt >= from && dt <= rangeTo;
     }),
     [d.ledger, from, rangeTo],
@@ -191,10 +191,10 @@ export function DashboardView({ data: d }: DashboardProps) {
       const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}`;
       const label = monthNames[d2.getMonth()];
       const inAmt = d.ledger
-        .filter((e: any) => e.type === "in" && (e.entry_date ?? e.date ?? "").startsWith(key))
+        .filter((e: any) => e.type === "in" && (e.entry_date ?? "").startsWith(key))
         .reduce((s: number, e: any) => s + Number(e.amount), 0);
       const outAmt = d.ledger
-        .filter((e: any) => e.type === "out" && (e.entry_date ?? e.date ?? "").startsWith(key))
+        .filter((e: any) => e.type === "out" && (e.entry_date ?? "").startsWith(key))
         .reduce((s: number, e: any) => s + Number(e.amount), 0);
       months.push({ label, inAmt, outAmt });
     }
@@ -548,7 +548,7 @@ export function DashboardView({ data: d }: DashboardProps) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-ink">{e.label}</p>
-                    <p className="text-[11px] text-ink-faint">{e.category} · {shortDate(e.entry_date ?? e.date)}</p>
+                    <p className="text-[11px] text-ink-faint">{e.category} · {shortDate(e.entry_date)}</p>
                   </div>
                   <span className={`shrink-0 text-[13px] font-semibold ${e.type === "in" ? "text-emerald-600" : "text-ink"}`}>
                     {e.type === "in" ? "+" : "−"}{mad(e.amount, { decimals: false })}

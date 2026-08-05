@@ -68,17 +68,16 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
 
 /**
  * Send an SMS message. Returns silently in dev mode if no provider configured.
- * Throws "sms_send_failed" on provider error.
+ * Throws "sms_send_failed" in production if no provider is configured, or on provider error.
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
   if (!provider) {
-    // No SMS provider configured — log in dev, warn in prod
     if (process.env.NODE_ENV !== "production") {
       console.log(`[SMS/DEV] → ${to}: ${message}`);
-    } else {
-      console.warn("[SMS] No SMS_PROVIDER configured — OTP not sent!");
+      return;
     }
-    return;
+    // In production, refuse to silently skip SMS
+    throw new Error("sms_send_failed");
   }
 
   if (provider === "twilio") return sendViaTwilio(to, message);

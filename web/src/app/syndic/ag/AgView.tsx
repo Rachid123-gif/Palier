@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, shortDate } from "@/lib/format";
-import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution } from "@/lib/actions";
+import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution, fetchVoteTallies } from "@/lib/actions";
 import { supabase } from "@/lib/supabase";
 import { upsertDocument } from "@/lib/actions";
 import type { AssemblyRow } from "@/lib/syndic";
@@ -90,6 +90,12 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   const [newResDesc, setNewResDesc] = useState("");
   const [newResMajority, setNewResMajority] = useState<MajorityType>("simple");
   const [resolutionResults, setResolutionResults] = useState<Map<string, { result: string; pour: number; contre: number; abst: number }>>(new Map());
+
+  // Vote tallies from residents
+  type VoteTally = Record<string, { total: number; choices: Record<string, number> }>;
+  const [voteTallies, setVoteTallies] = useState<VoteTally>({});
+  const [talliesLoading, setTalliesLoading] = useState(false);
+  const [talliesAssemblyId, setTalliesAssemblyId] = useState<string | null>(null);
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
@@ -301,6 +307,21 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     if (residentProfileIds.length === 0) { flash("Aucun résident à notifier"); return; }
     await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date), place: ag.place });
     flash(`${residentProfileIds.length} résidents notifiés`);
+  }
+
+  // ───── Load vote tallies ─────
+  async function loadTallies(assemblyId: string) {
+    if (talliesAssemblyId === assemblyId && Object.keys(voteTallies).length > 0) return; // already loaded
+    setTalliesLoading(true);
+    try {
+      const data = await fetchVoteTallies(assemblyId);
+      setVoteTallies(data);
+      setTalliesAssemblyId(assemblyId);
+    } catch {
+      flash("Erreur lors du chargement des votes");
+    } finally {
+      setTalliesLoading(false);
+    }
   }
 
   // ───── Delete ─────
@@ -596,6 +617,60 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               </div>
             )}
 
+            {/* Votes des résidents */}
+            {selected.votes.length > 0 && selected.votes.some((v) => v.id) && (
+              <div className="mb-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-[13px] font-semibold text-ink">Votes des résidents</h3>
+                  {talliesAssemblyId !== selected.id && (
+                    <button
+                      type="button"
+                      onClick={() => loadTallies(selected.id)}
+                      disabled={talliesLoading}
+                      className="inline-flex items-center gap-1 text-[12px] font-medium text-palier-600 hover:underline disabled:opacity-50"
+                    >
+                      <Icon name="BarChart3" className="h-3.5 w-3.5" />
+                      {talliesLoading ? "Chargement…" : "Voir les votes"}
+                    </button>
+                  )}
+                </div>
+                {talliesAssemblyId === selected.id && (
+                  <div className="space-y-2">
+                    {selected.votes.filter((v) => v.id).map((v) => {
+                      const tally = voteTallies[v.id!];
+                      return (
+                        <div key={v.id} className="rounded-lg border border-black/[0.06] bg-white p-3">
+                          <p className="text-[13px] font-medium text-ink">{v.q}</p>
+                          {!tally || tally.total === 0 ? (
+                            <p className="mt-1.5 text-[12px] text-ink-faint">Aucun vote enregistré</p>
+                          ) : (
+                            <div className="mt-2 space-y-1.5">
+                              <p className="text-[11px] font-semibold text-ink-soft">{tally.total} vote{tally.total > 1 ? "s" : ""}</p>
+                              {(v.options ?? Object.keys(tally.choices)).map((option) => {
+                                const count = tally.choices[option] ?? 0;
+                                const pct = tally.total > 0 ? Math.round((count / tally.total) * 100) : 0;
+                                return (
+                                  <div key={option}>
+                                    <div className="flex items-center justify-between text-[12px]">
+                                      <span className="text-ink">{option}</span>
+                                      <span className="font-semibold text-ink-soft">{count} ({pct}%)</span>
+                                    </div>
+                                    <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-sand/50">
+                                      <div style={{ width: `${pct}%` }} className="h-full rounded-full bg-palier-500 transition-all" />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Summary */}
             {selected.summary && (
               <div className="mb-4">
@@ -827,6 +902,71 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                   <p className="text-[12px] text-ink-faint">Aucune résolution. Cliquez « + Ajouter » pour en créer.</p>
                 )}
               </div>
+
+              {/* ─── SECTION 2b: Votes des résidents (depuis l'app) ─── */}
+              {showResults.votes.length > 0 && showResults.votes.some((v) => v.id) && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-[13px] font-semibold text-ink">Votes des résidents (via l&apos;app)</h3>
+                    {talliesAssemblyId !== showResults.id && (
+                      <button
+                        type="button"
+                        onClick={() => loadTallies(showResults.id)}
+                        disabled={talliesLoading}
+                        className="inline-flex items-center gap-1 text-[12px] font-medium text-palier-600 hover:underline disabled:opacity-50"
+                      >
+                        <Icon name="BarChart3" className="h-3.5 w-3.5" />
+                        {talliesLoading ? "Chargement…" : "Voir les votes"}
+                      </button>
+                    )}
+                    {talliesAssemblyId === showResults.id && (
+                      <button
+                        type="button"
+                        onClick={() => loadTallies(showResults.id)}
+                        disabled={talliesLoading}
+                        className="inline-flex items-center gap-1 text-[11px] text-ink-faint hover:text-palier-600"
+                      >
+                        <Icon name="RefreshCw" className="h-3 w-3" />
+                        Actualiser
+                      </button>
+                    )}
+                  </div>
+                  {talliesAssemblyId === showResults.id && (
+                    <div className="space-y-2 rounded-lg border border-palier-100 bg-palier-50/30 p-3">
+                      {showResults.votes.filter((v) => v.id).map((v) => {
+                        const tally = voteTallies[v.id!];
+                        return (
+                          <div key={v.id} className="rounded-lg bg-white p-3 border border-black/[0.06]">
+                            <p className="text-[12px] font-medium text-ink">{v.q}</p>
+                            {!tally || tally.total === 0 ? (
+                              <p className="mt-1 text-[11px] text-ink-faint">Aucun vote enregistré</p>
+                            ) : (
+                              <div className="mt-2 space-y-1">
+                                <p className="text-[10px] font-semibold text-ink-soft">{tally.total} vote{tally.total > 1 ? "s" : ""} enregistré{tally.total > 1 ? "s" : ""}</p>
+                                {(v.options ?? Object.keys(tally.choices)).map((option) => {
+                                  const count = tally.choices[option] ?? 0;
+                                  const pct = tally.total > 0 ? Math.round((count / tally.total) * 100) : 0;
+                                  return (
+                                    <div key={option}>
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="text-ink">{option}</span>
+                                        <span className="font-semibold text-ink-soft">{count} ({pct}%)</span>
+                                      </div>
+                                      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-sand/50">
+                                        <div style={{ width: `${pct}%` }} className="h-full rounded-full bg-palier-500 transition-all" />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ─── SECTION 3: Compte-rendu ─── */}
               <div>

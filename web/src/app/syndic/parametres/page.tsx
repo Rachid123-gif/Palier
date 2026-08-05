@@ -11,6 +11,7 @@ export default async function SyndicParametres() {
     <SettingsView
       building={d.building}
       settings={settings}
+      units={d.units}
     />
   );
 }

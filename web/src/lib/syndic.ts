@@ -43,7 +43,7 @@ export interface AssemblyRow {
   type: "ordinaire" | "extraordinaire";
   status: "draft" | "convoquee" | "tenue" | "pv_distribue";
   agenda: { n: number; t: string; d: string }[];
-  votes: { q: string; pour: number; contre: number; abst: number }[];
+  votes: { id?: string; q: string; options?: string[]; closesAt?: string; pour: number; contre: number; abst: number }[];
   resolutions: Resolution[];
   quorum: number;
   summary: string;

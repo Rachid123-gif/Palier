@@ -34,6 +34,7 @@ import {
   recordPaymentSyndicSchema,
   updateChargeCallSchema,
   updatePostSchema,
+  updateProfileSchema,
 } from "./schemas";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -141,6 +142,8 @@ export async function createPost(input: {
   providerName?: string;
   providerPhone?: string;
   imageUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
 }) {
   const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(createPostSchema, input);
@@ -157,6 +160,8 @@ export async function createPost(input: {
     provider_name: v.providerName ?? null,
     provider_phone: v.providerPhone ?? null,
     image_url: v.imageUrl ?? null,
+    file_url: v.fileUrl ?? null,
+    file_name: v.fileName ?? null,
   });
   // Notify syndic members of new resident post
   const { data: syndicMembers } = await supabaseAdmin
@@ -328,7 +333,37 @@ export async function likePost(postId: string) {
   // Verify post belongs to user's building
   const { data: post } = await supabaseAdmin.from("posts").select("id").eq("id", postId).eq("building_id", session.buildingId).single();
   if (!post) throw new Error("forbidden_building");
-  return supabaseAdmin.rpc("increment_like_count", { post_id_input: postId });
+  // Use post_likes table for dedup — insert with ON CONFLICT DO NOTHING
+  const { data: inserted } = await supabaseAdmin
+    .from("post_likes")
+    .insert({ post_id: postId, profile_id: session.profileId })
+    .select("id")
+    .single();
+  // Only increment if this is a new like (not a duplicate)
+  if (inserted) {
+    await supabaseAdmin.rpc("increment_like_count", { post_id_input: postId });
+  }
+  return { alreadyLiked: !inserted };
+}
+
+export async function fetchMyLikes(buildingId: string): Promise<string[]> {
+  const session = await requireAuth({ buildingId });
+  const { data } = await supabaseAdmin
+    .from("post_likes")
+    .select("post_id")
+    .eq("profile_id", session.profileId);
+  return (data ?? []).map((r: any) => r.post_id);
+}
+
+export async function updateProfile(input: { name: string; phone: string }) {
+  const session = await requireAuth();
+  const v = validate(updateProfileSchema, input);
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({ full_name: v.name, phone: v.phone })
+    .eq("id", session.profileId);
+  if (error) throw new Error("update_failed");
+  return { ok: true };
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -340,8 +375,22 @@ export async function generateAccessCode(input: {
   buildingId: string;
   phone?: string;
   label?: string;
+  unitRef?: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+
+  // Resolve unit if unitRef is provided
+  let unitId: string | null = null;
+  if (input.unitRef) {
+    const { data: unit } = await supabaseAdmin
+      .from("units")
+      .select("id")
+      .eq("building_id", input.buildingId)
+      .eq("ref", input.unitRef.toUpperCase())
+      .single();
+    if (!unit) return { data: null, error: "unit_not_found", code: "" };
+    unitId = unit.id;
+  }
 
   // Create a minimal profile so the code is linked
   const { data: profile } = await supabaseAdmin
@@ -351,12 +400,13 @@ export async function generateAccessCode(input: {
     .single();
   if (!profile) return { data: null, error: "profile_creation_failed", code: "" };
 
-  // Create membership
+  // Create membership with unit_id when available
   await supabaseAdmin.from("memberships").insert({
     profile_id: profile.id,
     building_id: input.buildingId,
     role: "resident",
     status: "active",
+    ...(unitId ? { unit_id: unitId } : {}),
   });
 
   // Generate and link the code
@@ -364,11 +414,14 @@ export async function generateAccessCode(input: {
   crypto.getRandomValues(_b1);
   const _c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const code = "RES-" + Array.from(_b1, (b) => _c[b % _c.length]).join("");
+  const codeLabel = input.unitRef
+    ? `${input.unitRef.toUpperCase()} – ${input.label || "Résident"}`
+    : input.label ?? null;
   const { data, error } = await supabaseAdmin.from("access_codes").insert({
     building_id: input.buildingId,
     code,
     role: "resident",
-    label: input.label ?? null,
+    label: codeLabel,
     used_by: profile.id,
   }).select().single();
   return { data, error, code };
@@ -535,7 +588,11 @@ export async function reopenIncident(incidentId: string) {
 /** Changer l'urgence d'un incident */
 export async function updateIncidentUrgency(incidentId: string, urgency: "low" | "normal" | "urgent") {
   const session = await requireAuth({ role: "syndic" });
-  return supabaseAdmin.from("incidents").update({ urgency }).eq("id", incidentId).eq("building_id", session.buildingId);
+  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", urgent: "Urgent" };
+  const res = await supabaseAdmin.from("incidents").update({ urgency }).eq("id", incidentId).eq("building_id", session.buildingId);
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Urgence modifiée", `${inc.title ?? "Votre incident"} — Niveau : ${urgencyLabels[urgency] ?? urgency}`, "incident");
+  return res;
 }
 
 /** Émettre un appel de fonds (créer des charges pour tous les lots) */
@@ -662,6 +719,29 @@ export async function syndicRecordPayment(input: {
     return { error: "charge_update_failed" };
   }
 
+  // Notify the unit owner that payment was confirmed
+  if (newStatus === "paid" || newStatus === "partial") {
+    const { data: chargeUnit } = await supabaseAdmin
+      .from("charges")
+      .select("unit_id")
+      .eq("id", v.chargeId)
+      .single();
+    if (chargeUnit?.unit_id) {
+      const { data: unitMembers } = await supabaseAdmin
+        .from("memberships")
+        .select("profile_id")
+        .eq("unit_id", chargeUnit.unit_id)
+        .eq("status", "active");
+      if (unitMembers?.length) {
+        const profileIds = unitMembers.map((m: any) => m.profile_id).filter(Boolean);
+        const msg = newStatus === "paid"
+          ? `Votre charge "${charge.label}" a été réglée intégralement.`
+          : `Un paiement partiel de ${v.amount} MAD a été enregistré sur "${charge.label}".`;
+        await notifyProfiles(profileIds, "Paiement confirmé", msg, "charge");
+      }
+    }
+  }
+
   return {
     paymentId: payment.id,
     createdAt: payment.created_at,
@@ -786,7 +866,7 @@ export async function createAssembly(input: {
 export async function updateAssembly(input: {
   assemblyId: string;
   quorum: number;
-  votes: { q: string; pour: number; contre: number; abst: number }[];
+  votes: { id?: string; q: string; options?: string[]; closesAt?: string; pour: number; contre: number; abst: number }[];
   summary?: string;
   pvUrl?: string;
 }) {
@@ -939,7 +1019,7 @@ export async function deletePost(postId: string) {
   return supabaseAdmin.from("posts").delete().eq("id", post.id);
 }
 
-/** Update a post — only allowed for the post author */
+/** Update a post — allowed for the post author or syndic of the building */
 export async function updatePost(input: {
   postId: string;
   body: string;
@@ -950,7 +1030,7 @@ export async function updatePost(input: {
 }) {
   const session = await requireAuth();
   const v = validate(updatePostSchema, input);
-  // Verify ownership
+  // Verify ownership or syndic role
   const { data: post } = await supabaseAdmin
     .from("posts")
     .select("id, profile_id, building_id")
@@ -958,7 +1038,7 @@ export async function updatePost(input: {
     .eq("building_id", session.buildingId)
     .single();
   if (!post) throw new Error("post_not_found");
-  if (post.profile_id !== session.profileId) throw new Error("forbidden");
+  if (post.profile_id !== session.profileId && session.role !== "syndic") throw new Error("forbidden");
   return supabaseAdmin.from("posts").update({
     body: v.body,
     title: v.title ?? null,
@@ -1082,6 +1162,23 @@ export async function fetchMyVotes(assemblyId: string, profileId: string) {
     .eq("assembly_id", assemblyId)
     .eq("profile_id", profileId);
   return data ?? [];
+}
+
+export async function fetchVoteTallies(assemblyId: string) {
+  await requireAuth({ role: "syndic" });
+  const { data } = await supabaseAdmin
+    .from("assembly_votes")
+    .select("vote_id, choice")
+    .eq("assembly_id", assemblyId);
+  const rows = data ?? [];
+  // Group by vote_id, then count each choice
+  const tallies: Record<string, { total: number; choices: Record<string, number> }> = {};
+  for (const row of rows) {
+    if (!tallies[row.vote_id]) tallies[row.vote_id] = { total: 0, choices: {} };
+    tallies[row.vote_id].total += 1;
+    tallies[row.vote_id].choices[row.choice] = (tallies[row.vote_id].choices[row.choice] ?? 0) + 1;
+  }
+  return tallies;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1563,6 +1660,26 @@ export async function submitFeedback(input: {
     sender_role: input.senderRole ?? "syndic",
   });
   if (error) throw new Error("submit_feedback_failed");
+}
+
+export async function markNotificationsRead(notificationIds: string[]) {
+  const session = await requireAuth();
+  if (!notificationIds.length) return;
+  await supabaseAdmin
+    .from("notifications")
+    .update({ read: true })
+    .in("id", notificationIds)
+    .eq("profile_id", session.profileId);
+}
+
+export async function fetchNotifications(): Promise<{ id: string; title: string; body: string; created_at: string; kind: string; read: boolean }[]> {
+  const session = await requireAuth();
+  const { data } = await supabaseAdmin
+    .from("notifications")
+    .select("*")
+    .eq("profile_id", session.profileId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((n: any) => ({ id: n.id, title: n.title, body: n.body, created_at: n.created_at, kind: n.kind, read: !!n.read }));
 }
 
 /* ═══════════════════════════════════════════════════════════════

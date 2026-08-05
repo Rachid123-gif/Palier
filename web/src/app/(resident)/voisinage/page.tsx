@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { timeAgo } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { createPost, createComment, fetchComments, likeComment, likePost, deletePost, updatePost } from "@/lib/actions";
+import { createPost, createComment, fetchComments, likeComment, likePost, deletePost, updatePost, fetchMyLikes } from "@/lib/actions";
 import type { Post, PostType, Comment } from "@/lib/types";
 
 const POST_LIMIT = 6;
@@ -50,6 +50,13 @@ export default function VoisinageScreen() {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+
+  // Fetch liked posts from server
+  useEffect(() => {
+    if (buildingId) {
+      fetchMyLikes(buildingId).then((ids) => setLikedPosts(new Set(ids)));
+    }
+  }, [buildingId]);
 
   // Edit state
   const [editPost, setEditPost] = useState<Post | null>(null);
@@ -114,11 +121,24 @@ export default function VoisinageScreen() {
     const body = text.trim();
     if (!body) return;
     let imageUrl: string | undefined;
-    if (mediaFile && mediaFile.type.startsWith("image/")) {
-      const { uploadPostImage } = await import("@/lib/storage");
-      imageUrl = await uploadPostImage(mediaFile);
+    let fileUrl: string | undefined;
+    let fileName: string | undefined;
+    if (mediaFile) {
+      try {
+        if (mediaFile.type.startsWith("image/")) {
+          const { uploadPostImage } = await import("@/lib/storage");
+          imageUrl = await uploadPostImage(mediaFile);
+        } else {
+          const { uploadPostDocument } = await import("@/lib/storage");
+          fileUrl = await uploadPostDocument(mediaFile);
+          fileName = mediaFile.name;
+        }
+      } catch {
+        setToast({ icon: "AlertCircle", title: T.erreurUpload ?? "Erreur", body: T.erreurUploadBody ?? "Le fichier n'a pas pu être envoyé." });
+        return;
+      }
     }
-    await createPost({ buildingId: buildingId!, author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl });
+    await createPost({ buildingId: buildingId!, author: currentUser.name, avatarColor: currentUser.avatarColor, body, type: postType ?? "general", imageUrl, fileUrl, fileName });
     setComposer(false); setText(""); setPostType(null);
     setToast({ icon: "Check", title: T.publie, body: T.publieBody });
     clearMedia();
@@ -224,6 +244,7 @@ export default function VoisinageScreen() {
               <PostCard
                 key={p.id} p={p}
                 isOwn={p.authorId === profileId}
+                liked={likedPosts.has(p.id)}
                 onComment={() => openComments(p)}
                 onLike={(id) => { if (!likedPosts.has(id)) { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }}
                 onEdit={() => openEdit(p)}
@@ -432,15 +453,14 @@ export default function VoisinageScreen() {
   );
 }
 
-function PostCard({ p, isOwn, onComment, onLike, onEdit, onDelete, typeBadge, lang, T, syndicBadge }: {
-  p: Post; isOwn: boolean; onComment: () => void; onLike: (postId: string) => void;
+function PostCard({ p, isOwn, liked, onComment, onLike, onEdit, onDelete, typeBadge, lang, T, syndicBadge }: {
+  p: Post; isOwn: boolean; liked: boolean; onComment: () => void; onLike: (postId: string) => void;
   onEdit: () => void; onDelete: () => void;
   typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" }>;
   lang: "fr" | "ar";
   T: typeof import("@/lib/i18n").t.fr.voisinage;
   syndicBadge: string;
 }) {
-  const [liked, setLiked] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const tb = typeBadge[p.type];
@@ -511,8 +531,16 @@ function PostCard({ p, isOwn, onComment, onLike, onEdit, onDelete, typeBadge, la
         <img src={p.imageUrl} alt="" className="mt-3 w-full rounded-2xl object-cover" style={{ maxHeight: 240 }} />
       )}
 
+      {p.fileUrl && (
+        <a href={p.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-2.5 rounded-xl border border-black/5 bg-sand p-3">
+          <Icon name="FileText" className="h-5 w-5 shrink-0 text-palier-600" />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{p.fileName ?? T.fichierJoint}</span>
+          <Icon name="Download" className="h-4 w-4 shrink-0 text-ink-faint" />
+        </a>
+      )}
+
       <div className="mt-3 flex items-center gap-3">
-        <button onClick={() => { if (!liked) { onLike(p.id); setLiked(true); } }}
+        <button onClick={() => { if (!liked) { onLike(p.id); } }}
           className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${liked ? "bg-palier-100 text-palier-700" : "bg-sand text-ink-soft"}`}>
           <Icon name="ThumbsUp" className="h-4 w-4" /> {totalReactions > 0 ? totalReactions : T.jaime}
         </button>

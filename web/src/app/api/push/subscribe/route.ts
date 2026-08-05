@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const rl = checkRateLimit(`push:${ip}`, RATE_LIMITS.push);
+    const rl = await checkRateLimit(`push:${ip}`, RATE_LIMITS.push);
     if (!rl.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
     const { profileId, subscription } = await request.json();

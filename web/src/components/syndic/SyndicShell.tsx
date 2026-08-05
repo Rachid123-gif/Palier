@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { LogoMark } from "@/components/brand/Logo";
 import { logout } from "@/lib/auth";
 import { shortName } from "@/lib/format";
+import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 import { BuildingSwitcher } from "./BuildingSwitcher";
 import type { UserBuilding } from "@/lib/queries";
 
@@ -58,19 +59,36 @@ const navSections: NavSection[] = [
 const nav = navSections.flatMap((s) => s.items);
 
 export function SyndicShell({
-  building, badges, syndicName, buildings, currentBuildingId, children,
+  building, badges, syndicName, buildings, currentBuildingId, profileId, children,
 }: {
   building: { name: string; city: string };
   badges: { dunning: number; incidents: number };
   syndicName: string;
   buildings: UserBuilding[];
   currentBuildingId: string;
+  profileId: string;
   children: React.ReactNode;
 }) {
   const path = usePathname();
   const [showLogout, setShowLogout] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const pushSubscribed = useRef(false);
+
+  // Subscribe to push notifications on mount
+  useEffect(() => {
+    if (pushSubscribed.current || !profileId) return;
+    pushSubscribed.current = true;
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "granted") {
+        subscribeToPush(profileId);
+      } else if (Notification.permission === "default") {
+        requestNotificationPermission().then((perm) => {
+          if (perm === "granted") subscribeToPush(profileId);
+        });
+      }
+    }
+  }, [profileId]);
   return (
     <div className="flex min-h-dvh bg-cream text-ink">
       <a href="#main-content" className="skip-link">Aller au contenu principal</a>
@@ -261,7 +279,7 @@ export function SyndicShell({
               <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
                 Annuler
               </button>
-              <button onClick={async () => { try { await logout(); } finally { window.location.href = "/bienvenue"; } }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+              <button onClick={async () => { localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); try { await logout(); } finally { window.location.href = "/bienvenue"; } }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
                 Se déconnecter
               </button>
             </div>

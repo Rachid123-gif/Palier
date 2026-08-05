@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase-server";
 import type {
-  Charge, Incident, Post, LedgerEntry, Provider, CurrentUser, BuildingKpis,
+  Charge, Incident, Post, LedgerEntry, CurrentUser, BuildingKpis,
   DocFile, Assembly,
 } from "./types";
 
@@ -18,7 +18,6 @@ export interface AppData {
   ledger: LedgerEntry[];
   incidents: Incident[];
   posts: Post[];
-  providers: Provider[];
   documents: DocFile[];
   assembly: Assembly | null;
   assemblies: Assembly[];
@@ -29,22 +28,12 @@ export interface AppData {
   coproprieteRule: { title: string; fileUrl?: string; adoptedAt?: string } | null;
   budgetSummary: { fiscalYear: number; totalAmount: number; status: string; lines: { label: string; category: string; amountBudgeted: number; amountActual: number }[] } | null;
   urgentWorks: { id: string; title: string; status: string; estimatedCost?: number; declaredAt: string; description?: string }[];
-  notifications: { id: string; title: string; body: string; created_at: string; kind: string }[];
+  notifications: { id: string; title: string; body: string; created_at: string; kind: string; read: boolean }[];
   /** Multi-building: all buildings user has access to */
   buildings: UserBuilding[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const mapProvider = (r: any): Provider => ({
-  id: r.id, name: r.name, categorySlug: r.category_slug, city: r.city_slug,
-  district: r.district, phone: r.phone, whatsapp: r.whatsapp,
-  rating: Number(r.rating), reviews: r.reviews, bio: r.bio,
-  basePrice: Number(r.base_price), badges: r.badges ?? [],
-  verified: r.verified, insured: r.insured, topNeighbor: r.top_neighbor,
-  availableToday: r.available_today,
-  avatar: { from: r.avatar_from, to: r.avatar_to, initials: r.avatar_initials },
-});
-
 const mapCharge = (r: any): Charge => ({
   id: r.id, label: r.label, detail: r.detail, period: r.period,
   amount: Number(r.amount), paid: Number(r.paid), dueDate: r.due_date,
@@ -65,6 +54,8 @@ const mapPost = (r: any): Post => ({
   reactions: { like: r.like_count ?? 0, love: r.love_count ?? 0, haha: r.haha_count ?? 0, wow: r.wow_count ?? 0 },
   comments: r.comments_count ?? 0,
   imageUrl: r.image_url ?? undefined,
+  fileUrl: r.file_url ?? undefined,
+  fileName: r.file_name ?? undefined,
   category: r.category ?? undefined,
   providerName: r.provider_name ?? undefined,
   providerPhone: r.provider_phone ?? undefined,
@@ -72,7 +63,7 @@ const mapPost = (r: any): Post => ({
 
 const mapLedger = (r: any): LedgerEntry => ({
   id: r.id, type: r.type, label: r.label, amount: Number(r.amount),
-  date: r.entry_date, category: r.category, signed: r.signed,
+  entry_date: r.entry_date, category: r.category, signed: r.signed,
 });
 
 /* ─── Multi-building: list all buildings a user has access to ─── */
@@ -114,7 +105,7 @@ export async function getUserBuildings(profileId: string): Promise<UserBuilding[
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null, buildings?: UserBuilding[]): Promise<AppData> {
-  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, provRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes, urgentWorksRes] = await Promise.all([
+  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes, urgentWorksRes] = await Promise.all([
     supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
     profileId ? supabaseAdmin.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
     unitId ? supabaseAdmin.from("units").select("*").eq("id", unitId).single() : supabaseAdmin.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
@@ -123,7 +114,6 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     supabaseAdmin.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
     supabaseAdmin.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
-    supabaseAdmin.from("providers").select("*").eq("active", true),
     profileId ? supabaseAdmin.from("notifications").select("*").eq("profile_id", profileId).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
     supabaseAdmin.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).maybeSingle(),
@@ -166,18 +156,29 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       name: b?.name ?? "", address: b?.address ?? "", city: b?.city ?? "",
       lots: b?.lots_count ?? 0, syndic: b?.syndic_name ?? "", syndicPhone: b?.syndic_phone ?? "",
     },
-    buildingKpis: {
-      balance: Number(b?.balance ?? 0),
-      paymentRate: b?.payment_rate ?? 0,
-      openIncidents: incidents.filter((i) => i.status !== "resolved").length,
-    },
+    buildingKpis: (() => {
+      const ledgerEntries = (ledRes.data ?? []);
+      const totalIn = ledgerEntries.filter((l: any) => l.type === "in").reduce((s: number, l: any) => s + Number(l.amount), 0);
+      const totalOut = ledgerEntries.filter((l: any) => l.type === "out").reduce((s: number, l: any) => s + Number(l.amount), 0);
+      const computedBalance = totalIn - totalOut;
+
+      const allChargesData = (chRes as any).data ?? [];
+      const totalCharged = allChargesData.reduce((s: number, c: any) => s + Number(c.amount), 0);
+      const totalPaid = allChargesData.reduce((s: number, c: any) => s + Number(c.paid), 0);
+      const computedPaymentRate = totalCharged > 0 ? Math.round((totalPaid / totalCharged) * 100) : 100;
+
+      return {
+        balance: computedBalance,
+        paymentRate: computedPaymentRate,
+        openIncidents: incidents.filter((i) => i.status !== "resolved").length,
+      };
+    })(),
     charges,
     chargesHistory,
     totalDue: charges.reduce((s: number, c: Charge) => s + (c.amount - c.paid), 0),
     ledger: (ledRes.data ?? []).map(mapLedger),
     incidents,
     posts: (postRes.data ?? []).map(mapPost),
-    providers: (provRes.data ?? []).map(mapProvider),
     documents: (docRes.data ?? []).map((r: any): DocFile => ({
       id: r.id, title: r.title, type: r.doc_type ?? r.type ?? "", date: r.doc_date ?? r.created_at,
       icon: r.icon ?? "FileText", color: r.color ?? "text-ink-soft", tint: r.tint ?? "bg-cream-card",
@@ -228,7 +229,7 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       estimatedCost: w.estimated_cost ? Number(w.estimated_cost) : undefined,
       declaredAt: w.declared_at, description: w.description ?? undefined,
     })),
-    notifications: (notifRes as any).data ?? [],
+    notifications: ((notifRes as any).data ?? []).map((n: any) => ({ id: n.id, title: n.title, body: n.body, created_at: n.created_at, kind: n.kind, read: !!n.read })),
     buildings: buildings ?? [],
   };
 }

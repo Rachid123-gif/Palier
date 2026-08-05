@@ -31,17 +31,35 @@ export async function POST(request: NextRequest) {
     const requestSecret = request.headers.get("x-internal-secret");
     const isInternal = internalSecret && requestSecret && timingSafeEqual(internalSecret, requestSecret);
 
+    let syndicBuildingId: string | null = null;
+
     if (!isInternal) {
       const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
       const session = token ? await decodeSession(token) : null;
       if (!session || session.role !== "syndic") {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }
+      syndicBuildingId = session.buildingId;
     }
 
     const { profileIds, title, body, url } = await request.json();
     if (!profileIds?.length || !title) {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+    }
+
+    // Building-level authorization: verify all target profiles belong to syndic's building
+    if (syndicBuildingId) {
+      const { data: memberships } = await supabaseAdmin
+        .from("memberships")
+        .select("profile_id")
+        .eq("building_id", syndicBuildingId)
+        .in("profile_id", profileIds);
+
+      const authorizedIds = new Set((memberships ?? []).map((m: any) => m.profile_id));
+      const unauthorized = profileIds.filter((id: string) => !authorizedIds.has(id));
+      if (unauthorized.length > 0) {
+        return NextResponse.json({ error: "forbidden", detail: "profile_ids outside your building" }, { status: 403 });
+      }
     }
 
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {

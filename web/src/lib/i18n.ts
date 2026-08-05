@@ -75,6 +75,12 @@ export const t = {
       deconnexionDesc: "Vous serez redirigé vers la page d'accueil.",
       deconnexionConfirm: "Confirmer",
       deconnexionAnnuler: "Annuler",
+      modifier: "Modifier",
+      enregistrer: "Enregistrer",
+      profilMisAJour: "Profil mis à jour",
+      profilMisAJourBody: "Vos informations ont été enregistrées.",
+      erreur: "Erreur",
+      erreurProfil: "Impossible de mettre à jour le profil.",
       messageErreur: (name: string, building: string) =>
         `Bonjour,\n\nJe suis ${name}, résident(e) à ${building}.\n\nJe souhaite signaler une erreur dans mes informations sur Palier :\n\n• Détail de l'erreur : [à compléter]\n\nMerci de corriger. Cordialement.`,
     },
@@ -288,6 +294,7 @@ export const t = {
       lireSuite: "Lire la suite",
       ajouterPhoto: "Photo",
       ajouterFichier: "Fichier",
+      fichierJoint: "Fichier joint",
       supprimerMedia: "Supprimer",
       modifier: "Modifier",
       supprimer: "Supprimer",
@@ -300,6 +307,8 @@ export const t = {
       postModifieBody: "Vos modifications sont visibles par vos voisins.",
       postSupprime: "Publication supprimée.",
       postSupprimeBody: "",
+      erreurUpload: "Erreur d'envoi",
+      erreurUploadBody: "Le fichier n'a pas pu être envoyé. Vérifiez sa taille (max 5 Mo).",
     },
 
     // ── Services (bouche à oreille) ──
@@ -378,45 +387,6 @@ export const t = {
       postSupprimeBody: "",
     },
 
-    // ── Services catégorie (legacy) ──
-    servicesCat: {
-      prestataires: (n: number) => `${n} prestataire${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""}`,
-      aucun: "Aucun prestataire pour le moment",
-      pasEncore: (cat: string, city: string) => `Pas encore de prestataire ${cat} référencé à ${city}. Essayez une autre ville.`,
-      changerVille: "Changer de ville",
-      introuvable: "Catégorie introuvable.",
-      retour: "Retour aux services",
-    },
-
-    // ── Provider card (kept for legacy links) ──
-    provider: {
-      topVoisins: "Recommandé par vos voisins",
-      aPartirDe: "À partir de",
-      dispoBadge: "Dispo",
-      appeler: "Appeler",
-      whatsapp: "WhatsApp",
-      voir: "Voir",
-      titre: "Prestataire",
-      introuvable: "Prestataire introuvable.",
-      retour: "Retour aux services",
-      service: "Service",
-      zone: "Zone",
-      tarif: "Tarif indicatif",
-      des: "dès",
-      dispoAujourdhui: "Disponible aujourd'hui",
-      note: "Ce prestataire a été recommandé par des résidents de votre quartier. Contactez-le directement pour convenir des modalités.",
-      contactDirectement: "Contactez directement le prestataire pour votre demande",
-    },
-
-    // ── City sheet ──
-    city: {
-      title: "Choisir ma zone",
-      searchPlaceholder: "Rechercher une ville ou un quartier",
-      detecter: "Détecter ma position (GPS)",
-      detection: "Détection en cours…",
-      prestataires: "prestataires",
-    },
-
     // ── Months ──
     months: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
     monthsShort: ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
@@ -426,19 +396,6 @@ export const t = {
     ilYA: (n: number, unit: string) => `il y a ${n} ${unit}`,
     min: "min", h: "h", j: "j",
 
-    // ── Cats service (labels) ──
-    catLabels: {
-      menage: "Ménage", plomberie: "Plomberie", electricite: "Électricité", climatisation: "Climatisation",
-      bricolage: "Bricolage", peinture: "Peinture", jardinage: "Jardinage", securite: "Sécurité",
-      serrurerie: "Serrurerie", demenagement: "Déménagement", "nettoyage-tapis": "Nettoyage tapis", "nettoyage-canape": "Nettoyage canapé",
-      piscine: "Piscine", vitres: "Vitres", electromenager: "Réparation électroménager", desinfection: "Désinfection",
-    } as Record<string, string>,
-    catShorts: {
-      menage: "Ménage", plomberie: "Plombier", electricite: "Élec", climatisation: "Clim",
-      bricolage: "Bricolage", peinture: "Peinture", jardinage: "Jardin", securite: "Sécurité",
-      serrurerie: "Serrure", demenagement: "Démén.", "nettoyage-tapis": "Tapis", "nettoyage-canape": "Canapé",
-      piscine: "Piscine", vitres: "Vitres", electromenager: "Électro.", desinfection: "Désinf.",
-    } as Record<string, string>,
   },
 
   ar: {
@@ -516,6 +473,12 @@ export const t = {
       deconnexionDesc: "سيتم إعادة توجيهك إلى صفحة الاستقبال.",
       deconnexionConfirm: "تأكيد",
       deconnexionAnnuler: "إلغاء",
+      modifier: "تعديل",
+      enregistrer: "حفظ",
+      profilMisAJour: "تم تحديث الملف الشخصي",
+      profilMisAJourBody: "تم حفظ معلوماتك.",
+      erreur: "خطأ",
+      erreurProfil: "تعذر تحديث الملف الشخصي.",
       messageErreur: (name: string, building: string) =>
         `مرحبا،\n\nأنا ${name}، ساكن(ة) في ${building}.\n\nأريد الإبلاغ عن خطأ في معلوماتي على Palier:\n\n• تفاصيل الخطأ: [يرجى التوضيح]\n\nشكراً.`,
     },
@@ -728,6 +691,7 @@ export const t = {
       lireSuite: "اقرأ المزيد",
       ajouterPhoto: "صورة",
       ajouterFichier: "ملف",
+      fichierJoint: "ملف مرفق",
       supprimerMedia: "حذف",
       modifier: "تعديل",
       supprimer: "حذف",
@@ -740,6 +704,8 @@ export const t = {
       postModifieBody: "تعديلاتك مرئية لجيرانك.",
       postSupprime: "تم حذف المنشور.",
       postSupprimeBody: "",
+      erreurUpload: "خطأ في الإرسال",
+      erreurUploadBody: "تعذر إرسال الملف. تحقق من حجمه (الحد الأقصى 5 ميجا).",
     },
 
     // ── Services (bouche à oreille) ──
@@ -818,45 +784,6 @@ export const t = {
       postSupprimeBody: "",
     },
 
-    // ── Services catégorie (legacy) ──
-    servicesCat: {
-      prestataires: (n: number) => `${n} ${n > 1 ? "مقدمي خدمات متوفرين" : "مقدم خدمة متوفر"}`,
-      aucun: "لا يوجد مقدم خدمة حالياً",
-      pasEncore: (cat: string, city: string) => `لا يوجد مقدم خدمة ${cat} مسجل في ${city}. جرب مدينة أخرى.`,
-      changerVille: "تغيير المدينة",
-      introuvable: "الفئة غير موجودة.",
-      retour: "العودة للخدمات",
-    },
-
-    // ── Provider card (kept for legacy links) ──
-    provider: {
-      topVoisins: "موصى به من جيرانك",
-      aPartirDe: "ابتداءً من",
-      dispoBadge: "متوفر",
-      appeler: "اتصل",
-      whatsapp: "واتساب",
-      voir: "عرض",
-      titre: "مقدم الخدمة",
-      introuvable: "مقدم الخدمة غير موجود.",
-      retour: "العودة إلى الخدمات",
-      service: "الخدمة",
-      zone: "المنطقة",
-      tarif: "السعر التقريبي",
-      des: "ابتداءً من",
-      dispoAujourdhui: "متوفر اليوم",
-      note: "مقدم الخدمة هذا موصى به من سكان حيّك. تواصل معه مباشرة للاتفاق على التفاصيل.",
-      contactDirectement: "تواصل مباشرة مع مقدم الخدمة لطلبك",
-    },
-
-    // ── City sheet ──
-    city: {
-      title: "اختر منطقتك",
-      searchPlaceholder: "البحث عن مدينة أو حي",
-      detecter: "اكتشف موقعي (GPS)",
-      detection: "جاري الكشف…",
-      prestataires: "مقدمي خدمات",
-    },
-
     // ── Months ──
     months: ["يناير", "فبراير", "مارس", "أبريل", "ماي", "يونيو", "يوليوز", "غشت", "شتنبر", "أكتوبر", "نونبر", "دجنبر"],
     monthsShort: ["يناير", "فبراير", "مارس", "أبريل", "ماي", "يونيو", "يوليوز", "غشت", "شتنبر", "أكتوبر", "نونبر", "دجنبر"],
@@ -866,19 +793,6 @@ export const t = {
     ilYA: (n: number, unit: string) => `منذ ${n} ${unit}`,
     min: "د", h: "س", j: "ي",
 
-    // ── Cats service (labels) ──
-    catLabels: {
-      menage: "تنظيف", plomberie: "سباكة", electricite: "كهرباء", climatisation: "تكييف",
-      bricolage: "أعمال يدوية", peinture: "دهان", jardinage: "بستنة", securite: "أمن",
-      serrurerie: "أقفال", demenagement: "نقل", "nettoyage-tapis": "تنظيف زرابي", "nettoyage-canape": "تنظيف أرائك",
-      piscine: "مسبح", vitres: "تنظيف زجاج", electromenager: "أجهزة منزلية", desinfection: "إبادة حشرات",
-    } as Record<string, string>,
-    catShorts: {
-      menage: "تنظيف", plomberie: "سباك", electricite: "كهربائي", climatisation: "تكييف",
-      bricolage: "يدوية", peinture: "دهان", jardinage: "بستنة", securite: "أمن",
-      serrurerie: "أقفال", demenagement: "نقل", "nettoyage-tapis": "زرابي", "nettoyage-canape": "أرائك",
-      piscine: "مسبح", vitres: "زجاج", electromenager: "أجهزة", desinfection: "حشرات",
-    } as Record<string, string>,
   },
 } as const;
 

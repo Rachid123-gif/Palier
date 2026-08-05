@@ -9,6 +9,19 @@ import {
   type SessionData,
 } from "./session";
 
+/** Constant-time string comparison to prevent timing attacks */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+  return result === 0;
+}
+
 /**
  * Admin login — validates against PLATFORM_ADMIN_SECRET env var.
  * This is a simple secret-based auth, not tied to the profiles table.
@@ -21,7 +34,7 @@ export async function adminLogin(
     return { ok: false, error: "not_configured" };
   }
 
-  if (secret.trim() !== expected) {
+  if (!timingSafeEqual(secret.trim(), expected)) {
     return { ok: false, error: "invalid_secret" };
   }
 

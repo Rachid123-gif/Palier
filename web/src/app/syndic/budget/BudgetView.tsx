@@ -56,11 +56,13 @@ export function BudgetView({
   buildingId,
   units,
   kpis,
+  building,
 }: {
   budgets: Budget[];
   buildingId: string;
   units: SyndicData["units"];
   kpis: SyndicData["kpis"];
+  building: SyndicData["building"];
 }) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export function BudgetView({
   const budgetTotal = currentBudget?.totalAmount ?? 0;
   const reserveAmount = currentBudget?.reserveFundAmount ?? 0;
   const budgetStatus = currentBudget?.status ?? null;
-  const accountingTier = kpis ? "Tier 1" : "Tier 1"; // always available from building
+  const accountingTier = building.accountingTier === "tier3" ? "Grand" : building.accountingTier === "tier2" ? "Moyen" : "Petit";
 
   // ── Filtering ──
   const statusTabs: { key: "all" | Budget["status"]; label: string }[] = [

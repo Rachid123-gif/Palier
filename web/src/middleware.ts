@@ -33,6 +33,21 @@ export async function middleware(request: NextRequest) {
       } catch {
         return NextResponse.json({ error: "csrf_rejected" }, { status: 403 });
       }
+    } else if (!origin) {
+      // No Origin header — check Referer to detect cross-site requests.
+      // If Referer exists and points to a different host, reject.
+      // If neither Origin nor Referer exists, allow (could be server-to-server).
+      const referer = request.headers.get("referer");
+      if (referer && host) {
+        try {
+          const refererHost = new URL(referer).host;
+          if (refererHost !== host) {
+            return NextResponse.json({ error: "csrf_rejected" }, { status: 403 });
+          }
+        } catch {
+          return NextResponse.json({ error: "csrf_rejected" }, { status: 403 });
+        }
+      }
     }
   }
 

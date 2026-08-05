@@ -248,9 +248,15 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
       ) : (
         /* Empty state */
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
-          <Icon name="Scale" className="mx-auto h-8 w-8 text-ink-faint" />
-          <p className="mt-2 text-[13px] text-ink-soft">Aucun règlement de copropriété enregistré</p>
-          <button onClick={openForm} className="mt-1 text-[13px] font-medium text-palier-600">Ajouter le règlement</button>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-50">
+            <Icon name="Scale" className="h-7 w-7 text-palier-400" />
+          </span>
+          <p className="mt-3 text-[14px] font-semibold text-ink">Aucun règlement de copropriété configuré</p>
+          <p className="mx-auto mt-1 max-w-xs text-[13px] text-ink-soft">Importez le règlement de copropriété et ses annexes pour les rendre accessibles aux copropriétaires.</p>
+          <button onClick={openForm} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
+            <Icon name="Plus" className="h-3.5 w-3.5" />
+            Ajouter le règlement
+          </button>
         </div>
       )}
 

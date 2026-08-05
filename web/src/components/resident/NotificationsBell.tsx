@@ -6,8 +6,9 @@ import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
+import { markNotificationsRead, fetchNotifications } from "@/lib/actions";
 
-type NotifKind = "incident" | "charge" | "post" | "ag" | "document";
+type Notif = { id: string; title: string; body: string; created_at: string; kind: string; read: boolean };
 
 const kindIcon: Record<string, { icon: string; tint: string; color: string }> = {
   incident: { icon: "TriangleAlert", tint: "bg-danger-soft", color: "text-danger" },
@@ -26,14 +27,6 @@ const kindToPref: Record<string, string> = {
   document: "syndic",
 };
 
-function getReadIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem("palier_notif_read");
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
-}
-
 function getNotifPrefs(): Record<string, boolean> {
   if (typeof window === "undefined") return { charges: true, incidents: true, voisinage: true, ag: true, syndic: true };
   try {
@@ -42,14 +35,40 @@ function getNotifPrefs(): Record<string, boolean> {
   } catch { return { charges: true, incidents: true, voisinage: true, ag: true, syndic: true }; }
 }
 
+const POLL_INTERVAL = 30_000; // 30 seconds
+
 export function NotificationsBell({ dark = false }: { dark?: boolean }) {
-  const { notifications: rawNotifs, profileId } = useData();
+  const { notifications: initialNotifs, profileId } = useData();
   const { lang, i } = useLang();
   const [open, setOpen] = useState(false);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
+  const [polledNotifs, setPolledNotifs] = useState<Notif[] | null>(null);
   const pushPrompted = useRef(false);
 
-  useEffect(() => { setReadIds(getReadIds()); }, []);
+  const rawNotifs: Notif[] = polledNotifs ?? initialNotifs.map((n: any) => ({ ...n, read: !!n.read }));
+
+  // Poll for new notifications every 30s
+  useEffect(() => {
+    const poll = () => {
+      fetchNotifications().then(setPolledNotifs).catch(() => {});
+    };
+    const id = setInterval(poll, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, []);
+
+  // Also refresh on window focus
+  useEffect(() => {
+    const onFocus = () => {
+      fetchNotifications().then(setPolledNotifs).catch(() => {});
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  const readIds = new Set([
+    ...rawNotifs.filter((n) => n.read).map((n) => n.id),
+    ...localReadIds,
+  ]);
 
   // Prompt for push notifications on first bell open
   useEffect(() => {
@@ -73,11 +92,10 @@ export function NotificationsBell({ dark = false }: { dark?: boolean }) {
   const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
 
   const markAllRead = useCallback(() => {
-    const allIds = new Set(notifications.map((n) => n.id));
-    // Merge with existing read ids
-    const merged = new Set([...readIds, ...allIds]);
-    setReadIds(merged);
-    localStorage.setItem("palier_notif_read", JSON.stringify([...merged]));
+    const unreadIds = notifications.filter((n) => !readIds.has(n.id)).map((n) => n.id);
+    if (!unreadIds.length) return;
+    setLocalReadIds((prev) => new Set([...prev, ...unreadIds]));
+    markNotificationsRead(unreadIds);
   }, [notifications, readIds]);
 
   function handleOpen() {

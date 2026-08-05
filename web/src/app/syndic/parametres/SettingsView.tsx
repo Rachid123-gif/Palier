@@ -81,9 +81,11 @@ const DEFAULT_NOTIF_EVENTS: Record<string, boolean> = Object.fromEntries(NOTIF_E
 export function SettingsView({
   building,
   settings,
+  units,
 }: {
   building: { id: string; name: string; address: string; city: string; lots: number; syndic: string };
   settings: BuildingSettings | null;
+  units: { id: string; ref: string; floor: number | null; tantiemes: number }[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -125,6 +127,7 @@ export function SettingsView({
 
   // ── Access codes ──
   const [codePhone, setCodePhone] = useState("");
+  const [codeUnit, setCodeUnit] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
@@ -217,6 +220,7 @@ export function SettingsView({
     const result = await generateAccessCode({
       buildingId: building.id,
       phone: codePhone.trim(),
+      unitRef: codeUnit || undefined,
     });
     if (result.code) {
       // Format phone for WhatsApp (remove spaces, leading 0 → +212)
@@ -230,6 +234,7 @@ export function SettingsView({
       window.open(`https://wa.me/${phone.replace("+", "")}?text=${msg}`, "_blank");
 
       setCodePhone("");
+      setCodeUnit("");
       setCodeSent(true);
       setTimeout(() => setCodeSent(false), 5000);
     }
@@ -584,6 +589,24 @@ export function SettingsView({
                 </div>
 
                 <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Lot / Appartement</label>
+                    <select
+                      value={codeUnit}
+                      onChange={(e) => setCodeUnit(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— Sélectionner un lot —</option>
+                      {units
+                        .slice()
+                        .sort((a, b) => a.ref.localeCompare(b.ref, undefined, { numeric: true }))
+                        .map((u) => (
+                          <option key={u.id} value={u.ref}>
+                            {u.ref}{u.floor != null ? ` (étage ${u.floor})` : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Numéro WhatsApp du résident</label>
                     <input
@@ -1025,7 +1048,7 @@ export function SettingsView({
               <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
                 Annuler
               </button>
-              <button onClick={async () => { await logout(); window.location.href = "/bienvenue"; }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
+              <button onClick={async () => { localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); await logout(); window.location.href = "/bienvenue"; }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
                 Se déconnecter
               </button>
             </div>

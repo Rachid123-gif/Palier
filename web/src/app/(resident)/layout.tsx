@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/resident/BottomNav";
 import { BuildingSwitcherResident } from "@/components/resident/BuildingSwitcherResident";
 import { DeactivatedBanner } from "@/components/resident/DeactivatedBanner";
@@ -5,6 +7,8 @@ import { DataProvider } from "@/lib/DataProvider";
 import { LangProvider } from "@/lib/LangProvider";
 import { fetchAppData, getUserBuildings } from "@/lib/queries";
 import { requireSession } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import { RefreshOnFocus } from "@/components/RefreshOnFocus";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +18,23 @@ export default async function ResidentLayout({
   children: React.ReactNode;
 }) {
   const session = await requireSession();
+
+  // Check membership is still active
+  if (session.profileId) {
+    const { data: membership } = await supabaseAdmin
+      .from("memberships")
+      .select("status")
+      .eq("profile_id", session.profileId)
+      .eq("building_id", session.buildingId)
+      .single();
+
+    if (!membership || membership.status === "inactive") {
+      const cookieStore = await cookies();
+      cookieStore.delete("palier_session");
+      redirect("/bienvenue");
+    }
+  }
+
   const buildings = session.profileId ? await getUserBuildings(session.profileId) : [];
   const data = await fetchAppData(session.buildingId, session.profileId, session.unitId, buildings);
   return (
@@ -27,6 +48,7 @@ export default async function ResidentLayout({
               {children}
             </main>
             <BottomNav />
+            <RefreshOnFocus />
           </DataProvider>
         </LangProvider>
       </div>

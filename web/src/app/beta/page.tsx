@@ -6,11 +6,51 @@ import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { Icon } from "@/components/ui/Icon";
 import { validateBetaCode } from "@/lib/auth";
 
+const texts = {
+  fr: {
+    badge: "Accès anticipé",
+    desc: "La plateforme tout-en-un pour les copropriétés marocaines. Charges, voisinage, services, incidents, transparence financière.",
+    invite: "Palier est actuellement en accès anticipé. Entrez votre code d'invitation pour découvrir l'application.",
+    placeholder: "CODE D'INVITATION",
+    button: "Accéder à Palier",
+    errorInvalid: "Code invalide. Vérifiez et réessayez.",
+    errorConnection: "Erreur de connexion. Réessayez.",
+    noCode: "Pas encore de code ?",
+    noCodeDesc: "Contactez-nous pour rejoindre le programme d'accès anticipé et être parmi les premiers à utiliser Palier.",
+  },
+  ar: {
+    badge: "وصول مبكر",
+    desc: "المنصة الشاملة للملكية المشتركة في المغرب. المصاريف، الجوار، الخدمات، الحوادث، الشفافية المالية.",
+    invite: "بالييه متاح حالياً بوصول مبكر. أدخل رمز الدعوة لاكتشاف التطبيق.",
+    placeholder: "رمز الدعوة",
+    button: "الدخول إلى بالييه",
+    errorInvalid: "رمز غير صالح. تحقق وأعد المحاولة.",
+    errorConnection: "خطأ في الاتصال. أعد المحاولة.",
+    noCode: "ليس لديك رمز؟",
+    noCodeDesc: "تواصل معنا للانضمام إلى برنامج الوصول المبكر وكن من أوائل مستخدمي بالييه.",
+  },
+};
+
 export default function BetaGatePage() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useState<"fr" | "ar">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("palier_lang");
+      if (saved === "ar") return "ar";
+    }
+    return "fr";
+  });
+
+  const t = texts[lang];
+
+  function toggleLang() {
+    const next = lang === "fr" ? "ar" : "fr";
+    setLang(next);
+    localStorage.setItem("palier_lang", next);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,17 +64,25 @@ export default function BetaGatePage() {
         router.push("/bienvenue");
         router.refresh();
       } else {
-        setError("Code invalide. Vérifiez et réessayez.");
+        setError(t.errorInvalid);
       }
     } catch {
-      setError("Erreur de connexion. Réessayez.");
+      setError(t.errorConnection);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#f7f5f0] px-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#f7f5f0] px-6" dir={lang === "ar" ? "rtl" : undefined}>
+      {/* Language toggle */}
+      <button
+        onClick={toggleLang}
+        className="fixed top-4 right-4 z-50 rounded-full bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-[#3d3d3d] shadow-sm backdrop-blur transition-colors hover:bg-white"
+      >
+        {lang === "fr" ? "العربية" : "Français"}
+      </button>
+
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center">
@@ -46,17 +94,16 @@ export default function BetaGatePage() {
         <div className="mt-6 flex justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[12px] font-bold text-amber-800">
             <Icon name="Sparkles" className="h-3.5 w-3.5" />
-            Accès anticipé
+            {t.badge}
           </span>
         </div>
 
         {/* Description */}
         <p className="mt-5 text-center text-[14px] leading-relaxed text-[#888]">
-          La plateforme tout-en-un pour les copropriétés marocaines. Charges, voisinage, services, incidents, transparence financière.
+          {t.desc}
         </p>
         <p className="mt-4 text-center text-[15px] leading-relaxed text-[#3d3d3d]">
-          Palier est actuellement en <span className="font-semibold">accès anticipé</span>.
-          Entrez votre code d&apos;invitation pour découvrir l&apos;application.
+          {t.invite}
         </p>
 
         {/* Form */}
@@ -66,7 +113,7 @@ export default function BetaGatePage() {
               type="text"
               value={code}
               onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(""); }}
-              placeholder="CODE D'INVITATION"
+              placeholder={t.placeholder}
               autoFocus
               autoComplete="off"
               className="h-13 w-full rounded-2xl border border-black/[0.08] bg-white px-5 py-4 text-center text-[16px] font-bold tracking-[0.2em] text-[#1a1a1a] outline-none placeholder:text-[13px] placeholder:font-medium placeholder:tracking-[0.15em] placeholder:text-black/25 focus:border-[#1e5b50]/40 focus:ring-2 focus:ring-[#1e5b50]/10"
@@ -86,7 +133,7 @@ export default function BetaGatePage() {
             {loading ? (
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             ) : (
-              "Accéder à Palier"
+              t.button
             )}
           </button>
         </form>
@@ -94,10 +141,10 @@ export default function BetaGatePage() {
         {/* Contact */}
         <div className="mt-10 rounded-2xl border border-black/[0.06] bg-white p-5">
           <p className="text-center text-[13px] font-semibold text-[#3d3d3d]">
-            Pas encore de code ?
+            {t.noCode}
           </p>
           <p className="mt-1.5 text-center text-[12px] leading-relaxed text-[#888]">
-            Contactez-nous pour rejoindre le programme d&apos;accès anticipé et être parmi les premiers à utiliser Palier.
+            {t.noCodeDesc}
           </p>
           <div className="mt-4 flex flex-col gap-2">
             <a
@@ -121,7 +168,7 @@ export default function BetaGatePage() {
 
         {/* Footer */}
         <p className="mt-8 pb-6 text-center text-[11px] text-black/25">
-          © {new Date().getFullYear()} Palier · Accès anticipé
+          © {new Date().getFullYear()} Palier · {t.badge}
         </p>
       </div>
     </div>

@@ -13,6 +13,20 @@ import {
 import { checkRateLimit, RATE_LIMITS } from "./rate-limit";
 import { sendSMS } from "./sms";
 
+/* ─── Constant-time string comparison ─── */
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  if (bufA.length !== bufB.length) return false;
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+  return result === 0;
+}
+
 /* ─── Crypto-safe random code generation ─── */
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -59,7 +73,7 @@ export async function loginWithCode(
   // Rate limit login attempts by IP
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
-  const rl = checkRateLimit(`login:${ip}`, RATE_LIMITS.login);
+  const rl = await checkRateLimit(`login:${ip}`, RATE_LIMITS.login);
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const upper = code.trim().toUpperCase();
@@ -83,11 +97,16 @@ export async function loginWithCode(
     profileId = data.used_by;
     const { data: mem } = await supabaseAdmin
       .from("memberships")
-      .select("unit_id")
+      .select("unit_id, status")
       .eq("profile_id", profileId)
       .eq("building_id", data.building_id)
       .single();
-    unitId = mem?.unit_id ?? null;
+
+    if (!mem || mem.status === "inactive") {
+      return { ok: false, error: "code_not_found" };
+    }
+
+    unitId = mem.unit_id ?? null;
   } else {
     // Code without profile link — reject for both roles.
     return { ok: false, error: "code_not_linked" };
@@ -114,18 +133,98 @@ export async function loginWithCode(
   return { ok: true };
 }
 
-/* ─── Register syndic (self-service) ─── */
+/* ─── Register syndic (OTP-verified, two-phase) ─── */
 
-export async function registerSyndic(input: {
+/** Phase 1: Validate inputs, check duplicates, send OTP */
+export async function requestSyndicRegistrationOtp(input: {
   fullName: string;
   phone: string;
   buildingName: string;
   city: string;
   lotsCount: number;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+  const rl = await checkRateLimit(`register:${ip}`, RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
+
+  const name = input.fullName.trim();
+  const phone = input.phone.trim();
+  const buildingName = input.buildingName.trim();
+  const city = input.city.trim();
+  const lots = Math.max(1, Math.min(500, input.lotsCount));
+
+  if (!name || !phone || !buildingName || !city) {
+    return { ok: false, error: "missing_fields" };
+  }
+
+  const phoneClean = phone.replace(/\s+/g, "");
+  if (!/^0[5-7]\d{8}$/.test(phoneClean)) {
+    return { ok: false, error: "invalid_phone" };
+  }
+
+  if (lots < 2) {
+    return { ok: false, error: "invalid_lots" };
+  }
+
+  // Check if phone already registered as syndic
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("phone", phoneClean)
+    .single();
+
+  if (existingProfile) {
+    const { data: existingMembership } = await supabaseAdmin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", existingProfile.id)
+      .eq("role", "syndic")
+      .eq("status", "active")
+      .single();
+
+    if (existingMembership) {
+      return { ok: false, error: "phone_already_registered" };
+    }
+  }
+
+  // Generate OTP
+  const otp = generateOtp();
+
+  // Clean old OTPs for this phone
+  await supabaseAdmin.from("otp_codes").delete().eq("phone", phoneClean);
+
+  // Store OTP (expires in 5 minutes)
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  await supabaseAdmin.from("otp_codes").insert({
+    phone: phoneClean,
+    code: otp,
+    expires_at: expiresAt,
+  });
+
+  // Send SMS
+  try {
+    await sendSMS(phoneClean, `Votre code Palier : ${otp}`);
+  } catch {
+    await supabaseAdmin.from("otp_codes").delete().eq("phone", phoneClean);
+    return { ok: false, error: "sms_failed" };
+  }
+
+  return { ok: true };
+}
+
+/** Phase 2: Verify OTP and complete syndic registration */
+export async function completeSyndicRegistration(input: {
+  fullName: string;
+  phone: string;
+  buildingName: string;
+  city: string;
+  lotsCount: number;
+  otp: string;
 }): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
-  const rl = checkRateLimit(`register:${ip}`, RATE_LIMITS.login);
+  const rl = await checkRateLimit(`register:${ip}`, RATE_LIMITS.login);
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const name = input.fullName.trim();
@@ -148,6 +247,45 @@ export async function registerSyndic(input: {
   if (lots < 2) {
     return { ok: false, error: "invalid_lots" };
   }
+
+  // ── Verify OTP ──
+  const { data: entry } = await supabaseAdmin
+    .from("otp_codes")
+    .select("id, code, attempts, expires_at")
+    .eq("phone", phoneClean)
+    .single();
+
+  if (!entry) return { ok: false, error: "otp_expired" };
+
+  if (new Date(entry.expires_at) < new Date()) {
+    await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
+    return { ok: false, error: "otp_expired" };
+  }
+
+  // Atomic increment + check: only increment if attempts < 3
+  const { data: updated, error: incErr } = await supabaseAdmin
+    .from("otp_codes")
+    .update({ attempts: entry.attempts + 1 })
+    .eq("id", entry.id)
+    .lt("attempts", 3)
+    .select("attempts")
+    .single();
+
+  if (!updated || incErr) {
+    await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
+    return { ok: false, error: "too_many_attempts" };
+  }
+
+  // Constant-time comparison
+  const otpTrimmed = input.otp.trim();
+  if (otpTrimmed.length !== entry.code.length || !timingSafeEqual(otpTrimmed, entry.code)) {
+    return { ok: false, error: "otp_invalid" };
+  }
+
+  // OTP valid — clean up
+  await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
+
+  // ── Proceed with registration ──
 
   // Check if phone already registered as syndic
   const { data: existingProfile } = await supabaseAdmin
@@ -212,22 +350,43 @@ export async function registerSyndic(input: {
   });
 
   // 3b. Create default building settings
-  await supabaseAdmin.from("building_settings").insert({
+  const { error: settingsErr } = await supabaseAdmin.from("building_settings").insert({
     building_id: building.id,
     syndic_phone: phoneClean,
-  }).then(() => {}, () => {});
+  });
+  if (settingsErr) {
+    console.error("[completeSyndicRegistration] building_settings insert failed:", settingsErr);
+  }
 
-  // 4. Generate access code (best-effort — table may not exist yet)
-  const code = generateCode("SYN-", 6);
+  // 4. Generate access code with retry on collision
+  let code = generateCode("SYN-", 6);
 
-  await supabaseAdmin.from("access_codes").insert({
+  const { error: codeErr } = await supabaseAdmin.from("access_codes").insert({
     building_id: building.id,
     code,
     role: "syndic",
     label: `Syndic — ${name}`,
     used_by: profileId,
     used_at: new Date().toISOString(),
-  }).then(() => {}, () => {});
+  });
+
+  if (codeErr) {
+    console.error("[completeSyndicRegistration] access_codes insert failed:", codeErr);
+    // Try once more with a different code
+    const retryCode = generateCode("SYN-", 6);
+    const { error: retryErr } = await supabaseAdmin.from("access_codes").insert({
+      building_id: building.id,
+      code: retryCode,
+      role: "syndic",
+      label: `Syndic — ${name}`,
+      used_by: profileId,
+      used_at: new Date().toISOString(),
+    });
+    if (retryErr) {
+      return { ok: false, error: "creation_failed" };
+    }
+    code = retryCode;
+  }
 
   // 5. Set session cookie (auto-login)
   const session: SessionData = {
@@ -251,11 +410,16 @@ export async function requestRecoveryOtp(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
-  const rl = checkRateLimit(`recover:${ip}`, RATE_LIMITS.login);
+  const rl = await checkRateLimit(`recover:${ip}`, RATE_LIMITS.login);
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const cleaned = phone.trim().replace(/\s+/g, "");
   if (!cleaned) return { ok: false, error: "invalid_request" };
+
+  // Validate phone format
+  if (!/^0[5-7]\d{8}$/.test(cleaned)) {
+    return { ok: false, error: "invalid_request" };
+  }
 
   // Find profile by phone
   const { data: profile } = await supabaseAdmin
@@ -311,7 +475,7 @@ export async function verifyRecoveryOtp(
 ): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
-  const rl = checkRateLimit(`otp-verify:${ip}`, RATE_LIMITS.login);
+  const rl = await checkRateLimit(`otp-verify:${ip}`, RATE_LIMITS.login);
   if (!rl.ok) return { ok: false, error: "too_many_attempts" };
 
   const cleaned = phone.trim().replace(/\s+/g, "");
@@ -331,25 +495,32 @@ export async function verifyRecoveryOtp(
     return { ok: false, error: "otp_expired" };
   }
 
-  // Check attempts (max 3)
-  if (entry.attempts >= 3) {
+  // Atomic increment + check: only increment if attempts < 3
+  const { data: updated, error: incErr } = await supabaseAdmin
+    .from("otp_codes")
+    .update({ attempts: entry.attempts + 1 })
+    .eq("id", entry.id)
+    .lt("attempts", 3)
+    .select("attempts")
+    .single();
+
+  if (!updated || incErr) {
+    // Either attempts >= 3 or DB error
     await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
     return { ok: false, error: "too_many_attempts" };
   }
 
-  // Increment attempts
-  await supabaseAdmin.from("otp_codes").update({ attempts: entry.attempts + 1 }).eq("id", entry.id);
-
-  // Verify code
-  if (otpCode.trim() !== entry.code) {
+  // Constant-time comparison
+  const otpTrimmed = otpCode.trim();
+  if (otpTrimmed.length !== entry.code.length || !timingSafeEqual(otpTrimmed, entry.code)) {
     return { ok: false, error: "otp_invalid" };
   }
 
   // OTP valid — clean up
   await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
 
-  // Generate new access code (crypto-safe)
-  const newCode = generateCode("SYN-", 6);
+  // Generate new access code (crypto-safe) with retry on collision
+  let newCode = generateCode("SYN-", 6);
 
   // Deactivate old codes and insert new one
   await supabaseAdmin
@@ -359,14 +530,32 @@ export async function verifyRecoveryOtp(
     .eq("used_by", entry.profile_id)
     .eq("role", "syndic");
 
-  await supabaseAdmin.from("access_codes").insert({
+  const { error: codeErr } = await supabaseAdmin.from("access_codes").insert({
     building_id: entry.building_id,
     code: newCode,
     role: "syndic",
     label: "Syndic",
     used_by: entry.profile_id,
     used_at: new Date().toISOString(),
-  }).then(() => {}, () => {});
+  });
+
+  if (codeErr) {
+    console.error("[verifyRecoveryOtp] access_codes insert failed:", codeErr);
+    // Try once more with a different code
+    const retryCode = generateCode("SYN-", 6);
+    const { error: retryErr } = await supabaseAdmin.from("access_codes").insert({
+      building_id: entry.building_id,
+      code: retryCode,
+      role: "syndic",
+      label: "Syndic",
+      used_by: entry.profile_id,
+      used_at: new Date().toISOString(),
+    });
+    if (retryErr) {
+      return { ok: false, error: "creation_failed" };
+    }
+    newCode = retryCode;
+  }
 
   // Create session
   const session: SessionData = {

@@ -36,6 +36,8 @@ export const createPostSchema = z.object({
   providerName: shortString.optional(),
   providerPhone: phone.optional(),
   imageUrl: z.string().url().optional(),
+  fileUrl: z.string().url().optional(),
+  fileName: z.string().max(255).optional(),
 });
 
 export const updatePostSchema = z.object({
@@ -136,7 +138,10 @@ export const updateAssemblySchema = z.object({
   assemblyId: uuid,
   quorum: z.number().min(0).max(10000),
   votes: z.array(z.object({
+    id: z.string().min(1).optional(),
     q: safeString,
+    options: z.array(z.string()).optional(),
+    closesAt: z.string().optional(),
     pour: z.number().min(0),
     contre: z.number().min(0),
     abst: z.number().min(0),
@@ -322,6 +327,12 @@ export const castVoteSchema = z.object({
   voteId: z.string().min(1),
   profileId: uuid,
   choice: shortString,
+});
+
+/* ─── Profile ─── */
+export const updateProfileSchema = z.object({
+  name: shortString,
+  phone: phone,
 });
 
 /* ─── Tantiemes ─── */
