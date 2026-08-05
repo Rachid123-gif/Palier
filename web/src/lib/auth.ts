@@ -632,13 +632,6 @@ export async function validateBetaCode(
     .single();
 
   if (!invite) return { ok: false, error: "invalid_code" };
-  if (invite.used_at) return { ok: false, error: "already_used" };
-
-  // Mark as used
-  await supabaseAdmin
-    .from("beta_invites")
-    .update({ used_at: new Date().toISOString() })
-    .eq("id", invite.id);
 
   const cookieStore = await cookies();
   cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
