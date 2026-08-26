@@ -50,7 +50,7 @@ export function ResidentsView({
 
   const activeResidents = residents.filter((r) => (r.status ?? "active") === "active");
   const inactiveResidents = residents.filter((r) => (r.status ?? "active") === "inactive");
-  const ownerCount = activeResidents.filter((r) => r.role === "owner").length;
+  const ownerCount = activeResidents.filter((r) => r.role === "owner" || r.role === "syndic").length;
   const tenantCount = activeResidents.filter((r) => r.role === "tenant").length;
 
   const filtered = useMemo(() => {
