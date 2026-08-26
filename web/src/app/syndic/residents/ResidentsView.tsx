@@ -224,7 +224,6 @@ export function ResidentsView({
             <p className="text-[12px] font-semibold text-ink">Propriétaires</p>
           </div>
           <p className="text-[28px] font-bold leading-none text-ink">{ownerCount}</p>
-          <p className="mt-1.5 text-[12px] font-medium text-ink-soft">{activeResidents.length > 0 ? Math.round((ownerCount / activeResidents.length) * 100) : 0}% des résidents</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
@@ -234,7 +233,6 @@ export function ResidentsView({
             <p className="text-[12px] font-semibold text-ink">Locataires</p>
           </div>
           <p className="text-[28px] font-bold leading-none text-ink">{tenantCount}</p>
-          <p className="mt-1.5 text-[12px] font-medium text-ink-soft">{activeResidents.length > 0 ? Math.round((tenantCount / activeResidents.length) * 100) : 0}% des résidents</p>
         </div>
       </div>
 
