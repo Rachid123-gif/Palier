@@ -101,6 +101,42 @@ export async function createIncident(input: {
   return res;
 }
 
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+  "application/pdf", "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+  "image/heic": "heic", "image/heif": "heif", "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+};
+
+/** Upload a file via server action (uses service_role key) */
+export async function uploadFileAction(formData: FormData): Promise<{ url?: string; error?: string }> {
+  await requireAuth();
+  const file = formData.get("file") as File | null;
+  if (!file) return { error: "no_file" };
+  if (file.size > 5 * 1024 * 1024) return { error: "File too large (max 5 MB)" };
+  if (!ALLOWED_MIME_TYPES.has(file.type)) return { error: `File type not allowed: ${file.type}` };
+
+  const ext = MIME_TO_EXT[file.type] ?? "bin";
+  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const folder = file.type.startsWith("image/") ? "posts" : "documents";
+  const path = `${folder}/${safeName}`;
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error } = await supabaseAdmin.storage.from("uploads").upload(path, buffer, { contentType: file.type, upsert: false });
+  if (error) return { error: "upload_failed" };
+  const { data } = supabaseAdmin.storage.from("uploads").getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 /** Créer un post en tant que syndic */
 export async function createPostSyndic(input: {
   buildingId: string;

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
-import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment, updatePost } from "@/lib/actions";
+import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment, updatePost, uploadFileAction } from "@/lib/actions";
 
 type Post = {
   id: string;
@@ -156,13 +156,11 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       try {
         let imageUrl: string | undefined;
         if (mediaFile) {
-          if (mediaFile.type.startsWith("image/")) {
-            const { uploadPostImage } = await import("@/lib/storage");
-            imageUrl = await uploadPostImage(mediaFile);
-          } else {
-            const { uploadPostDocument } = await import("@/lib/storage");
-            imageUrl = await uploadPostDocument(mediaFile);
-          }
+          const fd = new FormData();
+          fd.append("file", mediaFile);
+          const uploadResult = await uploadFileAction(fd);
+          if (uploadResult.error) { flash("Erreur upload : " + uploadResult.error); return; }
+          imageUrl = uploadResult.url;
         }
         await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType, imageUrl });
         setComposeBody("");
