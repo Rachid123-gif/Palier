@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
