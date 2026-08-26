@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SyndicShell } from "@/components/syndic/SyndicShell";
 import { fetchSyndicData } from "@/lib/syndic";
@@ -22,8 +21,6 @@ export default async function SyndicLayout({ children }: { children: React.React
       .single();
 
     if (!membership || membership.status === "inactive") {
-      const cookieStore = await cookies();
-      cookieStore.delete("palier_session");
       redirect("/bienvenue");
     }
   }
