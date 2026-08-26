@@ -155,14 +155,19 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
     startPosting(async () => {
       try {
         let imageUrl: string | undefined;
-        if (mediaFile && mediaFile.type.startsWith("image/")) {
-          const { uploadPostImage } = await import("@/lib/storage");
-          imageUrl = await uploadPostImage(mediaFile);
+        if (mediaFile) {
+          if (mediaFile.type.startsWith("image/")) {
+            const { uploadPostImage } = await import("@/lib/storage");
+            imageUrl = await uploadPostImage(mediaFile);
+          } else {
+            const { uploadPostDocument } = await import("@/lib/storage");
+            imageUrl = await uploadPostDocument(mediaFile);
+          }
         }
         await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType as "announcement", imageUrl });
         setComposeBody("");
         setComposeTitle("");
-        setComposeType("announcement");
+        setComposeType(categories[0] ?? "Annonce");
         clearMedia();
         setShowCompose(false);
         flash("Publication créée");
