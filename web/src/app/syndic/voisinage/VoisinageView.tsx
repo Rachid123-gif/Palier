@@ -36,24 +36,25 @@ type Comment = {
   createdAt: string;
 };
 
-const typeLabels: Record<string, string> = {
-  announcement: "Annonce", event: "Événement", help: "Entraide",
-  found: "Trouvé", general: "Général", service: "Service", recommendation: "Recommandation",
-};
+const DEFAULT_CATS = ["Annonce", "Événement", "Entraide", "Trouvé", "Général", "Service", "Recommandation"];
 
-const typeColors: Record<string, string> = {
-  announcement: "bg-palier-50 text-palier-700",
-  event: "bg-blue-50 text-blue-700",
-  help: "bg-amber-50 text-amber-700",
-  found: "bg-yellow-50 text-yellow-700",
-  general: "bg-emerald-50 text-emerald-700",
-  service: "bg-palier-50 text-palier-700",
-  recommendation: "bg-palier-50 text-palier-700",
-};
+const TYPE_COLORS = [
+  "bg-palier-50 text-palier-700",
+  "bg-blue-50 text-blue-700",
+  "bg-amber-50 text-amber-700",
+  "bg-yellow-50 text-yellow-700",
+  "bg-emerald-50 text-emerald-700",
+  "bg-purple-50 text-purple-700",
+  "bg-pink-50 text-pink-700",
+];
 
 const PER_PAGE = 15;
 
-export function VoisinageView({ posts, buildingName, buildingId }: { posts: Post[]; buildingName: string; buildingId: string }) {
+export function VoisinageView({ posts, buildingName, buildingId, voisinageCategories }: { posts: Post[]; buildingName: string; buildingId: string; voisinageCategories?: string[] | null }) {
+  const categories = voisinageCategories ?? DEFAULT_CATS;
+  const typeLabels: Record<string, string> = Object.fromEntries(categories.map((c) => [c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_"), c]));
+  const typeColors: Record<string, string> = Object.fromEntries(Object.keys(typeLabels).map((k, i) => [k, TYPE_COLORS[i % TYPE_COLORS.length]]));
+
   const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
