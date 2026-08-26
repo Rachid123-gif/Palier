@@ -461,14 +461,23 @@ export async function addResident(input: {
     return { error: "validation_error" };
   }
 
-  const { data: unit } = await supabaseAdmin
+  let { data: unit } = await supabaseAdmin
     .from("units")
     .select("id")
     .eq("building_id", v.buildingId)
     .eq("ref", v.unit.toUpperCase())
     .single();
 
-  if (!unit) return { error: "unit_not_found" };
+  // Auto-create unit if it doesn't exist
+  if (!unit) {
+    const { data: created, error: createErr } = await supabaseAdmin
+      .from("units")
+      .insert({ building_id: v.buildingId, ref: v.unit.toUpperCase() })
+      .select("id")
+      .single();
+    if (createErr || !created) return { error: "unit_not_found" };
+    unit = created;
+  }
 
   const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
   const avatarColor = colors[Math.floor(Math.random() * colors.length)];
