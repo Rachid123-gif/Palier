@@ -384,9 +384,11 @@ export function ResidentsView({
                               <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title="Modifier">
                                 <Icon name="Pencil" className="h-3.5 w-3.5" />
                               </button>
-                              <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500" title="Désactiver">
-                                <Icon name="Trash2" className="h-3.5 w-3.5" />
-                              </button>
+                              {r.role !== "syndic" && (
+                                <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500" title="Désactiver">
+                                  <Icon name="Trash2" className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -430,7 +432,7 @@ export function ResidentsView({
                             <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint" title="Renvoyer le code d'accès"><Icon name="KeyRound" className="h-4 w-4" /></button>
                             <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
                             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
-                            <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>
+                            {r.role !== "syndic" && <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>}
                           </>
                         )}
                       </div>
