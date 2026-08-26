@@ -24,6 +24,7 @@ interface BuildingSettings {
   incident_categories?: string[] | null;
   expense_categories?: string[] | null;
   charge_categories?: string[] | null;
+  voisinage_categories?: string[] | null;
   relance_message?: string | null;
   gardien?: GardienInfo | null;
   notifications?: NotificationSettings | null;
@@ -61,6 +62,9 @@ const DEFAULT_EXPENSE_CATS = [
 ];
 const DEFAULT_CHARGE_CATS = [
   "Charges courantes", "Travaux", "Fonds de réserve",
+];
+const DEFAULT_VOISINAGE_CATS = [
+  "Annonce", "Événement", "Entraide", "Trouvé", "Général", "Service", "Recommandation",
 ];
 
 /* ── Notification events ── */
@@ -137,9 +141,11 @@ export function SettingsView({
   const [incidentCats, setIncidentCats] = useState<string[]>(settings?.incident_categories ?? DEFAULT_INCIDENT_CATS);
   const [expenseCats, setExpenseCats] = useState<string[]>(settings?.expense_categories ?? DEFAULT_EXPENSE_CATS);
   const [chargeCats, setChargeCats] = useState<string[]>(settings?.charge_categories ?? DEFAULT_CHARGE_CATS);
+  const [voisinageCats, setVoisinageCats] = useState<string[]>(settings?.voisinage_categories ?? DEFAULT_VOISINAGE_CATS);
   const [newIncidentCat, setNewIncidentCat] = useState("");
   const [newExpenseCat, setNewExpenseCat] = useState("");
   const [newChargeCat, setNewChargeCat] = useState("");
+  const [newVoisinageCat, setNewVoisinageCat] = useState("");
 
   // ── Access codes ──
   const [codePhone, setCodePhone] = useState("");
@@ -193,6 +199,7 @@ export function SettingsView({
         incident_categories: incidentCats,
         expense_categories: expenseCats,
         charge_categories: chargeCats,
+        voisinage_categories: voisinageCats,
         relance_message: relanceMsg || undefined,
         gardien: gardienName.trim() ? {
           name: gardienName.trim(),
@@ -211,7 +218,7 @@ export function SettingsView({
       router.refresh();
       setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
+  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
 
   // Auto-save with 1s debounce
   useEffect(() => {
@@ -583,6 +590,21 @@ export function SettingsView({
                 placeholder="Ex: Syndic professionnel…"
                 onAdd={() => addCat(chargeCats, setChargeCats, newChargeCat, setNewChargeCat)}
                 onRemove={(i) => removeCat(chargeCats, setChargeCats, i)}
+              />
+
+              {/* Voisinage categories */}
+              <CategoryBlock
+                title="Types de voisinage"
+                desc="Types de publications dans le fil de voisinage."
+                icon="MessageSquare"
+                iconTint="bg-purple-100"
+                iconColor="text-purple-600"
+                items={voisinageCats}
+                newValue={newVoisinageCat}
+                setNewValue={setNewVoisinageCat}
+                placeholder="Ex: Vente, Échange…"
+                onAdd={() => addCat(voisinageCats, setVoisinageCats, newVoisinageCat, setNewVoisinageCat)}
+                onRemove={(i) => removeCat(voisinageCats, setVoisinageCats, i)}
               />
             </>
           )}
