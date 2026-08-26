@@ -258,7 +258,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       </div>
 
       {/* KPIs */}
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Publications</p>
           <p className="text-[28px] font-bold leading-none text-ink">{posts.length}</p>
@@ -266,14 +266,6 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Épinglées</p>
           <p className="text-[28px] font-bold leading-none text-ink">{pinnedCount}</p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Entraide</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{typeCounts.help ?? 0}</p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Événements</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{typeCounts.event ?? 0}</p>
         </div>
       </div>
 
