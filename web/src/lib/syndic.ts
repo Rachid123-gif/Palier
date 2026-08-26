@@ -245,7 +245,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       accountingTier: b?.accounting_tier ?? "tier1",
     },
     kpis: {
-      lots: units.length,
+      lots: Number(b?.lots_count ?? 0) || units.length,
       residents: residents.length,
       collected, expected,
       rate: expected ? Math.round((collected / expected) * 100) : 0,
