@@ -111,7 +111,10 @@ export function SettingsView({
   const savedGardien = settings?.gardien;
   const [gardienName, setGardienName] = useState(savedGardien?.name ?? "");
   const [gardienPhone, setGardienPhone] = useState(savedGardien?.phone ?? "");
-  const [gardienPhoneError, setGardienPhoneError] = useState("");
+  const [gardienPhoneError, setGardienPhoneError] = useState(() => {
+    const p = savedGardien?.phone ?? "";
+    return p && !/^0[567]\d{8}$/.test(p) ? "Numéro invalide (10 chiffres, commence par 05, 06 ou 07)" : "";
+  });
 
   function handleGardienPhone(val: string) {
     const digits = val.replace(/\D/g, "").slice(0, 10);
