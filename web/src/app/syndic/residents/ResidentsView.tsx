@@ -31,6 +31,7 @@ export function ResidentsView({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [localResidents, setLocalResidents] = useState<Resident[]>(residents);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "owner" | "tenant">("all");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
@@ -44,17 +45,20 @@ export function ResidentsView({
   const [addError, setAddError] = useState("");
   const [editError, setEditError] = useState("");
 
+  // Sync with server props when they update
+  useEffect(() => { setLocalResidents(residents); }, [residents]);
+
   const [codeTarget, setCodeTarget] = useState<Resident | null>(null);
   const [codeValue, setCodeValue] = useState<string | null>(null);
   const [codeLoading, setCodeLoading] = useState(false);
 
-  const activeResidents = residents.filter((r) => (r.status ?? "active") === "active");
-  const inactiveResidents = residents.filter((r) => (r.status ?? "active") === "inactive");
+  const activeResidents = localResidents.filter((r) => (r.status ?? "active") === "active");
+  const inactiveResidents = localResidents.filter((r) => (r.status ?? "active") === "inactive");
   const ownerCount = activeResidents.filter((r) => r.role === "owner" || r.role === "syndic").length;
   const tenantCount = activeResidents.filter((r) => r.role === "tenant").length;
 
   const filtered = useMemo(() => {
-    let rows = [...residents]
+    let rows = [...localResidents]
       .filter((r) => (r.status ?? "active") === statusFilter)
       .sort((a, b) => a.unit.localeCompare(b.unit));
     if (roleFilter !== "all") rows = rows.filter((r) => r.role === roleFilter);
@@ -63,7 +67,7 @@ export function ResidentsView({
       rows = rows.filter((r) => r.name.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q) || r.phone.includes(q));
     }
     return rows;
-  }, [residents, roleFilter, statusFilter, search]);
+  }, [localResidents, roleFilter, statusFilter, search]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, pages - 1);
@@ -118,7 +122,20 @@ export function ResidentsView({
       } else {
         setAddResult(res.code!);
         setAddForm({ ...addForm, phone });
-        router.refresh();
+        // Optimistic update — add resident to local list immediately
+        const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
+        const newResident: Resident = {
+          id: crypto.randomUUID(),
+          name: addForm.name.trim(),
+          avatarColor: colors[Math.floor(Math.random() * colors.length)],
+          phone,
+          unit: addForm.unit.trim().toUpperCase(),
+          role: addForm.role,
+          status: "active",
+          deactivatedAt: null,
+          tantiemes: 0,
+        };
+        setLocalResidents((prev) => [...prev, newResident]);
       }
     });
   }
@@ -139,12 +156,12 @@ export function ResidentsView({
       try {
         await updateResident({ profileId: editTarget.id, name: editForm.name.trim(), phone, role: editForm.role, buildingId });
         flash("Résident modifié");
+        setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, name: editForm.name.trim(), phone, role: editForm.role } : r));
         setModal(null);
       } catch {
         setEditError("Une erreur est survenue. Réessayez.");
       }
     });
-    router.refresh();
   }
 
   function openDelete(r: Resident) { setEditTarget(r); setModal("delete"); }
@@ -155,10 +172,10 @@ export function ResidentsView({
       try {
         await deactivateResident(editTarget.id, buildingId);
         flash("Résident désactivé");
+        setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, status: "inactive", deactivatedAt: new Date().toISOString() } : r));
         setModal(null);
       } catch { flash("Erreur lors de la désactivation"); }
     });
-    router.refresh();
   }
 
   function handleReactivate(r: Resident) {
@@ -166,9 +183,9 @@ export function ResidentsView({
       try {
         await reactivateResident(r.id, buildingId);
         flash("Résident réactivé");
+        setLocalResidents((prev) => prev.map((res) => res.id === r.id ? { ...res, status: "active", deactivatedAt: null } : res));
       } catch { flash("Erreur lors de la réactivation"); }
     });
-    router.refresh();
   }
 
   async function handleRegenerateCode(r: Resident) {
@@ -460,10 +477,10 @@ export function ResidentsView({
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
-                <button onClick={() => { router.refresh(); openAdd(); }} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
+                <button onClick={openAdd} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
                   Ajouter un autre
                 </button>
-                <button onClick={() => { setModal(null); router.refresh(); }} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
+                <button onClick={() => setModal(null)} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
                   Terminé
                 </button>
               </div>
