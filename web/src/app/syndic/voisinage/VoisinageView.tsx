@@ -569,7 +569,12 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">{selected.body}</p>
 
             {selected.image_url && (
-              <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
+              /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(selected.image_url)
+                ? <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
+                : <a href={selected.image_url} target="_blank" rel="noopener" className="mt-3 inline-flex items-center gap-2 rounded-lg border border-black/[0.08] bg-sand/50 px-4 py-3 text-[13px] font-medium text-palier-700 hover:bg-sand">
+                    <Icon name="FileDown" className="h-4 w-4" />
+                    Télécharger le fichier joint
+                  </a>
             )}
 
             {/* Like + engagement stats */}
