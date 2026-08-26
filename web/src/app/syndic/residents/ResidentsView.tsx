@@ -384,11 +384,9 @@ export function ResidentsView({
                               <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title="Modifier">
                                 <Icon name="Pencil" className="h-3.5 w-3.5" />
                               </button>
-                              {r.role !== "syndic" && (
-                                <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500" title="Désactiver">
-                                  <Icon name="Trash2" className="h-3.5 w-3.5" />
-                                </button>
-                              )}
+                              <button onClick={() => openDelete(r)} className={`rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500 ${r.role === "syndic" ? "hidden" : ""}`} title="Désactiver">
+                                <Icon name="Trash2" className="h-3.5 w-3.5" />
+                              </button>
                             </>
                           )}
                         </div>
@@ -432,7 +430,7 @@ export function ResidentsView({
                             <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint" title="Renvoyer le code d'accès"><Icon name="KeyRound" className="h-4 w-4" /></button>
                             <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
                             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
-                            {r.role !== "syndic" && <button onClick={() => openDelete(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Trash2" className="h-4 w-4" /></button>}
+                            <button onClick={() => openDelete(r)} className={`rounded-md p-1.5 text-ink-faint ${r.role === "syndic" ? "hidden" : ""}`}><Icon name="Trash2" className="h-4 w-4" /></button>
                           </>
                         )}
                       </div>
@@ -585,18 +583,22 @@ export function ResidentsView({
               </div>
             </div>
             <Field label="Nom complet" value={editForm.name} onChange={(v) => { setEditForm({ ...editForm, name: v }); setEditError(""); }} required />
-            <Field label="Téléphone" value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
-            <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
-              <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
-                <button type="button" onClick={() => setEditForm({ ...editForm, role: "owner" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "owner" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                  Propriétaire
-                </button>
-                <button type="button" onClick={() => setEditForm({ ...editForm, role: "tenant" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "tenant" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                  Locataire
-                </button>
-              </div>
-            </div>
+            {editTarget.role !== "syndic" && (
+              <>
+                <Field label="Téléphone" value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
+                  <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
+                    <button type="button" onClick={() => setEditForm({ ...editForm, role: "owner" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "owner" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
+                      Propriétaire
+                    </button>
+                    <button type="button" onClick={() => setEditForm({ ...editForm, role: "tenant" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "tenant" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
+                      Locataire
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
             <button type="submit" disabled={isPending} className="w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-palier-700 disabled:opacity-50">
               {isPending ? "Enregistrement…" : "Enregistrer les modifications"}
             </button>
