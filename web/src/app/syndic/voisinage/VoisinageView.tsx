@@ -52,8 +52,8 @@ const PER_PAGE = 15;
 
 export function VoisinageView({ posts, buildingName, buildingId, voisinageCategories }: { posts: Post[]; buildingName: string; buildingId: string; voisinageCategories?: string[] | null }) {
   const categories = voisinageCategories ?? DEFAULT_CATS;
-  const typeLabels: Record<string, string> = Object.fromEntries(categories.map((c) => [c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_"), c]));
-  const typeColors: Record<string, string> = Object.fromEntries(Object.keys(typeLabels).map((k, i) => [k, TYPE_COLORS[i % TYPE_COLORS.length]]));
+  const typeLabels: Record<string, string> = Object.fromEntries(categories.map((c) => [c, c]));
+  const typeColors: Record<string, string> = Object.fromEntries(categories.map((c, i) => [c, TYPE_COLORS[i % TYPE_COLORS.length]]));
 
   const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -68,7 +68,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   const [showCompose, setShowCompose] = useState(false);
   const [composeBody, setComposeBody] = useState("");
   const [composeTitle, setComposeTitle] = useState("");
-  const [composeType, setComposeType] = useState<string>("announcement");
+  const [composeType, setComposeType] = useState<string>(categories[0] ?? "Annonce");
   const [isPosting, startPosting] = useTransition();
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
