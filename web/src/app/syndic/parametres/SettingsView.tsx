@@ -111,6 +111,17 @@ export function SettingsView({
   const savedGardien = settings?.gardien;
   const [gardienName, setGardienName] = useState(savedGardien?.name ?? "");
   const [gardienPhone, setGardienPhone] = useState(savedGardien?.phone ?? "");
+  const [gardienPhoneError, setGardienPhoneError] = useState("");
+
+  function handleGardienPhone(val: string) {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    setGardienPhone(digits);
+    if (digits && !/^0[567]\d{8}$/.test(digits)) {
+      setGardienPhoneError("Numéro invalide (10 chiffres, commence par 05, 06 ou 07)");
+    } else {
+      setGardienPhoneError("");
+    }
+  }
   const [gardienHoraires, setGardienHoraires] = useState<GardienInfo["horaires"]>(savedGardien?.horaires ?? defaultHoraires);
   const [gardienTaches, setGardienTaches] = useState<string[]>(savedGardien?.taches ?? DEFAULT_TACHES);
   const [newTache, setNewTache] = useState("");
@@ -167,6 +178,9 @@ export function SettingsView({
   const isFirstRender = useRef(true);
 
   const doSave = useCallback(() => {
+    // Block save if gardien phone is filled but invalid
+    if (gardienPhone.trim() && !/^0[567]\d{8}$/.test(gardienPhone.trim())) return;
+
     startTransition(async () => {
       setSaveStatus("saving");
       await saveBuildingSettings(building.id, {
@@ -397,7 +411,8 @@ export function SettingsView({
                   </div>
                   <div>
                     <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone / WhatsApp</label>
-                    <input type="tel" value={gardienPhone} onChange={(e) => setGardienPhone(e.target.value)} placeholder="06 XX XX XX XX" className={inputCls} />
+                    <input type="tel" inputMode="numeric" value={gardienPhone} onChange={(e) => handleGardienPhone(e.target.value)} placeholder="06 XX XX XX XX" maxLength={10} className={`${inputCls} ${gardienPhoneError ? "border-red-400 focus:border-red-400 focus:ring-red-400" : ""}`} dir="ltr" />
+                    {gardienPhoneError && <p className="mt-1 text-[11px] text-red-500">{gardienPhoneError}</p>}
                   </div>
                 </div>
               </Card>
