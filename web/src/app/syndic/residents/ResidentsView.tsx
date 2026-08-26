@@ -140,11 +140,11 @@ export function ResidentsView({
         await updateResident({ profileId: editTarget.id, name: editForm.name.trim(), phone, role: editForm.role, buildingId });
         flash("Résident modifié");
         setModal(null);
-        router.refresh();
       } catch {
         setEditError("Une erreur est survenue. Réessayez.");
       }
     });
+    router.refresh();
   }
 
   function openDelete(r: Resident) { setEditTarget(r); setModal("delete"); }
@@ -156,9 +156,9 @@ export function ResidentsView({
         await deactivateResident(editTarget.id, buildingId);
         flash("Résident désactivé");
         setModal(null);
-        router.refresh();
       } catch { flash("Erreur lors de la désactivation"); }
     });
+    router.refresh();
   }
 
   function handleReactivate(r: Resident) {
@@ -166,9 +166,9 @@ export function ResidentsView({
       try {
         await reactivateResident(r.id, buildingId);
         flash("Résident réactivé");
-        router.refresh();
       } catch { flash("Erreur lors de la réactivation"); }
     });
+    router.refresh();
   }
 
   async function handleRegenerateCode(r: Resident) {
