@@ -57,6 +57,7 @@ export interface BuildingSettings {
   incident_categories?: string[] | null;
   expense_categories?: string[] | null;
   charge_categories?: string[] | null;
+  voisinage_categories?: string[] | null;
   relance_message?: string | null;
 }
 
