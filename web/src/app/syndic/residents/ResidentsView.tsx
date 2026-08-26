@@ -460,10 +460,10 @@ export function ResidentsView({
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
-                <button onClick={openAdd} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
+                <button onClick={() => { router.refresh(); openAdd(); }} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
                   Ajouter un autre
                 </button>
-                <button onClick={() => setModal(null)} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
+                <button onClick={() => { setModal(null); router.refresh(); }} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
                   Terminé
                 </button>
               </div>
