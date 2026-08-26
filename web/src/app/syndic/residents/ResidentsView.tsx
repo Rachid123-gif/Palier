@@ -40,7 +40,7 @@ export function ResidentsView({
   const [addForm, setAddForm] = useState({ name: "", phone: "", unit: "", role: "owner" as "owner" | "tenant" });
   const [addResult, setAddResult] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<Resident | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", role: "owner" as "owner" | "tenant" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", role: "owner" as "owner" | "tenant" | "syndic", unit: "" });
   const [toast, setToast] = useState("");
   const [addError, setAddError] = useState("");
   const [editError, setEditError] = useState("");
@@ -142,7 +142,7 @@ export function ResidentsView({
 
   function openEdit(r: Resident) {
     setEditTarget(r);
-    setEditForm({ name: r.name, phone: r.phone, role: r.role as "owner" | "tenant" });
+    setEditForm({ name: r.name, phone: r.phone, role: r.role as "owner" | "tenant" | "syndic", unit: r.unit === "—" ? "" : r.unit });
     setEditError("");
     setModal("edit");
   }
@@ -154,9 +154,9 @@ export function ResidentsView({
     const phone = normalizePhone(editForm.phone.trim());
     startTransition(async () => {
       try {
-        await updateResident({ profileId: editTarget.id, name: editForm.name.trim(), phone, role: editForm.role, buildingId });
+        await updateResident({ profileId: editTarget.id, name: editForm.name.trim(), phone, role: editForm.role, buildingId, unit: editForm.unit.trim() || undefined });
         flash("Résident modifié");
-        setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, name: editForm.name.trim(), phone, role: editForm.role } : r));
+        setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, name: editForm.name.trim(), phone, role: editForm.role, unit: editForm.unit.trim().toUpperCase() || r.unit } : r));
         setModal(null);
       } catch {
         setEditError("Une erreur est survenue. Réessayez.");
@@ -583,7 +583,9 @@ export function ResidentsView({
               </div>
             </div>
             <Field label="Nom complet" value={editForm.name} onChange={(v) => { setEditForm({ ...editForm, name: v }); setEditError(""); }} required />
-            {editTarget.role !== "syndic" && (
+            {editTarget.role === "syndic" ? (
+              <Field label="Numéro de lot" value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder="Ex: 1, A3, RDC-2" />
+            ) : (
               <>
                 <Field label="Téléphone" value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
                 <div>

@@ -955,13 +955,32 @@ export async function updateResident(input: {
   profileId: string;
   name: string;
   phone: string;
-  role: "owner" | "tenant";
+  role: "owner" | "tenant" | "syndic";
   buildingId: string;
+  unit?: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(updateResidentSchema, input);
   await supabaseAdmin.from("profiles").update({ full_name: v.name, phone: v.phone }).eq("id", v.profileId);
   await supabaseAdmin.from("memberships").update({ role: v.role }).eq("profile_id", v.profileId).eq("building_id", v.buildingId);
+
+  // Update unit if provided
+  if (input.unit !== undefined) {
+    const unitRef = input.unit.trim().toUpperCase();
+    if (unitRef) {
+      // Find or create the unit
+      let { data: unit } = await supabaseAdmin
+        .from("units").select("id").eq("building_id", input.buildingId).eq("ref", unitRef).single();
+      if (!unit) {
+        const { data: created } = await supabaseAdmin
+          .from("units").insert({ building_id: input.buildingId, ref: unitRef }).select("id").single();
+        unit = created;
+      }
+      if (unit) {
+        await supabaseAdmin.from("memberships").update({ unit_id: unit.id }).eq("profile_id", v.profileId).eq("building_id", input.buildingId);
+      }
+    }
+  }
 }
 
 /** Désactiver un résident */
