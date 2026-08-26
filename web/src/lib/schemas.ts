@@ -249,6 +249,7 @@ export const saveBuildingSettingsSchema = z.object({
   incident_categories: z.array(shortString).optional(),
   expense_categories: z.array(shortString).optional(),
   charge_categories: z.array(shortString).optional(),
+  voisinage_categories: z.array(shortString).optional(),
   relance_message: safeString.optional(),
   gardien_name: shortString.optional(),
   gardien_phone: phone.optional(),
