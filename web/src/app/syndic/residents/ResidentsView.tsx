@@ -109,8 +109,12 @@ export function ResidentsView({
           unit_not_found: "Ce numéro de lot n'existe pas dans la résidence. Vérifiez le numéro.",
           profile_error: "Erreur lors de la création du profil. Réessayez.",
           membership_error: "Erreur lors de l'association au lot. Réessayez.",
+          validation_error: "Numéro de téléphone invalide (10 chiffres, commence par 05, 06 ou 07).",
         };
-        setAddError(msgs[res.error] ?? "Une erreur est survenue. Réessayez.");
+        const errMsg = res.error.includes("invalid_format") || res.error.includes("Numéro invalide")
+          ? msgs.validation_error
+          : msgs[res.error] ?? "Une erreur est survenue. Réessayez.";
+        setAddError(errMsg);
       } else {
         setAddResult(res.code!);
         setAddForm({ ...addForm, phone });

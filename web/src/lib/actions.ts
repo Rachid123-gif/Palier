@@ -454,7 +454,12 @@ export async function addResident(input: {
   role: "owner" | "tenant";
 }): Promise<{ error?: string; code?: string }> {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
-  const v = validate(addResidentSchema, input);
+  let v;
+  try {
+    v = validate(addResidentSchema, input);
+  } catch {
+    return { error: "validation_error" };
+  }
 
   const { data: unit } = await supabaseAdmin
     .from("units")
