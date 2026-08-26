@@ -164,7 +164,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             imageUrl = await uploadPostDocument(mediaFile);
           }
         }
-        await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType as "announcement", imageUrl });
+        await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType, imageUrl });
         setComposeBody("");
         setComposeTitle("");
         setComposeType(categories[0] ?? "Annonce");

@@ -105,7 +105,7 @@ export async function createIncident(input: {
 export async function createPostSyndic(input: {
   buildingId: string;
   body: string;
-  type?: "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";
+  type?: string;
   title?: string;
   imageUrl?: string;
 }) {
@@ -136,7 +136,7 @@ export async function createPost(input: {
   author: string;
   avatarColor: string;
   body: string;
-  type?: "announcement" | "event" | "help" | "found" | "general" | "service" | "recommendation";
+  type?: string;
   title?: string;
   category?: string;
   providerName?: string;

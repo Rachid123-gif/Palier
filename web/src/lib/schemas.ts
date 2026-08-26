@@ -30,7 +30,7 @@ export const createPostSchema = z.object({
   author: shortString,
   avatarColor: z.string().max(20),
   body: safeString,
-  type: z.enum(["announcement", "event", "help", "found", "general", "service", "recommendation"]).optional(),
+  type: shortString.optional(),
   title: shortString.optional(),
   category: shortString.optional(),
   providerName: shortString.optional(),
