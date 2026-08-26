@@ -77,7 +77,7 @@ export function ResidentsView({
 
   function normalizePhone(raw: string): string {
     const digits = raw.replace(/\s/g, "");
-    if (digits.startsWith("06") || digits.startsWith("07")) return "+212 " + digits.slice(1);
+    if (digits.startsWith("06") || digits.startsWith("07") || digits.startsWith("05")) return "+212" + digits.slice(1);
     if (digits.startsWith("00212")) return "+" + digits.slice(2);
     return digits;
   }
