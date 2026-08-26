@@ -220,6 +220,7 @@ export async function completeSyndicRegistration(input: {
   buildingName: string;
   city: string;
   lotsCount: number;
+  syndicUnit?: string;
   otp: string;
 }): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
   const hdrs = await headers();
@@ -341,10 +342,22 @@ export async function completeSyndicRegistration(input: {
     profileId = profile.id;
   }
 
-  // 3. Create membership
+  // 3. Create syndic unit (lot) if provided
+  let syndicUnitId: string | null = null;
+  if (input.syndicUnit) {
+    const { data: unitData } = await supabaseAdmin
+      .from("units")
+      .insert({ building_id: building.id, ref: input.syndicUnit.toUpperCase() })
+      .select("id")
+      .single();
+    syndicUnitId = unitData?.id ?? null;
+  }
+
+  // 3b. Create membership
   await supabaseAdmin.from("memberships").insert({
     profile_id: profileId,
     building_id: building.id,
+    unit_id: syndicUnitId,
     role: "syndic",
     status: "active",
   });

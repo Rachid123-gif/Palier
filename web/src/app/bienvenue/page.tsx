@@ -245,6 +245,7 @@ function BienvenueContent() {
   const [regCity, setRegCity] = useState("");
   const [regCityCustom, setRegCityCustom] = useState("");
   const [regLots, setRegLots] = useState("");
+  const [regUnit, setRegUnit] = useState("");
   const [regError, setRegError] = useState("");
   const [registering, setRegistering] = useState(false);
 
@@ -291,10 +292,10 @@ function BienvenueContent() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("palier_onboarding", JSON.stringify({
-        step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, recoverPhone,
+        step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, regUnit, recoverPhone,
       }));
     }
-  }, [step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, recoverPhone]);
+  }, [step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, regUnit, recoverPhone]);
 
   // Restore onboarding state from sessionStorage on mount
   useEffect(() => {
@@ -312,6 +313,7 @@ function BienvenueContent() {
           if (data.regCity) setRegCity(data.regCity);
           if (data.regCityCustom) setRegCityCustom(data.regCityCustom);
           if (data.regLots) setRegLots(data.regLots);
+          if (data.regUnit) setRegUnit(data.regUnit);
           if (data.recoverPhone) setRecoverPhone(data.recoverPhone);
         } catch {}
       }
@@ -432,6 +434,7 @@ function BienvenueContent() {
         buildingName: regBuilding.trim(),
         city: resolvedCity,
         lotsCount: parseInt(regLots) || 2,
+        syndicUnit: regUnit.trim() || undefined,
         otp: regOtp.trim(),
       });
 
@@ -850,6 +853,17 @@ function BienvenueContent() {
                 onChange={(e) => setRegLots(e.target.value)}
                 min="2"
                 max="500"
+                dir="ltr"
+                className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400 ${isAr ? "text-right" : ""}`}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{lang === "fr" ? "Votre numéro de lot" : "رقم شقتك"}</label>
+              <input
+                value={regUnit}
+                onChange={(e) => setRegUnit(e.target.value)}
+                placeholder={lang === "fr" ? "Ex: 1, A3, RDC-2" : "مثال: 1، A3"}
                 dir="ltr"
                 className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-palier-400 ${isAr ? "text-right" : ""}`}
               />
