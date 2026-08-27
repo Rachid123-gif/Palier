@@ -11,6 +11,7 @@ export default async function SyndicAg() {
   const residentsForAg = d.residents
     .filter((r) => r.status === "active")
     .map((r) => ({ id: r.id, name: r.name, unit: r.unit, unitId: r.unitId, tantiemes: r.tantiemes }));
+  const budgetsForAg = d.budgets.map((b) => ({ id: b.id, fiscalYear: b.fiscalYear, status: b.status, totalAmount: b.totalAmount }));
   return (
     <AgView
       assemblies={d.assemblies}
@@ -18,6 +19,7 @@ export default async function SyndicAg() {
       residentProfileIds={residentProfileIds}
       residents={residentsForAg}
       totalTantiemes={d.kpis.totalTantiemes}
+      budgets={budgetsForAg}
     />
   );
 }

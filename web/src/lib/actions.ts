@@ -144,10 +144,11 @@ export async function createPostSyndic(input: {
   type?: string;
   title?: string;
   imageUrl?: string;
+  pinned?: boolean;
 }) {
   const session = await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(createPostSchema, { ...input, author: "Syndic", avatarColor: "#1e5b50" });
-  const res = await supabaseAdmin.from("posts").insert({
+  const { data: post, error } = await supabaseAdmin.from("posts").insert({
     building_id: v.buildingId,
     author_name: v.author,
     avatar_color: v.avatarColor,
@@ -157,14 +158,15 @@ export async function createPostSyndic(input: {
     body: v.body,
     title: v.title ?? null,
     image_url: v.imageUrl ?? null,
-  });
+    pinned: input.pinned ?? false,
+  }).select("id").single();
   // Notify all active residents
   const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
     await notifyProfiles(profileIds, "Nouvelle annonce", v.title || v.body.slice(0, 60), "post");
   }
-  return res;
+  return { data: post, error };
 }
 
 export async function createPost(input: {
@@ -1360,7 +1362,8 @@ export async function createBudget(input: {
   reserveFundAmount?: number;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
-  const v = validate(createBudgetSchema, input);
+  let v;
+  try { v = validate(createBudgetSchema, input); } catch { return { error: "validation_error" }; }
   const total = v.lines.reduce((s, l) => s + l.amountBudgeted, 0);
   const { data: budget, error } = await supabaseAdmin.from("budgets").insert({
     building_id: v.buildingId,
@@ -1368,12 +1371,12 @@ export async function createBudget(input: {
     total_amount: total + (v.reserveFundAmount ?? 0),
     reserve_fund_amount: v.reserveFundAmount ?? 0,
     status: "draft",
-  }).select().single();
+  }).select("id").single();
 
   if (error || !budget) return { error: error?.message ?? "budget_error" };
 
   if (v.lines.length > 0) {
-    await supabaseAdmin.from("budget_lines").insert(
+    const { error: linesError } = await supabaseAdmin.from("budget_lines").insert(
       v.lines.map((l) => ({
         budget_id: budget.id,
         label: l.label,
@@ -1382,8 +1385,9 @@ export async function createBudget(input: {
         account_code: l.accountCode ?? null,
       }))
     );
+    if (linesError) return { error: linesError.message };
   }
-  return { data: budget };
+  return { data: { id: budget.id } };
 }
 
 export async function updateBudgetStatus(budgetId: string, status: "draft" | "vote" | "approved" | "closed", assemblyId?: string) {

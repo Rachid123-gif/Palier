@@ -178,7 +178,8 @@ export function BudgetView({
         })),
         reserveFundAmount: Number(reserveFund) || 0,
       });
-      if ("error" in res && res.error) {
+      if (res && "error" in res && res.error) {
+        setSaving(false);
         flash("Erreur : " + res.error);
         return;
       }
@@ -218,14 +219,11 @@ export function BudgetView({
     setActionLoading(true);
     try {
       await updateBudgetStatus(budget.id, ns);
+      const updated = { ...budget, status: ns, ...(ns === "approved" ? { approvedAt: new Date().toISOString() } : {}) };
       setLocalBudgets((prev) =>
-        prev.map((b) =>
-          b.id === budget.id
-            ? { ...b, status: ns, ...(ns === "approved" ? { approvedAt: new Date().toISOString() } : {}) }
-            : b
-        )
+        prev.map((b) => b.id === budget.id ? updated : b)
       );
-      setSelected(null);
+      setSelected(updated);
       flash(`Statut mis à jour : ${STATUS_LABELS[ns]}`);
     } catch {
       flash("Erreur lors de la mise à jour du statut");

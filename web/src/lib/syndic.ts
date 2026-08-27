@@ -26,12 +26,14 @@ export interface RecouvrementRow {
 
 export interface ChargeCall {
   label: string;
+  detail?: string;
   category: string;
   amount: number;
   dueDate: string;
   createdAt: string;
   lots: number;
   paid: number;
+  paidAmount: number;
   total: number;
 }
 
@@ -65,7 +67,7 @@ export interface SyndicData {
   building: { id: string; name: string; address: string; city: string; lots: number; balance: number; syndic: string; annualBudget: number; accountingTier: string };
   kpis: {
     lots: number; residents: number; collected: number; expected: number; rate: number;
-    outstanding: number; balance: number; openIncidents: number; lateCount: number; partialCount: number;
+    outstanding: number; balance: number; openIncidents: number; unpaidCount: number; lateCount: number; partialCount: number;
     totalTantiemes: number;
     prescriptionAlerts: number;
   };
@@ -173,17 +175,20 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
     const existing = callsMap.get(key);
     if (existing) {
       existing.lots += 1;
-      existing.paid += c.status === "paid" ? 1 : 0;
+      existing.paid += (c.status === "paid" || c.status === "partial") ? 1 : 0;
+      existing.paidAmount += Number(c.paid ?? 0);
       existing.total += Number(c.amount);
     } else {
       callsMap.set(key, {
         label: c.label ?? "Appel de fonds",
+        detail: c.detail ?? undefined,
         category: c.category ?? "courantes",
         amount: Number(c.amount),
         dueDate: c.due_date ?? "",
         createdAt: c.created_at ?? "",
         lots: 1,
-        paid: c.status === "paid" ? 1 : 0,
+        paid: (c.status === "paid" || c.status === "partial") ? 1 : 0,
+        paidAmount: Number(c.paid ?? 0),
         total: Number(c.amount),
       });
     }
@@ -253,6 +258,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       outstanding: expected - collected,
       balance: Number(b?.balance ?? 0),
       openIncidents: incidents.filter((i: any) => i.status !== "resolved").length,
+      unpaidCount: charges.filter((c: any) => c.status !== "paid").length,
       lateCount: charges.filter((c: any) => c.status === "late").length,
       partialCount: charges.filter((c: any) => c.status === "partial").length,
       totalTantiemes,

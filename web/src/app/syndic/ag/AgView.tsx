@@ -3,8 +3,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
-import { longDate, shortDate } from "@/lib/format";
-import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution, fetchVoteTallies } from "@/lib/actions";
+import { longDate, shortDate, mad } from "@/lib/format";
+import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution, fetchVoteTallies, updateBudgetStatus, createPostSyndic } from "@/lib/actions";
 import { supabase } from "@/lib/supabase";
 import { upsertDocument } from "@/lib/actions";
 import type { AssemblyRow } from "@/lib/syndic";
@@ -44,12 +44,20 @@ interface Resident {
   tantiemes: number;
 }
 
-export function AgView({ assemblies, buildingId, residentProfileIds, residents, totalTantiemes }: {
+interface BudgetOption {
+  id: string;
+  fiscalYear: number;
+  status: string;
+  totalAmount: number;
+}
+
+export function AgView({ assemblies, buildingId, residentProfileIds, residents, totalTantiemes, budgets = [] }: {
   assemblies: AssemblyRow[];
   buildingId: string;
   residentProfileIds: string[];
   residents: Resident[];
   totalTantiemes: number;
+  budgets?: BudgetOption[];
 }) {
   const [localAssemblies, setLocalAssemblies] = useState<AssemblyRow[]>(assemblies);
   useEffect(() => { setLocalAssemblies(assemblies); }, [assemblies]);
@@ -79,6 +87,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   const [resPvFile, setResPvFile] = useState<File | null>(null);
   const [resPvUrl, setResPvUrl] = useState("");
   const [pvUploading, setPvUploading] = useState(false);
+  const [selectedBudgetId, setSelectedBudgetId] = useState("");
 
   // Attendance (feuille de présence)
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
@@ -372,6 +381,11 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
         return r;
       });
 
+      // Approve linked budget if selected
+      if (selectedBudgetId) {
+        try { await updateBudgetStatus(selectedBudgetId, "approved", showResults.id); } catch { /* ignore */ }
+      }
+
       setLocalAssemblies((prev) =>
         prev.map((a) =>
           a.id === showResults.id
@@ -381,7 +395,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       );
 
       setShowResults(null);
-      flash("Résultats enregistrés");
+      setSelectedBudgetId("");
+      flash("Résultats enregistrés" + (selectedBudgetId ? " · Budget approuvé" : ""));
     } catch {
       flash("Erreur lors de l'enregistrement");
     } finally {
@@ -394,7 +409,13 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     if (residentProfileIds.length === 0) { flash("Aucun résident à notifier"); return; }
     try {
       await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date), place: ag.place });
-      flash(`${residentProfileIds.length} résidents notifiés`);
+
+      // Create pinned post in voisinage
+      const agendaText = ag.agenda.map((a) => `${a.n}. ${a.t}${a.d ? ` — ${a.d}` : ""}`).join("\n");
+      const body = `Assemblée générale ${ag.type === "extraordinaire" ? "extraordinaire" : "ordinaire"} prévue le ${longDate(ag.date)} à ${ag.time}.\n\nLieu : ${ag.place}\n\nOrdre du jour :\n${agendaText}`;
+      await createPostSyndic({ buildingId, body, type: "announcement", title: `Convocation AG — ${longDate(ag.date)}`, pinned: true });
+
+      flash(`${residentProfileIds.length} résidents notifiés · Publication épinglée`);
     } catch {
       flash("Erreur lors de la notification");
     }
@@ -1093,6 +1114,24 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 </label>
                 {pvUploading && <p className="mt-1 text-[11px] text-ink-soft">Téléversement en cours…</p>}
               </div>
+
+              {/* Budget à approuver */}
+              {budgets.filter((b) => b.status === "draft" || b.status === "vote").length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-[13px] font-semibold text-ink">Budget à approuver (optionnel)</label>
+                  <p className="mb-2 text-[11px] text-ink-faint">Si un budget a été voté lors de cette AG, sélectionnez-le pour le lier et l&apos;approuver automatiquement.</p>
+                  <select
+                    value={selectedBudgetId}
+                    onChange={(e) => setSelectedBudgetId(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
+                  >
+                    <option value="">Aucun budget</option>
+                    {budgets.filter((b) => b.status === "draft" || b.status === "vote").map((b) => (
+                      <option key={b.id} value={b.id}>Budget {b.fiscalYear} — {mad(b.totalAmount, { decimals: false })}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <button type="submit" disabled={resSaving} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
                 {resSaving ? "Enregistrement…" : "Enregistrer les résultats"}

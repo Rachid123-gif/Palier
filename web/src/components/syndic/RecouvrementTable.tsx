@@ -202,7 +202,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         flash("Erreur lors de l'émission");
       } else {
         const amt = Number(emitAmount);
-        const newCall: ChargeCall = { label: emitLabel, category: emitCategory, dueDate: emitDueDate, amount: amt, createdAt: new Date().toISOString(), lots: localRows.length, paid: 0, total: amt * localRows.length };
+        const newCall: ChargeCall = { label: emitLabel, detail: emitDetail || undefined, category: emitCategory, dueDate: emitDueDate, amount: amt, createdAt: new Date().toISOString(), lots: localRows.length, paid: 0, paidAmount: 0, total: amt * localRows.length };
         setLocalCalls((prev) => [newCall, ...prev]);
         setLocalRows((prev) => prev.map((r) => ({ ...r, amount: r.amount + Number(emitAmount), status: "due" as any, dueDate: r.dueDate || emitDueDate })));
         flash(`Appel émis pour ${localRows.length} lots`); setShowEmit(false); resetEmit();
@@ -730,27 +730,32 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <th className="px-4 py-2.5 whitespace-nowrap">Catégorie</th>
                   <th className="px-4 py-2.5 whitespace-nowrap">Montant / lot</th>
                   <th className="px-4 py-2.5 whitespace-nowrap">Échéance</th>
-                  <th className="px-4 py-2.5 w-[140px]">Paiement</th>
+                  <th className="px-4 py-2.5 w-[180px]">Paiement</th>
                   <th className="px-4 py-2.5 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
                 {filteredCalls.map((c, idx) => {
-                  const paidRate = c.lots > 0 ? Math.round((c.paid / c.lots) * 100) : 0;
+                  const paidRate = c.total > 0 ? Math.round((c.paidAmount / c.total) * 100) : 0;
                   return (
                     <tr key={idx} className="transition-colors hover:bg-sand/50">
                       <td className="overflow-hidden px-4 py-2.5">
                         <p className="truncate font-medium text-ink">{c.label}</p>
+                        {c.detail && <p className="mt-0.5 truncate text-[11px] text-ink-soft">{c.detail}</p>}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{catLabels[c.category] ?? c.category}</td>
                       <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{mad(c.amount, { decimals: false })}</td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{c.dueDate ? shortDate(c.dueDate) : "—"}</td>
                       <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-sand/50">
-                            <div className="h-full rounded-full bg-palier-600" style={{ width: `${paidRate}%` }} />
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-medium text-ink-soft">{paidRate}%</span>
+                            <span className="text-ink-faint">{c.paid}/{c.lots} lots</span>
                           </div>
-                          <span className="text-[11px] font-medium text-ink-soft">{c.paid}/{c.lots}</span>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-sand/50">
+                            <div className="h-full rounded-full bg-palier-600 transition-all" style={{ width: `${paidRate}%` }} />
+                          </div>
+                          <p className="text-[10px] text-ink-faint">{mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</p>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5">
@@ -778,27 +783,33 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             {/* Mobile cards */}
             <div className="divide-y divide-black/[0.04] lg:hidden">
               {filteredCalls.map((c, idx) => {
-                const paidRate = c.lots > 0 ? Math.round((c.paid / c.lots) * 100) : 0;
+                const paidRate = c.total > 0 ? Math.round((c.paidAmount / c.total) * 100) : 0;
                 return (
                   <div key={idx} className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-[14px] font-medium text-ink">{c.label}</p>
+                        {c.detail && <p className="mt-0.5 text-[12px] text-ink-soft">{c.detail}</p>}
                         <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[c.category] ?? c.category} · {c.dueDate ? shortDate(c.dueDate) : "—"}</p>
                       </div>
                       <p className="shrink-0 text-[14px] font-semibold text-ink">{mad(c.amount, { decimals: false })}</p>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sand/50">
-                        <div className="h-full rounded-full bg-palier-600" style={{ width: `${paidRate}%` }} />
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-medium text-ink-soft">{paidRate}% — {mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</span>
+                        <span className="text-ink-faint">{c.paid}/{c.lots} lots</span>
                       </div>
-                      <span className="text-[11px] font-medium text-ink-soft">{c.paid}/{c.lots}</span>
-                      <button onClick={() => { setEditCall(c); setEditLabel(c.label); setEditCategory(c.category); setEditDueDate(c.dueDate); }} className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink">
-                        <Icon name="Pencil" className="h-3 w-3" /> Modifier
-                      </button>
-                      <button onClick={() => setDeleteCallTarget(c)} className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-500 hover:text-red-600">
-                        <Icon name="Trash2" className="h-3 w-3" /> Supprimer
-                      </button>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-sand/50">
+                        <div className="h-full rounded-full bg-palier-600 transition-all" style={{ width: `${paidRate}%` }} />
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button onClick={() => { setEditCall(c); setEditLabel(c.label); setEditCategory(c.category); setEditDueDate(c.dueDate); }} className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink">
+                          <Icon name="Pencil" className="h-3 w-3" /> Modifier
+                        </button>
+                        <button onClick={() => setDeleteCallTarget(c)} className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-500 hover:text-red-600">
+                          <Icon name="Trash2" className="h-3 w-3" /> Supprimer
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
