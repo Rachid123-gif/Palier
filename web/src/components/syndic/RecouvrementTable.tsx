@@ -1,6 +1,5 @@
 "use client";
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
 import { mad, num, timeAgo, currentPeriod, shortDate, shortName } from "@/lib/format";
@@ -29,7 +28,10 @@ const DEFAULT_CHARGE_CATS = ["Charges courantes", "Travaux", "Fonds de réserve"
 
 export function RecouvrementTable({ rows, building, buildingId, chargeCalls, chargeCategories, relanceMessage }: { rows: RecouvrementRow[]; building: string; buildingId: string; chargeCalls: ChargeCall[]; chargeCategories?: string[] | null; relanceMessage?: string | null }) {
   const effectiveChargeCats = chargeCategories?.length ? chargeCategories : DEFAULT_CHARGE_CATS;
-  const router = useRouter();
+  const [localRows, setLocalRows] = useState<RecouvrementRow[]>(rows);
+  useEffect(() => { setLocalRows(rows); }, [rows]);
+  const [localCalls, setLocalCalls] = useState<ChargeCall[]>(chargeCalls);
+  useEffect(() => { setLocalCalls(chargeCalls); }, [chargeCalls]);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Emit charges modal
@@ -88,33 +90,34 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
     e.preventDefault();
     if (!showPayment?.chargeId || !payAmount || payPending) return;
     setPayPending(true);
-    const res = await syndicRecordPayment({
-      chargeId: showPayment.chargeId,
-      buildingId,
-      profileId: showPayment.profileId || undefined,
-      amount: Number(payAmount),
-      method: payMethod,
-      note: payNote || undefined,
-    });
-    setPayPending(false);
-    if (res?.error) { flash(res.error === "already_paid" ? "Déjà payé" : res.error === "duplicate_payment" ? "Paiement déjà enregistré" : "Erreur lors de l'enregistrement"); return; }
-    // Prepare receipt
-    const receipt: ReceiptInfo = {
-      building,
-      residentName: showPayment.ownerName,
-      lot: showPayment.ref,
-      amount: Number(payAmount),
-      method: payMethod,
-      date: new Date().toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
-      receiptId: res.paymentId ? `P-${res.paymentId.slice(0, 8).toUpperCase()}` : `P-${Date.now()}`,
-      chargeLabel: res.chargeLabel,
-      chargeDueDate: res.chargeDueDate,
-    };
-    setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote("");
-    setReceiptInfo(receipt);
-    setPayHistoryLoaded(false); // force reload on next tab visit
-    flash("Paiement enregistré");
-    router.refresh();
+    try {
+      const res = await syndicRecordPayment({
+        chargeId: showPayment.chargeId,
+        buildingId,
+        profileId: showPayment.profileId || undefined,
+        amount: Number(payAmount),
+        method: payMethod,
+        note: payNote || undefined,
+      });
+      setPayPending(false);
+      if (res?.error) { flash(res.error === "already_paid" ? "Déjà payé" : res.error === "duplicate_payment" ? "Paiement déjà enregistré" : "Erreur lors de l'enregistrement"); return; }
+      const receipt: ReceiptInfo = {
+        building,
+        residentName: showPayment.ownerName,
+        lot: showPayment.ref,
+        amount: Number(payAmount),
+        method: payMethod,
+        date: new Date().toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
+        receiptId: res.paymentId ? `P-${res.paymentId.slice(0, 8).toUpperCase()}` : `P-${Date.now()}`,
+        chargeLabel: res.chargeLabel,
+        chargeDueDate: res.chargeDueDate,
+      };
+      setLocalRows((prev) => prev.map((r) => r.unitId === showPayment.unitId ? { ...r, paid: r.paid + Number(payAmount), status: (r.paid + Number(payAmount) >= r.amount ? "paid" : "partial") as any } : r));
+      setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote("");
+      setReceiptInfo(receipt);
+      setPayHistoryLoaded(false);
+      flash("Paiement enregistré");
+    } catch { setPayPending(false); flash("Erreur réseau. Réessayez."); }
   }
 
   async function loadPayHistory() {
@@ -157,7 +160,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     e.preventDefault();
     if (!editCall) return;
     setEditPending(true);
-    const res = await updateChargeCall({
+    try { const res = await updateChargeCall({
       buildingId,
       originalLabel: editCall.label,
       originalDueDate: editCall.dueDate,
@@ -167,26 +170,44 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     });
     setEditPending(false);
     if (res?.error) flash("Erreur lors de la modification");
-    else { flash("Appel modifié"); setEditCall(null); router.refresh(); }
+    else {
+      setLocalCalls((prev) => prev.map((c) => c.label === editCall.label && c.dueDate === editCall.dueDate ? { ...c, label: editLabel || c.label, category: editCategory || c.category, dueDate: editDueDate || c.dueDate } : c));
+      flash("Appel modifié"); setEditCall(null);
+    }
+    } catch { setEditPending(false); flash("Erreur réseau. Réessayez."); }
   }
 
   async function handleDeleteCall() {
     if (!deleteCallTarget) return;
     setDeletePending(true);
-    const res = await deleteChargeCall(buildingId, deleteCallTarget.label, deleteCallTarget.dueDate);
-    setDeletePending(false);
-    if (res?.error) flash("Erreur lors de la suppression");
-    else { flash("Appel supprimé"); setDeleteCallTarget(null); router.refresh(); }
+    try {
+      const res = await deleteChargeCall(buildingId, deleteCallTarget.label, deleteCallTarget.dueDate);
+      setDeletePending(false);
+      if (res?.error) flash("Erreur lors de la suppression");
+      else {
+        setLocalCalls((prev) => prev.filter((c) => !(c.label === deleteCallTarget.label && c.dueDate === deleteCallTarget.dueDate)));
+        flash("Appel supprimé"); setDeleteCallTarget(null);
+      }
+    } catch { setDeletePending(false); flash("Erreur réseau. Réessayez."); }
   }
 
   async function handleEmit(e: React.FormEvent) {
     e.preventDefault();
     if (!emitLabel || !emitAmount || !emitDueDate) return;
     setEmitPending(true);
-    const res = await emitCharges({ buildingId, label: emitLabel, detail: emitDetail, amount: Number(emitAmount), category: emitCategory, dueDate: emitDueDate });
-    setEmitPending(false);
-    if (res?.error) { flash("Erreur lors de l'émission"); }
-    else { flash(`Appel émis pour ${rows.length} lots`); setShowEmit(false); resetEmit(); router.refresh(); }
+    try {
+      const res = await emitCharges({ buildingId, label: emitLabel, detail: emitDetail, amount: Number(emitAmount), category: emitCategory, dueDate: emitDueDate });
+      setEmitPending(false);
+      if (res?.error) {
+        flash("Erreur lors de l'émission");
+      } else {
+        const amt = Number(emitAmount);
+        const newCall: ChargeCall = { label: emitLabel, category: emitCategory, dueDate: emitDueDate, amount: amt, createdAt: new Date().toISOString(), lots: localRows.length, paid: 0, total: amt * localRows.length };
+        setLocalCalls((prev) => [newCall, ...prev]);
+        setLocalRows((prev) => prev.map((r) => ({ ...r, amount: r.amount + Number(emitAmount), status: "due" as any, dueDate: r.dueDate || emitDueDate })));
+        flash(`Appel émis pour ${localRows.length} lots`); setShowEmit(false); resetEmit();
+      }
+    } catch (err) { setEmitPending(false); flash(`Erreur: ${err instanceof Error ? err.message : "inconnue"}`); }
   }
 
   function relanceBody(r: RecouvrementRow) {
@@ -214,7 +235,6 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       body: relanceBody(r),
     });
     flash("Relance envoyée (in-app)");
-    router.refresh();
   }
 
   async function relanceWhatsApp(r: RecouvrementRow) {
@@ -237,7 +257,6 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     const waDigits = digits.startsWith("0") ? "212" + digits.slice(1) : digits;
     window.open(`https://wa.me/${waDigits}?text=${encodeURIComponent(msg)}`, "_blank");
     flash("WhatsApp ouvert");
-    router.refresh();
   }
 
   async function relanceAll() {
@@ -253,14 +272,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     })));
     setBusy(false);
     flash(`${targets.length} résidents relancés (in-app)`);
-    router.refresh();
   }
 
   // Years in data
   const years = useMemo(() => {
-    const yrs = new Set(rows.filter((r) => r.dueDate).map((r) => new Date(r.dueDate!).getFullYear().toString()));
+    const yrs = new Set(localRows.filter((r) => r.dueDate).map((r) => new Date(r.dueDate!).getFullYear().toString()));
     return [...yrs].sort().reverse();
-  }, [rows]);
+  }, [localRows]);
 
   const customLabel = periodFilter === "custom"
     ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
@@ -269,7 +287,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
   // Period filtered
   const periodFiltered = useMemo(() => {
     const now = new Date();
-    let result = [...rows];
+    let result = [...localRows];
     if (periodFilter === "custom") {
       result = result.filter((r) => {
         if (!r.dueDate) return true;
@@ -286,7 +304,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       result = result.filter((r) => !r.dueDate || new Date(r.dueDate) >= ago);
     }
     return result;
-  }, [rows, periodFilter, periodMonth, periodYear]);
+  }, [localRows, periodFilter, periodMonth, periodYear]);
 
   // KPIs (follow period)
   const totalDue = periodFiltered.reduce((s, r) => s + r.amount, 0);
@@ -608,12 +626,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       /* Historique des appels */
       (() => {
         const catLabels: Record<string, string> = { courantes: "Courantes", travaux: "Travaux", provision: "Provision", regularisation: "Régularisation" };
-        const histCategories = [...new Set(chargeCalls.map((c) => c.category))];
-        const histYears = [...new Set(chargeCalls.filter((c) => c.dueDate).map((c) => new Date(c.dueDate).getFullYear().toString()))].sort().reverse();
+        const histCategories = [...new Set(localCalls.map((c) => c.category))];
+        const histYears = [...new Set(localCalls.filter((c) => c.dueDate).map((c) => new Date(c.dueDate).getFullYear().toString()))].sort().reverse();
         const histCustomLabel = histPeriod === "custom"
           ? [histPeriodMonth ? MONTHS[parseInt(histPeriodMonth)]?.slice(0, 4) + "." : "", histPeriodYear].filter(Boolean).join(" ") || "Période"
           : "Période";
-        const filteredCalls = chargeCalls.filter((c) => {
+        const filteredCalls = localCalls.filter((c) => {
           if (histCat !== "all" && c.category !== histCat) return false;
           if (histSearch.trim()) {
             const q = histSearch.toLowerCase();
@@ -695,8 +713,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         {filteredCalls.length === 0 ? (
           <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
             <Icon name="Receipt" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{chargeCalls.length === 0 ? "Aucun appel de fonds émis" : "Aucun résultat"}</p>
-            {chargeCalls.length === 0 ? (
+            <p className="mt-2 text-[13px] text-ink-soft">{localCalls.length === 0 ? "Aucun appel de fonds émis" : "Aucun résultat"}</p>
+            {localCalls.length === 0 ? (
               <button onClick={() => setShowEmit(true)} className="mt-1 text-[13px] font-medium text-palier-600">Émettre un premier appel</button>
             ) : (
               <button onClick={() => { setHistSearch(""); setHistCat("all"); setHistPeriod("tout"); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
@@ -860,7 +878,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       })()
       ) : view === "paiements" ? (() => {
         const chargeMap = new Map<string, RecouvrementRow>();
-        rows.forEach((r) => { if (r.chargeId) chargeMap.set(r.chargeId, r); });
+        localRows.forEach((r) => { if (r.chargeId) chargeMap.set(r.chargeId, r); });
         const filteredPayments = payHistSearch.trim()
           ? payHistory.filter((p) => {
               const row = p.charge_id ? chargeMap.get(p.charge_id) : null;
@@ -1014,7 +1032,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 </span>
                 <div>
                   <h2 className="text-[16px] font-semibold text-ink">Émettre un appel de fonds</h2>
-                  <p className="text-[12px] text-ink-soft">L&apos;appel sera envoyé à {rows.length} lots</p>
+                  <p className="text-[12px] text-ink-soft">L&apos;appel sera envoyé à {localRows.length} lots</p>
                 </div>
               </div>
               <button onClick={() => { setShowEmit(false); resetEmit(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">

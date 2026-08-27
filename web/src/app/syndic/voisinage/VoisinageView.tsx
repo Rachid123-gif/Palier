@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useTransition, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
@@ -55,7 +54,9 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   const typeLabels: Record<string, string> = Object.fromEntries(categories.map((c) => [c, c]));
   const typeColors: Record<string, string> = Object.fromEntries(categories.map((c, i) => [c, TYPE_COLORS[i % TYPE_COLORS.length]]));
 
-  const router = useRouter();
+  const [localPosts, setLocalPosts] = useState<Post[]>(posts);
+  useEffect(() => { setLocalPosts(posts); }, [posts]);
+
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -96,8 +97,8 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       await deletePost(postId);
       setShowDeleteConfirm(null);
       setSelected(null);
+      setLocalPosts((prev) => prev.filter((p) => p.id !== postId));
       flash("Publication supprimée");
-      router.refresh();
     } catch { flash("Erreur lors de la suppression"); }
   }
 
@@ -110,25 +111,33 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   function handleSaveEdit() {
     if (!editingPost || !editBody.trim()) return;
+    const postId = editingPost.id;
+    const newBody = editBody.trim();
+    const newTitle = editTitle.trim() || undefined;
     startEditing(async () => {
       try {
-        await updatePost({ postId: editingPost.id, body: editBody.trim(), title: editTitle.trim() || undefined });
+        await updatePost({ postId, body: newBody, title: newTitle });
+        setLocalPosts((prev) =>
+          prev.map((p) => p.id === postId ? { ...p, body: newBody, title: newTitle } : p)
+        );
         setEditingPost(null);
         setEditBody("");
         setEditTitle("");
         flash("Publication modifiée");
-        router.refresh();
       } catch { flash("Erreur lors de la modification"); }
     });
   }
 
   function handleTogglePin(post: Post) {
+    const newPinned = !post.pinned;
     startPinning(async () => {
       try {
-        await togglePinPost(post.id, !post.pinned);
-        setSelected(null);
+        await togglePinPost(post.id, newPinned);
+        setLocalPosts((prev) =>
+          prev.map((p) => p.id === post.id ? { ...p, pinned: newPinned } : p)
+        );
+        setSelected((prev) => prev?.id === post.id ? { ...prev, pinned: newPinned } : prev);
         flash(post.pinned ? "Publication désépinglée" : "Publication épinglée");
-        router.refresh();
       } catch { flash("Erreur lors de l'épinglage"); }
     });
   }
@@ -152,6 +161,9 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   function handlePublish() {
     if (!composeBody.trim()) return;
+    const body = composeBody.trim();
+    const title = composeTitle.trim() || undefined;
+    const type = composeType;
     startPosting(async () => {
       try {
         let imageUrl: string | undefined;
@@ -162,14 +174,31 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           if (uploadResult.error) { flash("Erreur upload : " + uploadResult.error); return; }
           imageUrl = uploadResult.url;
         }
-        await createPostSyndic({ buildingId, body: composeBody.trim(), title: composeTitle.trim() || undefined, type: composeType, imageUrl });
+        await createPostSyndic({ buildingId, body, title, type, imageUrl });
+        const optimisticPost: Post = {
+          id: crypto.randomUUID(),
+          type,
+          author_name: "Syndic",
+          role: "syndic",
+          avatar_color: "#1e5b50",
+          created_at: new Date().toISOString(),
+          pinned: false,
+          title,
+          body,
+          like_count: 0,
+          love_count: 0,
+          haha_count: 0,
+          wow_count: 0,
+          comments_count: 0,
+          image_url: imageUrl,
+        };
+        setLocalPosts((prev) => [optimisticPost, ...prev]);
         setComposeBody("");
         setComposeTitle("");
         setComposeType(categories[0] ?? "Annonce");
         clearMedia();
         setShowCompose(false);
         flash("Publication créée");
-        router.refresh();
       } catch { flash("Erreur lors de la publication"); }
     });
   }
@@ -177,11 +206,16 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   const handleLike = useCallback((postId: string) => {
     startLiking(async () => {
       try {
-        await likePost(postId);
-        router.refresh();
+        const result = await likePost(postId);
+        if (!result.alreadyLiked) {
+          setLocalPosts((prev) =>
+            prev.map((p) => p.id === postId ? { ...p, like_count: (p.like_count ?? 0) + 1 } : p)
+          );
+          setSelected((prev) => prev?.id === postId ? { ...prev, like_count: (prev.like_count ?? 0) + 1 } : prev);
+        }
       } catch { flash("Erreur"); }
     });
-  }, [router]);
+  }, []);
 
   const loadComments = useCallback(async (postId: string) => {
     if (commentsPostId === postId) return;
@@ -197,13 +231,17 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   function handleSendComment() {
     if (!commentBody.trim() || !selected) return;
+    const postId = selected.id;
     startSendingComment(async () => {
       try {
-        await createComment({ postId: selected.id, author: "Syndic", avatarColor: "#1e5b50", body: commentBody.trim() });
+        await createComment({ postId, author: "Syndic", avatarColor: "#1e5b50", body: commentBody.trim() });
         setCommentBody("");
-        const data = await fetchComments(selected.id);
+        const data = await fetchComments(postId);
         setComments(data);
-        router.refresh();
+        setLocalPosts((prev) =>
+          prev.map((p) => p.id === postId ? { ...p, comments_count: (p.comments_count ?? 0) + 1 } : p)
+        );
+        setSelected((prev) => prev?.id === postId ? { ...prev, comments_count: (prev.comments_count ?? 0) + 1 } : prev);
       } catch { flash("Erreur lors de l'envoi"); }
     });
   }
@@ -217,14 +255,14 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   const typeCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const p of posts) map[p.type] = (map[p.type] ?? 0) + 1;
+    for (const p of localPosts) map[p.type] = (map[p.type] ?? 0) + 1;
     return map;
-  }, [posts]);
+  }, [localPosts]);
 
   const usedTypes = Object.keys(typeCounts).sort();
 
   const filtered = useMemo(() => {
-    let rows = [...posts];
+    let rows = [...localPosts];
     if (typeFilter !== "all") rows = rows.filter((p) => p.type === typeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -235,19 +273,19 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       );
     }
     return rows;
-  }, [posts, typeFilter, search]);
+  }, [localPosts, typeFilter, search]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, pages - 1);
   const rows = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
 
-  const pinnedCount = posts.filter((p) => p.pinned).length;
+  const pinnedCount = localPosts.filter((p) => p.pinned).length;
 
   return (
     <div>
       <PageHeader
         title="Voisinage"
-        subtitle={`${posts.length} publications · ${pinnedCount} épinglée${pinnedCount !== 1 ? "s" : ""}`}
+        subtitle={`${localPosts.length} publications · ${pinnedCount} épinglée${pinnedCount !== 1 ? "s" : ""}`}
       />
 
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
@@ -261,7 +299,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Publications</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{posts.length}</p>
+          <p className="text-[28px] font-bold leading-none text-ink">{localPosts.length}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <p className="mb-2 text-[12px] font-semibold text-ink-soft">Épinglées</p>

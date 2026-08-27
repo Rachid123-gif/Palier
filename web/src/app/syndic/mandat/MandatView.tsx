@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, mad } from "@/lib/format";
@@ -27,8 +26,8 @@ function mandateProgress(electedAt: string, mandateEnd: string): number {
   return Math.round(((now - start) / (end - start)) * 100);
 }
 
-export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | null; buildingId: string }) {
-  const router = useRouter();
+export function MandatView({ mandate: initialMandate, buildingId }: { mandate: SyndicMandate | null; buildingId: string }) {
+  const [mandate, setMandate] = useState<SyndicMandate | null>(initialMandate);
   const [toast, setToast] = useState<string | null>(null);
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
@@ -98,18 +97,28 @@ export function MandatView({ mandate, buildingId }: { mandate: SyndicMandate | n
       });
       flash("Mandat enregistré");
     }
+    const updated: SyndicMandate = {
+      id: mandate?.id ?? crypto.randomUUID(),
+      syndicName: fName,
+      syndicType: fType,
+      deputyName: fDeputy || undefined,
+      electedAt: fElectedAt,
+      mandateEnd: fMandateEnd,
+      remuneration: fRemuneration ? Number(fRemuneration) : undefined,
+      contractUrl: fContractUrl || undefined,
+    };
+    setMandate(updated);
     setSaving(false);
     setShowForm(false);
-    router.refresh();
   }
 
   // Delete
   async function handleDelete() {
     if (!mandate) return;
     await deleteMandate(mandate.id);
+    setMandate(null);
     setShowDelete(false);
     flash("Mandat supprimé");
-    router.refresh();
   }
 
   // Status helpers

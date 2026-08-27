@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useMemo, useCallback, useEffect } from "react";
 import { createUrgentWork, updateUrgentWorkStatus, deleteUrgentWork } from "@/lib/actions";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
@@ -48,7 +47,9 @@ export function TravauxUrgentsView({
   incidents: IncidentRow[];
   buildingId: string;
 }) {
-  const router = useRouter();
+  const [localWorks, setLocalWorks] = useState<UrgentWork[]>(urgentWorks);
+  useEffect(() => { setLocalWorks(urgentWorks); }, [urgentWorks]);
+
   const [toast, setToast] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusKey>("all");
   const [search, setSearch] = useState("");
@@ -64,14 +65,14 @@ export function TravauxUrgentsView({
   }, []);
 
   /* ── KPIs ── */
-  const totalWorks = urgentWorks.length;
-  const inProgressCount = urgentWorks.filter((w) => w.status === "in_progress" || w.status === "approved" || w.status === "declared").length;
-  const completedCount = urgentWorks.filter((w) => w.status === "completed").length;
-  const totalCost = urgentWorks.reduce((s, w) => s + (w.actualCost ?? w.estimatedCost ?? 0), 0);
+  const totalWorks = localWorks.length;
+  const inProgressCount = localWorks.filter((w) => w.status === "in_progress" || w.status === "approved" || w.status === "declared").length;
+  const completedCount = localWorks.filter((w) => w.status === "completed").length;
+  const totalCost = localWorks.reduce((s, w) => s + (w.actualCost ?? w.estimatedCost ?? 0), 0);
 
   /* ── Filtering ── */
   const filtered = useMemo(() => {
-    let rows = [...urgentWorks];
+    let rows = [...localWorks];
     if (statusFilter !== "all") rows = rows.filter((w) => w.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -83,7 +84,7 @@ export function TravauxUrgentsView({
       );
     }
     return rows;
-  }, [urgentWorks, statusFilter, search]);
+  }, [localWorks, statusFilter, search]);
 
   /* ── Incident lookup ── */
   const incidentById = useMemo(() => {
@@ -94,27 +95,35 @@ export function TravauxUrgentsView({
 
   /* ── Actions ── */
   const handleStatusChange = useCallback(
-    async (id: string, newStatus: UrgentWork["status"]) => {
-      await updateUrgentWorkStatus(id, newStatus);
-      const labels: Record<string, string> = {
-        approved: "Travaux approuvés",
-        in_progress: "Travaux en cours",
-        completed: "Travaux terminés",
-      };
-      flash(labels[newStatus] ?? "Statut mis à jour");
-      router.refresh();
+    async (id: string, newStatus: UrgentWork["status"], actualCost?: number) => {
+      try {
+        await updateUrgentWorkStatus(id, newStatus, actualCost);
+        setLocalWorks((prev) => prev.map((w) => w.id === id ? {
+          ...w,
+          status: newStatus,
+          ...(newStatus === "completed" ? { completedAt: new Date().toISOString(), actualCost: actualCost ?? w.actualCost } : {}),
+        } : w));
+        const labels: Record<string, string> = {
+          approved: "Travaux approuvés",
+          in_progress: "Travaux en cours",
+          completed: "Travaux terminés",
+        };
+        flash(labels[newStatus] ?? "Statut mis à jour");
+      } catch { flash("Erreur, réessayez"); }
     },
-    [router, flash],
+    [flash],
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await deleteUrgentWork(id);
-      flash("Travaux supprimés");
-      setDeleteTarget(null);
-      router.refresh();
+      try {
+        await deleteUrgentWork(id);
+        setLocalWorks((prev) => prev.filter((w) => w.id !== id));
+        flash("Travaux supprimés");
+        setDeleteTarget(null);
+      } catch { flash("Erreur, réessayez"); }
     },
-    [router, flash],
+    [flash],
   );
 
   return (
@@ -165,7 +174,7 @@ export function TravauxUrgentsView({
       <div className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-black/[0.06] sm:gap-3">
         {statusTabs.map((tab) => {
           const count =
-            tab.key === "all" ? urgentWorks.length : urgentWorks.filter((w) => w.status === tab.key).length;
+            tab.key === "all" ? localWorks.length : localWorks.filter((w) => w.status === tab.key).length;
           return (
             <button
               key={tab.key}
@@ -372,10 +381,10 @@ export function TravauxUrgentsView({
           buildingId={buildingId}
           incidents={incidents}
           onClose={() => setDeclareOpen(false)}
-          onSuccess={() => {
+          onCreated={(newWork) => {
+            setLocalWorks((prev) => [newWork, ...prev]);
             setDeclareOpen(false);
             flash("Travaux urgents déclarés");
-            router.refresh();
           }}
         />
       )}
@@ -385,10 +394,10 @@ export function TravauxUrgentsView({
         <CompleteModal
           work={completeOpen}
           onClose={() => setCompleteOpen(null)}
-          onSuccess={() => {
+          onSuccess={(actualCost) => {
+            setLocalWorks((prev) => prev.map((w) => w.id === completeOpen.id ? { ...w, status: "completed" as const, completedAt: new Date().toISOString(), actualCost } : w));
             setCompleteOpen(null);
             flash("Travaux marqués comme terminés");
-            router.refresh();
           }}
         />
       )}
@@ -502,12 +511,12 @@ function DeclareModal({
   buildingId,
   incidents,
   onClose,
-  onSuccess,
+  onCreated,
 }: {
   buildingId: string;
   incidents: IncidentRow[];
   onClose: () => void;
-  onSuccess: () => void;
+  onCreated: (work: UrgentWork) => void;
 }) {
   const [pending, start] = useTransition();
   const [form, setForm] = useState({
@@ -531,16 +540,29 @@ function DeclareModal({
     }
     setFormError("");
     start(async () => {
-      await createUrgentWork({
-        buildingId,
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
-        justification: form.justification.trim(),
-        estimatedCost: form.estimatedCost ? parseFloat(form.estimatedCost) : undefined,
-        supplier: form.supplier.trim() || undefined,
-        incidentId: form.incidentId || undefined,
-      });
-      onSuccess();
+      try {
+        await createUrgentWork({
+          buildingId,
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          justification: form.justification.trim(),
+          estimatedCost: form.estimatedCost ? parseFloat(form.estimatedCost) : undefined,
+          supplier: form.supplier.trim() || undefined,
+          incidentId: form.incidentId || undefined,
+        });
+        const newWork: UrgentWork = {
+          id: crypto.randomUUID(),
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          justification: form.justification.trim(),
+          estimatedCost: form.estimatedCost ? parseFloat(form.estimatedCost) : undefined,
+          supplier: form.supplier.trim() || undefined,
+          incidentId: form.incidentId || undefined,
+          status: "declared",
+          declaredAt: new Date().toISOString(),
+        };
+        onCreated(newWork);
+      } catch { setFormError("Erreur réseau. Réessayez."); }
     });
   }
 
@@ -678,7 +700,7 @@ function CompleteModal({
 }: {
   work: UrgentWork;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (actualCost?: number) => void;
 }) {
   const [pending, start] = useTransition();
   const [actualCost, setActualCost] = useState(work.estimatedCost?.toString() ?? "");
@@ -686,16 +708,14 @@ function CompleteModal({
 
   function handleSubmit() {
     start(async () => {
-      const update: Record<string, unknown> = { status: "completed", completed_at: new Date().toISOString() };
-      if (actualCost) update.actual_cost = parseFloat(actualCost);
-      if (invoiceUrl.trim()) update.invoice_url = invoiceUrl.trim();
-
-      await updateUrgentWorkStatus(
-        work.id,
-        "completed",
-        actualCost ? parseFloat(actualCost) : undefined,
-      );
-      onSuccess();
+      try {
+        await updateUrgentWorkStatus(
+          work.id,
+          "completed",
+          actualCost ? parseFloat(actualCost) : undefined,
+        );
+        onSuccess(actualCost ? parseFloat(actualCost) : undefined);
+      } catch { onClose(); }
     });
   }
 

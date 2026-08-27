@@ -656,7 +656,8 @@ export async function emitCharges(input: {
   distribution?: "flat" | "tantiemes";
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
-  const v = validate(emitChargesSchema, input);
+  let v;
+  try { v = validate(emitChargesSchema, input); } catch { return { error: "validation_error" }; }
 
   const { data: units } = await supabaseAdmin
     .from("units")
@@ -1773,6 +1774,8 @@ async function triggerPush(profileIds: string[], title: string, body: string) {
   try {
     const origin = process.env.NEXT_PUBLIC_APP_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
     await fetch(`${origin}/api/push/send`, {
       method: "POST",
       headers: {
@@ -1780,7 +1783,9 @@ async function triggerPush(profileIds: string[], title: string, body: string) {
         "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
       },
       body: JSON.stringify({ profileIds, title, body }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
   } catch {
     // Push is best-effort, don't fail the action
   }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { resolveIncident, markIncidentInProgress, reopenIncident, updateIncidentUrgency, fetchIncidentComments, createIncidentComment } from "@/lib/actions";
 import type { IncidentComment } from "@/lib/types";
 import { PageHeader } from "@/components/syndic/ui";
@@ -53,7 +52,9 @@ const PER_PAGE = 15;
 /* ── Main ── */
 
 export function IncidentsBoard({ incidents, openCount, customCategories }: { incidents: Inc[]; openCount: number; customCategories?: string[] | null }) {
-  const router = useRouter();
+  const [localIncidents, setLocalIncidents] = useState(incidents);
+  useEffect(() => { setLocalIncidents(incidents); }, [incidents]);
+
   const [toast, setToast] = useState<string | null>(null);
 
   // Period filter
@@ -73,27 +74,41 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
   const [selected, setSelected] = useState<Inc | null>(null);
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
+
+  const updateLocal = useCallback((id: string, patch: Partial<Inc>) => {
+    setLocalIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    setSelected((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+  }, []);
+
   const handleResolve = useCallback(async (id: string) => {
-    try { await resolveIncident(id); flash("Incident marqué comme résolu"); router.refresh(); }
+    updateLocal(id, { status: "resolved" });
+    flash("Incident marqué comme résolu");
+    try { await resolveIncident(id); }
     catch { flash("Erreur lors de la mise à jour"); }
-  }, [router, flash]);
+  }, [flash, updateLocal]);
   const handleInProgress = useCallback(async (id: string) => {
-    try { await markIncidentInProgress(id); flash("Incident marqué en cours"); router.refresh(); }
+    updateLocal(id, { status: "in_progress" });
+    flash("Incident marqué en cours");
+    try { await markIncidentInProgress(id); }
     catch { flash("Erreur lors de la mise à jour"); }
-  }, [router, flash]);
+  }, [flash, updateLocal]);
   const handleReopen = useCallback(async (id: string) => {
-    try { await reopenIncident(id); flash("Incident réouvert"); router.refresh(); }
+    updateLocal(id, { status: "open" });
+    flash("Incident réouvert");
+    try { await reopenIncident(id); }
     catch { flash("Erreur lors de la réouverture"); }
-  }, [router, flash]);
+  }, [flash, updateLocal]);
   const handleUrgencyChange = useCallback(async (id: string, urgency: "low" | "normal" | "urgent") => {
-    try { await updateIncidentUrgency(id, urgency); flash("Urgence mise à jour"); router.refresh(); }
+    updateLocal(id, { urgency });
+    flash("Urgence mise à jour");
+    try { await updateIncidentUrgency(id, urgency); }
     catch { flash("Erreur lors de la mise à jour"); }
-  }, [router, flash]);
+  }, [flash, updateLocal]);
 
   // Years present in data
   const years = useMemo(() => {
-    return [...new Set(incidents.map((i) => new Date(i.created_at).getFullYear().toString()))].sort().reverse();
-  }, [incidents]);
+    return [...new Set(localIncidents.map((i) => new Date(i.created_at).getFullYear().toString()))].sort().reverse();
+  }, [localIncidents]);
 
   const customLabel = periodFilter === "custom"
     ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
@@ -102,7 +117,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
   // Period-filtered (for KPIs)
   const periodFiltered = useMemo(() => {
     const now = new Date();
-    let rows = [...incidents];
+    let rows = [...localIncidents];
     if (periodFilter === "custom") {
       rows = rows.filter((i) => {
         const d = new Date(i.created_at);
@@ -118,7 +133,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
       rows = rows.filter((i) => new Date(i.created_at) >= ago);
     }
     return rows;
-  }, [incidents, periodFilter, periodMonth, periodYear]);
+  }, [localIncidents, periodFilter, periodMonth, periodYear]);
 
   // KPIs (follow period)
   const openInc = periodFiltered.filter((i) => i.status === "open").length;
@@ -139,9 +154,9 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
 
   // Categories present in data
   const usedCategories = useMemo(() => {
-    const cats = new Set(incidents.map((i) => i.category).filter(Boolean));
+    const cats = new Set(localIncidents.map((i) => i.category).filter(Boolean));
     return [...cats].sort();
-  }, [incidents]);
+  }, [localIncidents]);
 
   // Full filtering (period + status + urgency + category + search)
   const filtered = useMemo(() => {
@@ -191,7 +206,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
     <div>
       <PageHeader
         title="Incidents"
-        subtitle={`${incidents.length} signalements · ${openCount} non résolus`}
+        subtitle={`${localIncidents.length} signalements · ${localIncidents.filter((i) => i.status !== "resolved").length} non résolus`}
         action={
           <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
             <Icon name="Download" className="h-3.5 w-3.5" /> Exporter

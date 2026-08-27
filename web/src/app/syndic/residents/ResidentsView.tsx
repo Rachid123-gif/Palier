@@ -588,6 +588,7 @@ export function ResidentsView({
             ) : (
               <>
                 <Field label="Téléphone" value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
+                <Field label="Numéro de lot" value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder="Ex: 1, A3, RDC-2" />
                 <div>
                   <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
                   <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">

@@ -342,24 +342,20 @@ export function DashboardView({ data: d }: DashboardProps) {
 
           {/* 12-month trend bars */}
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Tendance 12 mois</p>
-          <div className="no-scrollbar flex items-end gap-2 overflow-x-auto">
+          <div className="flex items-end gap-1">
             {monthlyTrend.map((m, i) => (
-              <div key={i} className="flex w-10 shrink-0 flex-col items-center gap-1">
-                <div className="flex w-full gap-0.5" style={{ height: 60 }}>
-                  <div className="flex-1 flex flex-col justify-end">
-                    <div
-                      className="w-full rounded-t bg-emerald-400"
-                      style={{ height: `${Math.max((m.inAmt / maxTrend) * 100, m.inAmt > 0 ? 4 : 0)}%` }}
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col justify-end">
-                    <div
-                      className="w-full rounded-t bg-red-400"
-                      style={{ height: `${Math.max((m.outAmt / maxTrend) * 100, m.outAmt > 0 ? 4 : 0)}%` }}
-                    />
-                  </div>
+              <div key={i} className="flex flex-1 min-w-0 flex-col items-center gap-1">
+                <div className="flex w-full items-end gap-px" style={{ height: 60 }}>
+                  <div
+                    className="flex-1 rounded-t bg-emerald-400"
+                    style={{ height: Math.round(Math.max((m.inAmt / maxTrend) * 60, m.inAmt > 0 ? 3 : 0)) }}
+                  />
+                  <div
+                    className="flex-1 rounded-t bg-red-400"
+                    style={{ height: Math.round(Math.max((m.outAmt / maxTrend) * 60, m.outAmt > 0 ? 3 : 0)) }}
+                  />
                 </div>
-                <span className="text-[10px] text-ink-faint">{m.label}</span>
+                <span className="text-[9px] text-ink-faint">{m.label}</span>
               </div>
             ))}
           </div>

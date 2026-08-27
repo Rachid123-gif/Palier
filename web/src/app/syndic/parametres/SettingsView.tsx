@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
 import { PageHeader, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -93,7 +93,6 @@ export function SettingsView({
   units: { id: string; ref: string; floor: number | null; tantiemes: number }[];
   verifiedPhone: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState("");
   const [activeSection, setActiveSection] = useState<SectionKey>("general");
@@ -215,10 +214,9 @@ export function SettingsView({
         },
       } as Record<string, unknown>);
       setSaveStatus("saved");
-      router.refresh();
       setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, router, startTransition]);
+  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, startTransition]);
 
   // Auto-save with 1s debounce
   useEffect(() => {

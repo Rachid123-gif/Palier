@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, shortDate } from "@/lib/format";
@@ -52,7 +51,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   residents: Resident[];
   totalTantiemes: number;
 }) {
-  const router = useRouter();
+  const [localAssemblies, setLocalAssemblies] = useState<AssemblyRow[]>(assemblies);
+  useEffect(() => { setLocalAssemblies(assemblies); }, [assemblies]);
+
   const [toast, setToast] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "upcoming" | "past">("all");
   const [search, setSearch] = useState("");
@@ -104,22 +105,22 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   const isPast = (ag: AssemblyRow) => new Date(ag.date) < now;
 
   // KPIs
-  const totalAgs = assemblies.length;
-  const pastAgs = assemblies.filter(isPast);
+  const totalAgs = localAssemblies.length;
+  const pastAgs = localAssemblies.filter(isPast);
   const avgQuorum = pastAgs.length > 0 ? Math.round(pastAgs.reduce((s, a) => s + a.quorum, 0) / pastAgs.length) : 0;
-  const nextAg = assemblies.find(isUpcoming);
+  const nextAg = localAssemblies.find(isUpcoming);
 
   // Counts
   const counts = useMemo(() => ({
-    all: assemblies.length,
-    upcoming: assemblies.filter(isUpcoming).length,
-    past: assemblies.filter(isPast).length,
+    all: localAssemblies.length,
+    upcoming: localAssemblies.filter(isUpcoming).length,
+    past: localAssemblies.filter(isPast).length,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [assemblies]);
+  }), [localAssemblies]);
 
   // Filtered
   const filtered = useMemo(() => {
-    let result = [...assemblies];
+    let result = [...localAssemblies];
     if (statusFilter === "upcoming") result = result.filter(isUpcoming);
     if (statusFilter === "past") result = result.filter(isPast);
     if (search.trim()) {
@@ -131,7 +132,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assemblies, statusFilter, search]);
+  }, [localAssemblies, statusFilter, search]);
 
   // ───── Quorum calculation ─────
   const presentTantiemes = useMemo(() => {
@@ -182,12 +183,34 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     if (!date || !place || agendaItems.some((a) => !a.t)) return;
     if (!validateDate(date)) return;
     setSaving(true);
-    await createAssembly({ buildingId, date, time, place, agenda: agendaItems });
-    setSaving(false);
-    setShowCreate(false);
-    resetCreate();
-    flash("Assemblée convoquée");
-    router.refresh();
+    try {
+      await createAssembly({ buildingId, date, time, place, type: agType, agenda: agendaItems });
+      const optimistic: AssemblyRow = {
+        id: crypto.randomUUID(),
+        date,
+        time,
+        place,
+        type: agType,
+        status: "convoquee",
+        agenda: agendaItems,
+        votes: [],
+        resolutions: [],
+        quorum: 0,
+        summary: "",
+        pvUrl: "",
+        convocationSentAt: null,
+        pvSentAt: null,
+        pvDistributed: false,
+      };
+      setLocalAssemblies((prev) => [optimistic, ...prev]);
+      setShowCreate(false);
+      resetCreate();
+      flash("Assemblée convoquée");
+    } catch {
+      flash("Erreur lors de la création");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ───── Results modal ─────
@@ -229,24 +252,59 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   async function handleAddResolution() {
     if (!showResults || !newResTitle.trim()) return;
     const num = resolutions.length + 1;
-    await createResolution({
-      assemblyId: showResults.id,
-      number: num,
-      title: newResTitle.trim(),
-      description: newResDesc.trim() || undefined,
-      majorityType: newResMajority,
-    });
-    setNewResTitle(""); setNewResDesc(""); setNewResMajority("simple");
-    setShowAddResolution(false);
-    flash("Résolution ajoutée");
-    router.refresh();
+    try {
+      await createResolution({
+        assemblyId: showResults.id,
+        number: num,
+        title: newResTitle.trim(),
+        description: newResDesc.trim() || undefined,
+        majorityType: newResMajority,
+      });
+      const optimisticRes: Resolution = {
+        id: crypto.randomUUID(),
+        assemblyId: showResults.id,
+        number: num,
+        title: newResTitle.trim(),
+        description: newResDesc.trim() || undefined,
+        majorityType: newResMajority,
+        pourTantiemes: 0,
+        contreTantiemes: 0,
+        abstentionTantiemes: 0,
+        pourCount: 0,
+        contreCount: 0,
+        abstentionCount: 0,
+      };
+      setResolutions((prev) => [...prev, optimisticRes]);
+      // Also update the assembly in local state and the showResults reference
+      const updatedResolutions = [...showResults.resolutions, optimisticRes];
+      setShowResults({ ...showResults, resolutions: updatedResolutions });
+      setLocalAssemblies((prev) =>
+        prev.map((a) => a.id === showResults.id ? { ...a, resolutions: updatedResolutions } : a)
+      );
+      setNewResTitle(""); setNewResDesc(""); setNewResMajority("simple");
+      setShowAddResolution(false);
+      flash("Résolution ajoutée");
+    } catch {
+      flash("Erreur lors de l'ajout de la résolution");
+    }
   }
 
   // Delete resolution
   async function handleDeleteResolution(resId: string) {
-    await deleteResolution(resId);
-    setResolutions((prev) => prev.filter((r) => r.id !== resId));
-    flash("Résolution supprimée");
+    try {
+      await deleteResolution(resId);
+      setResolutions((prev) => prev.filter((r) => r.id !== resId));
+      if (showResults) {
+        const updatedResolutions = showResults.resolutions.filter((r) => r.id !== resId);
+        setShowResults({ ...showResults, resolutions: updatedResolutions });
+        setLocalAssemblies((prev) =>
+          prev.map((a) => a.id === showResults.id ? { ...a, resolutions: updatedResolutions } : a)
+        );
+      }
+      flash("Résolution supprimée");
+    } catch {
+      flash("Erreur lors de la suppression");
+    }
   }
 
   // Save results
@@ -255,58 +313,91 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     if (!showResults) return;
     setResSaving(true);
 
-    // Upload PV if provided
-    let pvUrl = resPvUrl;
-    if (resPvFile) {
-      setPvUploading(true);
-      pvUrl = await uploadPv(resPvFile, showResults.id);
-      setPvUploading(false);
-      const sizeKB = Math.round(resPvFile.size / 1024);
-      const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-      await upsertDocument({
-        buildingId,
-        title: `PV Assemblée du ${longDate(showResults.date)}`,
-        docType: "pv",
-        docDate: showResults.date,
-        size: sizeLabel,
-        url: pvUrl,
-        refId: showResults.id,
-      });
-    }
-
-    // Save each resolution result
-    for (const [resId, data] of resolutionResults) {
-      if (data.result) {
-        await updateResolutionResult(resId, {
-          result: data.result as "adoptee" | "rejetee" | "reportee",
-          pourTantiemes: data.pour,
-          contreTantiemes: data.contre,
-          abstentionTantiemes: data.abst,
-          pourCount: 0, contreCount: 0, abstentionCount: 0,
+    try {
+      // Upload PV if provided
+      let pvUrl = resPvUrl;
+      if (resPvFile) {
+        setPvUploading(true);
+        pvUrl = await uploadPv(resPvFile, showResults.id);
+        setPvUploading(false);
+        const sizeKB = Math.round(resPvFile.size / 1024);
+        const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+        await upsertDocument({
+          buildingId,
+          title: `PV Assemblée du ${longDate(showResults.date)}`,
+          docType: "pv",
+          docDate: showResults.date,
+          size: sizeLabel,
+          url: pvUrl,
+          refId: showResults.id,
         });
       }
+
+      // Save each resolution result
+      for (const [resId, data] of resolutionResults) {
+        if (data.result) {
+          await updateResolutionResult(resId, {
+            result: data.result as "adoptee" | "rejetee" | "reportee",
+            pourTantiemes: data.pour,
+            contreTantiemes: data.contre,
+            abstentionTantiemes: data.abst,
+            pourCount: 0, contreCount: 0, abstentionCount: 0,
+          });
+        }
+      }
+
+      const updatedQuorum = quorumPct || Number(showResults.quorum) || 0;
+
+      // Save assembly summary + quorum
+      await updateAssembly({
+        assemblyId: showResults.id,
+        quorum: updatedQuorum,
+        votes: [],
+        summary: resSummary,
+        pvUrl,
+      });
+
+      // Optimistic: update assembly in local state with new results
+      const updatedResolutions = showResults.resolutions.map((r) => {
+        const rd = resolutionResults.get(r.id);
+        if (rd?.result) {
+          return {
+            ...r,
+            result: rd.result as "adoptee" | "rejetee" | "reportee",
+            pourTantiemes: rd.pour,
+            contreTantiemes: rd.contre,
+            abstentionTantiemes: rd.abst,
+          };
+        }
+        return r;
+      });
+
+      setLocalAssemblies((prev) =>
+        prev.map((a) =>
+          a.id === showResults.id
+            ? { ...a, quorum: updatedQuorum, summary: resSummary, pvUrl, resolutions: updatedResolutions }
+            : a
+        )
+      );
+
+      setShowResults(null);
+      flash("Résultats enregistrés");
+    } catch {
+      flash("Erreur lors de l'enregistrement");
+    } finally {
+      setResSaving(false);
     }
-
-    // Save assembly summary + quorum
-    await updateAssembly({
-      assemblyId: showResults.id,
-      quorum: quorumPct || Number(showResults.quorum) || 0,
-      votes: [],
-      summary: resSummary,
-      pvUrl,
-    });
-
-    setResSaving(false);
-    setShowResults(null);
-    flash("Résultats enregistrés");
-    router.refresh();
   }
 
   // ───── Notify ─────
   async function handleNotify(ag: AssemblyRow) {
     if (residentProfileIds.length === 0) { flash("Aucun résident à notifier"); return; }
-    await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date), place: ag.place });
-    flash(`${residentProfileIds.length} résidents notifiés`);
+    try {
+      await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date), place: ag.place });
+      flash(`${residentProfileIds.length} résidents notifiés`);
+    } catch {
+      flash("Erreur lors de la notification");
+    }
   }
 
   // ───── Load vote tallies ─────
@@ -327,10 +418,15 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   // ───── Delete ─────
   async function handleDelete() {
     if (!showDelete) return;
-    await deleteAssembly(showDelete.id);
-    setShowDelete(null);
-    flash("Assemblée annulée");
-    router.refresh();
+    const deleteId = showDelete.id;
+    try {
+      await deleteAssembly(deleteId);
+      setLocalAssemblies((prev) => prev.filter((a) => a.id !== deleteId));
+      setShowDelete(null);
+      flash("Assemblée annulée");
+    } catch {
+      flash("Erreur lors de la suppression");
+    }
   }
 
   const inputCls = "h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20";
@@ -409,8 +505,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="CalendarDays" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{assemblies.length === 0 ? "Aucune assemblée programmée" : "Aucun résultat"}</p>
-            {assemblies.length === 0 ? (
+            <p className="mt-2 text-[13px] text-ink-soft">{localAssemblies.length === 0 ? "Aucune assemblée programmée" : "Aucun résultat"}</p>
+            {localAssemblies.length === 0 ? (
               <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Convoquer une assemblée</button>
             ) : (
               <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { mad } from "@/lib/format";
@@ -64,7 +63,9 @@ export function BudgetView({
   kpis: SyndicData["kpis"];
   building: SyndicData["building"];
 }) {
-  const router = useRouter();
+  const [localBudgets, setLocalBudgets] = useState<Budget[]>(budgets);
+  useEffect(() => { setLocalBudgets(budgets); }, [budgets]);
+
   const [toast, setToast] = useState<string | null>(null);
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
@@ -93,7 +94,7 @@ export function BudgetView({
 
   // ── KPIs ──
   const currentYear = new Date().getFullYear();
-  const currentBudget = budgets.find((b) => b.fiscalYear === currentYear);
+  const currentBudget = localBudgets.find((b) => b.fiscalYear === currentYear);
   const budgetTotal = currentBudget?.totalAmount ?? 0;
   const reserveAmount = currentBudget?.reserveFundAmount ?? 0;
   const budgetStatus = currentBudget?.status ?? null;
@@ -110,20 +111,20 @@ export function BudgetView({
 
   // Available years from budgets
   const availableYears = useMemo(() => {
-    const yrs = [...new Set(budgets.map((b) => b.fiscalYear))].sort((a, b) => b - a);
+    const yrs = [...new Set(localBudgets.map((b) => b.fiscalYear))].sort((a, b) => b - a);
     return yrs;
-  }, [budgets]);
+  }, [localBudgets]);
 
   const counts = useMemo(() => ({
-    all: budgets.length,
-    draft: budgets.filter((b) => b.status === "draft").length,
-    vote: budgets.filter((b) => b.status === "vote").length,
-    approved: budgets.filter((b) => b.status === "approved").length,
-    closed: budgets.filter((b) => b.status === "closed").length,
-  }), [budgets]);
+    all: localBudgets.length,
+    draft: localBudgets.filter((b) => b.status === "draft").length,
+    vote: localBudgets.filter((b) => b.status === "vote").length,
+    approved: localBudgets.filter((b) => b.status === "approved").length,
+    closed: localBudgets.filter((b) => b.status === "closed").length,
+  }), [localBudgets]);
 
   const filtered = useMemo(() => {
-    let result = [...budgets];
+    let result = [...localBudgets];
     if (yearFilter !== "all") result = result.filter((b) => b.fiscalYear.toString() === yearFilter);
     if (statusFilter !== "all") result = result.filter((b) => b.status === statusFilter);
     if (search.trim()) {
@@ -134,7 +135,7 @@ export function BudgetView({
       );
     }
     return result;
-  }, [budgets, yearFilter, statusFilter, search]);
+  }, [localBudgets, yearFilter, statusFilter, search]);
 
   // ── Create form helpers ──
   function resetCreate() {
@@ -165,26 +166,49 @@ export function BudgetView({
     const validLines = lines.filter((l) => l.label.trim() && Number(l.amountBudgeted) > 0);
     if (validLines.length === 0) return;
     setSaving(true);
-    const res = await createBudget({
-      buildingId,
-      fiscalYear,
-      lines: validLines.map((l) => ({
-        label: l.label.trim(),
-        category: l.category,
-        amountBudgeted: Number(l.amountBudgeted),
-        accountCode: l.accountCode.trim() || undefined,
-      })),
-      reserveFundAmount: Number(reserveFund) || 0,
-    });
-    setSaving(false);
-    if ("error" in res && res.error) {
-      flash("Erreur : " + res.error);
-      return;
+    try {
+      const res = await createBudget({
+        buildingId,
+        fiscalYear,
+        lines: validLines.map((l) => ({
+          label: l.label.trim(),
+          category: l.category,
+          amountBudgeted: Number(l.amountBudgeted),
+          accountCode: l.accountCode.trim() || undefined,
+        })),
+        reserveFundAmount: Number(reserveFund) || 0,
+      });
+      if ("error" in res && res.error) {
+        flash("Erreur : " + res.error);
+        return;
+      }
+      const reserveAmt = Number(reserveFund) || 0;
+      const linesTotal = validLines.reduce((s, l) => s + Number(l.amountBudgeted), 0);
+      const newBudget: Budget = {
+        id: ("data" in res && res.data?.id) ? res.data.id : crypto.randomUUID(),
+        buildingId,
+        fiscalYear,
+        status: "draft",
+        totalAmount: linesTotal + reserveAmt,
+        reserveFundAmount: reserveAmt,
+        lines: validLines.map((l) => ({
+          id: crypto.randomUUID(),
+          label: l.label.trim(),
+          category: l.category,
+          amountBudgeted: Number(l.amountBudgeted),
+          amountActual: 0,
+          accountCode: l.accountCode.trim() || undefined,
+        })),
+      };
+      setLocalBudgets((prev) => [...prev, newBudget]);
+      setShowCreate(false);
+      resetCreate();
+      flash("Budget créé");
+    } catch {
+      flash("Erreur lors de la création");
+    } finally {
+      setSaving(false);
     }
-    setShowCreate(false);
-    resetCreate();
-    flash("Budget créé");
-    router.refresh();
   }
 
   // ── Detail actions ──
@@ -192,46 +216,104 @@ export function BudgetView({
     const ns = nextStatus(budget.status);
     if (!ns) return;
     setActionLoading(true);
-    await updateBudgetStatus(budget.id, ns);
-    setActionLoading(false);
-    setSelected(null);
-    flash(`Statut mis à jour : ${STATUS_LABELS[ns]}`);
-    router.refresh();
+    try {
+      await updateBudgetStatus(budget.id, ns);
+      setLocalBudgets((prev) =>
+        prev.map((b) =>
+          b.id === budget.id
+            ? { ...b, status: ns, ...(ns === "approved" ? { approvedAt: new Date().toISOString() } : {}) }
+            : b
+        )
+      );
+      setSelected(null);
+      flash(`Statut mis à jour : ${STATUS_LABELS[ns]}`);
+    } catch {
+      flash("Erreur lors de la mise à jour du statut");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleAddLine(budgetId: string) {
     if (!newLine.label.trim() || !Number(newLine.amountBudgeted)) return;
     setActionLoading(true);
-    await addBudgetLine(budgetId, {
-      label: newLine.label.trim(),
-      category: newLine.category,
-      amountBudgeted: Number(newLine.amountBudgeted),
-      accountCode: newLine.accountCode.trim() || undefined,
-    });
-    setActionLoading(false);
-    setShowAddLine(false);
-    setNewLine({ label: "", category: "Maintenance", amountBudgeted: "", accountCode: "" });
-    flash("Ligne ajoutée");
-    router.refresh();
+    try {
+      await addBudgetLine(budgetId, {
+        label: newLine.label.trim(),
+        category: newLine.category,
+        amountBudgeted: Number(newLine.amountBudgeted),
+        accountCode: newLine.accountCode.trim() || undefined,
+      });
+      const addedLine: BudgetLine = {
+        id: crypto.randomUUID(),
+        label: newLine.label.trim(),
+        category: newLine.category,
+        amountBudgeted: Number(newLine.amountBudgeted),
+        amountActual: 0,
+        accountCode: newLine.accountCode.trim() || undefined,
+      };
+      setLocalBudgets((prev) =>
+        prev.map((b) =>
+          b.id === budgetId
+            ? { ...b, lines: [...b.lines, addedLine], totalAmount: b.totalAmount + addedLine.amountBudgeted }
+            : b
+        )
+      );
+      setSelected((prev) =>
+        prev && prev.id === budgetId
+          ? { ...prev, lines: [...prev.lines, addedLine], totalAmount: prev.totalAmount + addedLine.amountBudgeted }
+          : prev
+      );
+      setShowAddLine(false);
+      setNewLine({ label: "", category: "Maintenance", amountBudgeted: "", accountCode: "" });
+      flash("Ligne ajoutée");
+    } catch {
+      flash("Erreur lors de l'ajout de la ligne");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleDeleteLine(lineId: string) {
     setActionLoading(true);
-    await deleteBudgetLine(lineId);
-    setActionLoading(false);
-    flash("Ligne supprimée");
-    router.refresh();
+    try {
+      await deleteBudgetLine(lineId);
+      const removeLine = (b: Budget): Budget => {
+        const removed = b.lines.find((l) => l.id === lineId);
+        return {
+          ...b,
+          lines: b.lines.filter((l) => l.id !== lineId),
+          totalAmount: b.totalAmount - (removed?.amountBudgeted ?? 0),
+        };
+      };
+      setLocalBudgets((prev) =>
+        prev.map((b) => (b.lines.some((l) => l.id === lineId) ? removeLine(b) : b))
+      );
+      setSelected((prev) =>
+        prev && prev.lines.some((l) => l.id === lineId) ? removeLine(prev) : prev
+      );
+      flash("Ligne supprimée");
+    } catch {
+      flash("Erreur lors de la suppression de la ligne");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleDeleteBudget() {
     if (!showDeleteConfirm) return;
     setActionLoading(true);
-    await deleteBudget(showDeleteConfirm.id);
-    setActionLoading(false);
-    setShowDeleteConfirm(null);
-    setSelected(null);
-    flash("Budget supprimé");
-    router.refresh();
+    try {
+      await deleteBudget(showDeleteConfirm.id);
+      setLocalBudgets((prev) => prev.filter((b) => b.id !== showDeleteConfirm.id));
+      setShowDeleteConfirm(null);
+      setSelected(null);
+      flash("Budget supprimé");
+    } catch {
+      flash("Erreur lors de la suppression du budget");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   // ── Year options for create form ──
@@ -246,7 +328,7 @@ export function BudgetView({
     <div>
       <PageHeader
         title="Budget prévisionnel"
-        subtitle={`${budgets.length} budget${budgets.length > 1 ? "s" : ""}${currentBudget ? ` · ${currentYear} : ${STATUS_LABELS[currentBudget.status]}` : ""}`}
+        subtitle={`${localBudgets.length} budget${localBudgets.length > 1 ? "s" : ""}${currentBudget ? ` · ${currentYear} : ${STATUS_LABELS[currentBudget.status]}` : ""}`}
         action={
           <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
             <Icon name="Plus" className="h-3.5 w-3.5" /> Nouveau budget
@@ -336,8 +418,8 @@ export function BudgetView({
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Wallet" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{budgets.length === 0 ? "Aucun budget créé" : "Aucun résultat"}</p>
-            {budgets.length === 0 ? (
+            <p className="mt-2 text-[13px] text-ink-soft">{localBudgets.length === 0 ? "Aucun budget créé" : "Aucun résultat"}</p>
+            {localBudgets.length === 0 ? (
               <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Créer un budget</button>
             ) : (
               <button onClick={() => { setStatusFilter("all"); setYearFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>

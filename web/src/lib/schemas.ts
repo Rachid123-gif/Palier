@@ -113,7 +113,7 @@ export const updateResidentSchema = z.object({
 export const emitChargesSchema = z.object({
   buildingId: uuid,
   label: shortString,
-  detail: safeString,
+  detail: z.string().max(2000).trim().optional().default(""),
   amount: amount.positive(),
   category: shortString,
   dueDate: isoDate,

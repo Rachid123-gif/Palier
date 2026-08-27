@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate } from "@/lib/format";
@@ -19,8 +18,8 @@ function annexeTypeLabel(type: string) {
   return ANNEXE_TYPES.find((a) => a.value === type)?.label ?? type;
 }
 
-export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | null; buildingId: string }) {
-  const router = useRouter();
+export function ReglementView({ rule: initialRule, buildingId }: { rule: CoproprieteRule | null; buildingId: string }) {
+  const [rule, setRule] = useState<CoproprieteRule | null>(initialRule);
   const [toast, setToast] = useState<string | null>(null);
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
@@ -92,10 +91,18 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
       notes: fNotes || undefined,
     });
 
+    const updated: CoproprieteRule = {
+      id: rule?.id ?? crypto.randomUUID(),
+      title: fTitle,
+      fileUrl: fileUrl || undefined,
+      annexes: fAnnexes,
+      adoptedAt: fAdoptedAt || undefined,
+      notes: fNotes || undefined,
+    };
+    setRule(updated);
     setSaving(false);
     setShowForm(false);
     flash(rule ? "Règlement mis à jour" : "Règlement enregistré");
-    router.refresh();
   }
 
   // Add annexe
@@ -116,13 +123,13 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
       notes: fNotes || rule?.notes || undefined,
     });
 
+    if (rule) setRule({ ...rule, annexes: newAnnexes });
     setAnnexeUploading(false);
     setShowAddAnnexe(false);
     setAnnexeTitle("");
     setAnnexeType("plan");
     setAnnexeFile(null);
     flash("Annexe ajoutée");
-    router.refresh();
   }
 
   // Remove annexe
@@ -139,8 +146,8 @@ export function ReglementView({ rule, buildingId }: { rule: CoproprieteRule | nu
       notes: fNotes || rule?.notes || undefined,
     });
 
+    if (rule) setRule({ ...rule, annexes: newAnnexes });
     flash("Annexe supprimée");
-    router.refresh();
   }
 
   const inputCls = "h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20";

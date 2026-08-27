@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate, mad } from "@/lib/format";
@@ -24,7 +23,9 @@ function daysUntil(iso: string): number {
 }
 
 export function AssuranceView({ policies, buildingId }: { policies: InsurancePolicy[]; buildingId: string }) {
-  const router = useRouter();
+  const [localPolicies, setLocalPolicies] = useState<InsurancePolicy[]>(policies);
+  useEffect(() => { setLocalPolicies(policies); }, [policies]);
+
   const [toast, setToast] = useState<string | null>(null);
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
@@ -63,13 +64,13 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
 
   // KPIs
   const now = new Date();
-  const activePolicies = useMemo(() => policies.filter((p) => new Date(p.endDate) >= now), [policies]);
-  const totalPremiums = useMemo(() => policies.reduce((s, p) => s + p.premiumAmount, 0), [policies]);
+  const activePolicies = useMemo(() => localPolicies.filter((p) => new Date(p.endDate) >= now), [localPolicies]);
+  const totalPremiums = useMemo(() => localPolicies.reduce((s, p) => s + p.premiumAmount, 0), [localPolicies]);
   const nextExpiry = useMemo(() => {
-    const future = policies.filter((p) => new Date(p.endDate) >= now).sort((a, b) => a.endDate.localeCompare(b.endDate));
+    const future = localPolicies.filter((p) => new Date(p.endDate) >= now).sort((a, b) => a.endDate.localeCompare(b.endDate));
     return future.length > 0 ? future[0].endDate : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [policies]);
+  }, [localPolicies]);
 
   // Create
   async function handleCreate(e: React.FormEvent) {
@@ -87,11 +88,22 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
       renewalAlertDays: Number(fAlertDays) || 30,
       notes: fNotes || undefined,
     });
+    const newPolicy: InsurancePolicy = {
+      id: crypto.randomUUID(),
+      insurer: fInsurer,
+      policyNumber: fPolicyNumber || undefined,
+      coverageType: fCoverageType,
+      premiumAmount: Number(fPremium) || 0,
+      startDate: fStartDate,
+      endDate: fEndDate,
+      renewalAlertDays: Number(fAlertDays) || 30,
+      notes: fNotes || undefined,
+    };
+    setLocalPolicies((prev) => [newPolicy, ...prev]);
     setSaving(false);
     setShowCreate(false);
     resetForm();
     flash("Police ajoutée");
-    router.refresh();
   }
 
   // Update
@@ -109,20 +121,24 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
       renewal_alert_days: Number(fAlertDays) || 30,
       notes: fNotes || null,
     });
+    setLocalPolicies((prev) => prev.map((p) => p.id === editing.id ? {
+      ...p, insurer: fInsurer, policyNumber: fPolicyNumber || undefined, coverageType: fCoverageType,
+      premiumAmount: Number(fPremium) || 0, startDate: fStartDate, endDate: fEndDate,
+      renewalAlertDays: Number(fAlertDays) || 30, notes: fNotes || undefined,
+    } : p));
     setSaving(false);
     setEditing(null);
     resetForm();
     flash("Police mise à jour");
-    router.refresh();
   }
 
   // Delete
   async function handleDelete() {
     if (!showDelete) return;
     await deleteInsurancePolicy(showDelete.id);
+    setLocalPolicies((prev) => prev.filter((p) => p.id !== showDelete.id));
     setShowDelete(null);
     flash("Police supprimée");
-    router.refresh();
   }
 
   const inputCls = "h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20";
@@ -217,7 +233,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
 
       {/* Policy cards */}
       <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
-        {policies.length === 0 ? (
+        {localPolicies.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Shield" className="mx-auto h-8 w-8 text-ink-faint" />
             <p className="mt-2 text-[13px] text-ink-soft">Aucune police d&apos;assurance</p>
@@ -238,7 +254,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
-                {policies.map((p) => (
+                {localPolicies.map((p) => (
                   <tr key={p.id} className="transition-colors hover:bg-sand/50">
                     <td className="px-4 py-2.5">
                       <p className="font-medium text-ink">{p.insurer}</p>
@@ -276,7 +292,7 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
 
             {/* Mobile cards */}
             <div className="divide-y divide-black/[0.04] lg:hidden">
-              {policies.map((p) => (
+              {localPolicies.map((p) => (
                 <div key={p.id} className="p-4">
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>

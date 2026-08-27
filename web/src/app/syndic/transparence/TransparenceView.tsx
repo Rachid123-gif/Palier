@@ -1,6 +1,5 @@
 "use client";
-import { useState, useTransition, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { createLedgerEntry, updateLedgerEntry, deleteLedgerEntry } from "@/lib/actions";
@@ -32,8 +31,11 @@ export function TransparenceView({
   expenseCategories?: string[] | null;
 }) {
   const CATEGORIES = expenseCategories?.length ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES;
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Optimistic local state
+  const [localLedger, setLocalLedger] = useState<Entry[]>(ledger);
+  useEffect(() => { setLocalLedger(ledger); }, [ledger]);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -56,14 +58,14 @@ export function TransparenceView({
 
   // Categories present in data
   const usedCategories = useMemo(() => {
-    const cats = new Set(ledger.map((l) => l.category));
+    const cats = new Set(localLedger.map((l) => l.category));
     return [...cats].sort();
-  }, [ledger]);
+  }, [localLedger]);
 
   // Years present in data
   const years = useMemo(() => {
-    return [...new Set(ledger.map((l) => new Date(l.entry_date).getFullYear().toString()))].sort().reverse();
-  }, [ledger]);
+    return [...new Set(localLedger.map((l) => new Date(l.entry_date).getFullYear().toString()))].sort().reverse();
+  }, [localLedger]);
 
   const customLabel = periodFilter === "custom"
     ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
@@ -72,7 +74,7 @@ export function TransparenceView({
   // Period-filtered entries (used for KPI cards)
   const periodFiltered = useMemo(() => {
     const now = new Date();
-    let rows = [...ledger];
+    let rows = [...localLedger];
     if (periodFilter === "custom") {
       rows = rows.filter((l) => {
         const d = new Date(l.entry_date);
@@ -88,7 +90,7 @@ export function TransparenceView({
       rows = rows.filter((l) => new Date(l.entry_date) >= ago);
     }
     return rows;
-  }, [ledger, periodFilter, periodMonth, periodYear]);
+  }, [localLedger, periodFilter, periodMonth, periodYear]);
 
   // KPI stats (follow period)
   const totalIn = periodFiltered.filter((l) => l.type === "in").reduce((s, l) => s + Number(l.amount), 0);
@@ -132,9 +134,22 @@ export function TransparenceView({
     const amount = parseFloat(form.amount);
     if (isNaN(amount) || amount <= 0) { setFormError("Le montant doit être supérieur à 0."); return; }
     startTransition(async () => {
-      const res = await createLedgerEntry({ buildingId, type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
-      if (res.error) { setFormError("Erreur lors de l'enregistrement. Réessayez."); }
-      else { flash("Opération enregistrée"); setModal(null); router.refresh(); }
+      try {
+        const res = await createLedgerEntry({ buildingId, type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
+        if (res.error) { setFormError("Erreur lors de l'enregistrement. Réessayez."); return; }
+        const newEntry: Entry = {
+          id: crypto.randomUUID(),
+          type: form.type,
+          label: form.label.trim(),
+          amount,
+          category: form.category,
+          entry_date: form.date,
+          signed: true,
+        };
+        setLocalLedger((prev) => [newEntry, ...prev]);
+        flash("Opération enregistrée");
+        setModal(null);
+      } catch { setFormError("Erreur réseau. Réessayez."); }
     });
   }
 
@@ -159,9 +174,13 @@ export function TransparenceView({
     const amount = parseFloat(form.amount);
     if (isNaN(amount) || amount <= 0) { setFormError("Le montant doit être supérieur à 0."); return; }
     startTransition(async () => {
-      const res = await updateLedgerEntry(editTarget.id, { type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
-      if (res.error) { setFormError("Erreur lors de la modification. Réessayez."); }
-      else { flash("Opération modifiée"); setModal(null); router.refresh(); }
+      try {
+        const res = await updateLedgerEntry(editTarget.id, { type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
+        if (res.error) { setFormError("Erreur lors de la modification. Réessayez."); return; }
+        setLocalLedger((prev) => prev.map((l) => l.id === editTarget.id ? { ...l, type: form.type, label: form.label.trim(), amount, category: form.category, entry_date: form.date } : l));
+        flash("Opération modifiée");
+        setModal(null);
+      } catch { setFormError("Erreur réseau. Réessayez."); }
     });
   }
 
@@ -171,10 +190,12 @@ export function TransparenceView({
   function handleDelete() {
     if (!editTarget) return;
     startTransition(async () => {
-      await deleteLedgerEntry(editTarget.id);
-      flash("Opération supprimée");
-      setModal(null);
-      router.refresh();
+      try {
+        await deleteLedgerEntry(editTarget.id);
+        setLocalLedger((prev) => prev.filter((l) => l.id !== editTarget.id));
+        flash("Opération supprimée");
+        setModal(null);
+      } catch { flash("Erreur lors de la suppression"); setModal(null); }
     });
   }
 
