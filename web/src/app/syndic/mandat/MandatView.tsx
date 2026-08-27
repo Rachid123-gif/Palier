@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, mad } from "@/lib/format";
-import { createMandate, updateMandate, deleteMandate } from "@/lib/actions";
+import { createMandate, updateMandate, deleteMandate, uploadFileAction } from "@/lib/actions";
 import type { SyndicMandate } from "@/lib/types";
 
 function daysUntil(iso: string): number {
@@ -44,6 +44,8 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
   const [fMandateEnd, setFMandateEnd] = useState(mandate?.mandateEnd ?? "");
   const [fRemuneration, setFRemuneration] = useState(mandate?.remuneration?.toString() ?? "");
   const [fContractUrl, setFContractUrl] = useState(mandate?.contractUrl ?? "");
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const contractFileRef = useRef<HTMLInputElement>(null);
 
   function resetForm() {
     setFName(mandate?.syndicName ?? "");
@@ -53,6 +55,7 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
     setFMandateEnd(mandate?.mandateEnd ?? "");
     setFRemuneration(mandate?.remuneration?.toString() ?? "");
     setFContractUrl(mandate?.contractUrl ?? "");
+    setContractFile(null);
   }
 
   function openForm() {
@@ -73,43 +76,58 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
     e.preventDefault();
     if (!fName || !fElectedAt || !fMandateEnd) return;
     setSaving(true);
-    if (mandate) {
-      await updateMandate(mandate.id, {
-        syndic_name: fName,
-        syndic_type: fType,
-        deputy_name: fDeputy || null,
-        elected_at: fElectedAt,
-        mandate_end: fMandateEnd,
-        remuneration: fRemuneration ? Number(fRemuneration) : null,
-        contract_url: fContractUrl || null,
-      });
-      flash("Mandat mis à jour");
-    } else {
-      await createMandate({
-        buildingId,
+    try {
+      // Upload contract file if provided
+      let contractUrl = fContractUrl;
+      if (contractFile) {
+        const fd = new FormData();
+        fd.append("file", contractFile);
+        const uploadRes = await uploadFileAction(fd);
+        if (uploadRes.url) contractUrl = uploadRes.url;
+      }
+      setFContractUrl(contractUrl);
+
+      if (mandate) {
+        await updateMandate(mandate.id, {
+          syndic_name: fName,
+          syndic_type: fType,
+          deputy_name: fDeputy || null,
+          elected_at: fElectedAt,
+          mandate_end: fMandateEnd,
+          remuneration: fRemuneration ? Number(fRemuneration) : null,
+          contract_url: contractUrl || null,
+        });
+        flash("Mandat mis à jour");
+      } else {
+        await createMandate({
+          buildingId,
+          syndicName: fName,
+          syndicType: fType,
+          deputyName: fDeputy || undefined,
+          electedAt: fElectedAt,
+          mandateEnd: fMandateEnd,
+          remuneration: fRemuneration ? Number(fRemuneration) : undefined,
+          contractUrl: contractUrl || undefined,
+        });
+        flash("Mandat enregistré");
+      }
+      const updated: SyndicMandate = {
+        id: mandate?.id ?? crypto.randomUUID(),
         syndicName: fName,
         syndicType: fType,
         deputyName: fDeputy || undefined,
         electedAt: fElectedAt,
         mandateEnd: fMandateEnd,
         remuneration: fRemuneration ? Number(fRemuneration) : undefined,
-        contractUrl: fContractUrl || undefined,
-      });
-      flash("Mandat enregistré");
+        contractUrl: contractUrl || undefined,
+      };
+      setMandate(updated);
+      setShowForm(false);
+    } catch {
+      flash("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
     }
-    const updated: SyndicMandate = {
-      id: mandate?.id ?? crypto.randomUUID(),
-      syndicName: fName,
-      syndicType: fType,
-      deputyName: fDeputy || undefined,
-      electedAt: fElectedAt,
-      mandateEnd: fMandateEnd,
-      remuneration: fRemuneration ? Number(fRemuneration) : undefined,
-      contractUrl: fContractUrl || undefined,
-    };
-    setMandate(updated);
-    setSaving(false);
-    setShowForm(false);
   }
 
   // Delete
@@ -147,10 +165,16 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
       />
 
       {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+      <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
           Art. 19 Loi 18-00 — Le mandat du syndic est de 2 ans, renouvelable par vote AG à la majorité des 3/4.
+        </p>
+      </div>
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">
+        <Icon name="Users" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+        <p className="text-[12px] text-palier-800">
+          Les informations du mandat sont visibles par les résidents dans leur section <strong>Immeuble</strong>.
         </p>
       </div>
 
@@ -297,8 +321,23 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
                 <input type="number" min="0" step="0.01" value={fRemuneration} onChange={(e) => setFRemuneration(e.target.value)} placeholder="0 si bénévole" className={inputCls} />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Lien contrat (URL)</label>
-                <input type="url" value={fContractUrl} onChange={(e) => setFContractUrl(e.target.value)} placeholder="https://…" className={inputCls} />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Contrat (PDF ou image)</label>
+                {fContractUrl && !contractFile && (
+                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2">
+                    <Icon name="FileText" className="h-4 w-4 text-palier-600" />
+                    <a href={fContractUrl} target="_blank" rel="noopener" className="flex-1 truncate text-[12px] font-medium text-palier-600 hover:underline">Voir le contrat actuel</a>
+                    <button type="button" onClick={() => setFContractUrl("")} className="text-ink-faint hover:text-red-500"><Icon name="X" className="h-3.5 w-3.5" /></button>
+                  </div>
+                )}
+                <input ref={contractFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={(e) => setContractFile(e.target.files?.[0] ?? null)} />
+                <button
+                  type="button"
+                  onClick={() => contractFileRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50"
+                >
+                  <Icon name="Upload" className="h-3.5 w-3.5" />
+                  {contractFile ? contractFile.name : "Importer un fichier"}
+                </button>
               </div>
               <button type="submit" disabled={saving} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
                 {saving ? "Enregistrement…" : mandate ? "Mettre à jour" : "Enregistrer"}

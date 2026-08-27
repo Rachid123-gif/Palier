@@ -3,8 +3,7 @@ import { useState, useRef, useMemo, useCallback } from "react";
 import { PageHeader, KpiCard, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
-import { supabase } from "@/lib/supabase";
-import { insertDocument, deleteDocument } from "@/lib/actions";
+import { insertDocument, deleteDocument, uploadFileAction } from "@/lib/actions";
 
 type Doc = { id: string; title: string; type: string; date: string; size: string; url: string };
 
@@ -60,13 +59,11 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
     if (!upFile || !upTitle.trim()) return;
     setUploading(true);
     try {
-      const ext = upFile.name.split(".").pop() ?? "pdf";
-      const path = `${buildingId}/${Date.now()}-${upTitle.trim().replace(/\s+/g, "_")}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("documents").upload(path, upFile, { upsert: true });
-      if (uploadErr) throw uploadErr;
-
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
-      const fileUrl = urlData.publicUrl;
+      const fd = new FormData();
+      fd.append("file", upFile);
+      const uploadRes = await uploadFileAction(fd);
+      if (uploadRes.error || !uploadRes.url) throw new Error(uploadRes.error ?? "upload_failed");
+      const fileUrl = uploadRes.url;
 
       const sizeKB = Math.round(upFile.size / 1024);
       const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
@@ -126,10 +123,16 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       } />
 
       {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+      <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Les documents ajoutés ici sont accessibles par les résidents depuis leur application. Utilisez les catégories pour organiser les PV, règlements, contrats et factures de la copropriété.
+          Utilisez les catégories pour organiser les PV, règlements, contrats et factures de la copropriété.
+        </p>
+      </div>
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">
+        <Icon name="Users" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+        <p className="text-[12px] text-palier-800">
+          Tous les documents ajoutés ici sont visibles par les résidents dans leur section <strong>Dossiers</strong> (Immeuble → Dossiers).
         </p>
       </div>
 

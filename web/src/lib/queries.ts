@@ -179,11 +179,24 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     ledger: (ledRes.data ?? []).map(mapLedger),
     incidents,
     posts: (postRes.data ?? []).map(mapPost),
-    documents: (docRes.data ?? []).map((r: any): DocFile => ({
-      id: r.id, title: r.title, type: r.doc_type ?? r.type ?? "", date: r.doc_date ?? r.created_at,
-      icon: r.icon ?? "FileText", color: r.color ?? "text-ink-soft", tint: r.tint ?? "bg-cream-card",
-      url: r.url ?? r.file_url ?? undefined,
-    })),
+    documents: [
+      ...(docRes.data ?? []).map((r: any): DocFile => ({
+        id: r.id, title: r.title, type: r.doc_type ?? r.type ?? "", date: r.doc_date ?? r.created_at,
+        icon: r.icon ?? "FileText", color: r.color ?? "text-ink-soft", tint: r.tint ?? "bg-cream-card",
+        url: r.url ?? r.file_url ?? undefined,
+      })),
+      // Inject copropriete rule + annexes as documents
+      ...(ruleRes.data?.file_url ? [{
+        id: `rule-${ruleRes.data.id}`, title: ruleRes.data.title ?? "Règlement de copropriété", type: "reglement",
+        date: ruleRes.data.adopted_at ?? ruleRes.data.created_at ?? "", icon: "Scale", color: "text-amber-600", tint: "bg-amber-100",
+        url: ruleRes.data.file_url,
+      } as DocFile] : []),
+      ...((ruleRes.data?.annexes as any[] ?? []).map((a: any, i: number): DocFile => ({
+        id: `rule-annexe-${i}`, title: a.title, type: "annexe",
+        date: ruleRes.data?.adopted_at ?? ruleRes.data?.created_at ?? "", icon: "Paperclip", color: "text-palier-600", tint: "bg-palier-100",
+        url: a.url,
+      }))),
+    ],
     assembly: agRes.data ? {
       id: agRes.data.id, date: agRes.data.date, time: agRes.data.time ?? "18h30",
       place: agRes.data.place ?? "Hall de la résidence",

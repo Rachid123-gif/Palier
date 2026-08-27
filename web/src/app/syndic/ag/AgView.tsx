@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, shortDate, mad } from "@/lib/format";
 import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution, fetchVoteTallies, updateBudgetStatus, createPostSyndic } from "@/lib/actions";
-import { supabase } from "@/lib/supabase";
+import { uploadFileAction } from "@/lib/actions";
 import { upsertDocument } from "@/lib/actions";
 import type { AssemblyRow } from "@/lib/syndic";
 import type { Resolution, MajorityType } from "@/lib/types";
@@ -249,12 +249,12 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     setShowResults(ag);
   }
 
-  async function uploadPv(file: File, assemblyId: string): Promise<string> {
-    const ext = file.name.split(".").pop() ?? "pdf";
-    const path = `pv/${assemblyId}.${ext}`;
-    await supabase.storage.from("documents").upload(path, file, { upsert: true });
-    const { data } = supabase.storage.from("documents").getPublicUrl(path);
-    return data.publicUrl;
+  async function uploadPv(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadFileAction(fd);
+    if (res.error || !res.url) throw new Error(res.error ?? "upload_failed");
+    return res.url;
   }
 
   // Add resolution
@@ -327,7 +327,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       let pvUrl = resPvUrl;
       if (resPvFile) {
         setPvUploading(true);
-        pvUrl = await uploadPv(resPvFile, showResults.id);
+        pvUrl = await uploadPv(resPvFile);
         setPvUploading(false);
         const sizeKB = Math.round(resPvFile.size / 1024);
         const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;

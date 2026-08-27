@@ -4,8 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate } from "@/lib/format";
-import { upsertCoproprieteRule } from "@/lib/actions";
-import { supabase } from "@/lib/supabase";
+import { upsertCoproprieteRule, uploadFileAction } from "@/lib/actions";
 import type { CoproprieteRule } from "@/lib/types";
 
 const ANNEXE_TYPES = [
@@ -60,13 +59,13 @@ export function ReglementView({ rule: initialRule, buildingId }: { rule: Copropr
     setShowForm(true);
   }
 
-  // Upload helper
-  async function uploadFile(file: File, prefix: string): Promise<string> {
-    const ext = file.name.split(".").pop() ?? "pdf";
-    const path = `${buildingId}/${prefix}-${Date.now()}.${ext}`;
-    await supabase.storage.from("documents").upload(path, file, { upsert: true });
-    const { data } = supabase.storage.from("documents").getPublicUrl(path);
-    return data.publicUrl;
+  // Upload helper (uses server action with service_role key)
+  async function uploadFile(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadFileAction(fd);
+    if (res.error || !res.url) throw new Error(res.error ?? "upload_failed");
+    return res.url;
   }
 
   // Save
@@ -78,7 +77,7 @@ export function ReglementView({ rule: initialRule, buildingId }: { rule: Copropr
     let fileUrl = fFileUrl;
     if (mainFile) {
       setUploading(true);
-      fileUrl = await uploadFile(mainFile, "reglement");
+      fileUrl = await uploadFile(mainFile);
       setUploading(false);
     }
 
@@ -109,7 +108,7 @@ export function ReglementView({ rule: initialRule, buildingId }: { rule: Copropr
   async function handleAddAnnexe() {
     if (!annexeTitle || !annexeFile) return;
     setAnnexeUploading(true);
-    const url = await uploadFile(annexeFile, `annexe-${annexeType}`);
+    const url = await uploadFile(annexeFile);
     const newAnnexes = [...fAnnexes, { title: annexeTitle, url, type: annexeType }];
     setFAnnexes(newAnnexes);
 
@@ -165,10 +164,16 @@ export function ReglementView({ rule: initialRule, buildingId }: { rule: Copropr
       />
 
       {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+      <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
           Art. 8-11 Loi 18-00 — Tout immeuble en copropriété doit disposer d&apos;un règlement de copropriété.
+        </p>
+      </div>
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">
+        <Icon name="Users" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+        <p className="text-[12px] text-palier-800">
+          Le règlement et ses annexes seront accessibles aux résidents dans leur section <strong>Dossiers</strong>.
         </p>
       </div>
 

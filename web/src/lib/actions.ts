@@ -1464,7 +1464,8 @@ export async function createInsurancePolicy(input: {
   notes?: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
-  const v = validate(createInsurancePolicySchema, input);
+  let v;
+  try { v = validate(createInsurancePolicySchema, input); } catch { return { error: "validation_error" }; }
   return supabaseAdmin.from("insurance_policies").insert({
     building_id: v.buildingId,
     insurer: v.insurer,

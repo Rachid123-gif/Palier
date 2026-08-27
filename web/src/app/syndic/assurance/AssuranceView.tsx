@@ -77,33 +77,38 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
     e.preventDefault();
     if (!fInsurer || !fStartDate || !fEndDate) return;
     setSaving(true);
-    await createInsurancePolicy({
-      buildingId,
-      insurer: fInsurer,
-      policyNumber: fPolicyNumber || undefined,
-      coverageType: fCoverageType,
-      premiumAmount: Number(fPremium) || 0,
-      startDate: fStartDate,
-      endDate: fEndDate,
-      renewalAlertDays: Number(fAlertDays) || 30,
-      notes: fNotes || undefined,
-    });
-    const newPolicy: InsurancePolicy = {
-      id: crypto.randomUUID(),
-      insurer: fInsurer,
-      policyNumber: fPolicyNumber || undefined,
-      coverageType: fCoverageType,
-      premiumAmount: Number(fPremium) || 0,
-      startDate: fStartDate,
-      endDate: fEndDate,
-      renewalAlertDays: Number(fAlertDays) || 30,
-      notes: fNotes || undefined,
-    };
-    setLocalPolicies((prev) => [newPolicy, ...prev]);
-    setSaving(false);
-    setShowCreate(false);
-    resetForm();
-    flash("Police ajoutée");
+    try {
+      await createInsurancePolicy({
+        buildingId,
+        insurer: fInsurer,
+        policyNumber: fPolicyNumber || undefined,
+        coverageType: fCoverageType,
+        premiumAmount: Number(fPremium) || 0,
+        startDate: fStartDate,
+        endDate: fEndDate,
+        renewalAlertDays: Number(fAlertDays) || 30,
+        notes: fNotes || undefined,
+      });
+      const newPolicy: InsurancePolicy = {
+        id: crypto.randomUUID(),
+        insurer: fInsurer,
+        policyNumber: fPolicyNumber || undefined,
+        coverageType: fCoverageType,
+        premiumAmount: Number(fPremium) || 0,
+        startDate: fStartDate,
+        endDate: fEndDate,
+        renewalAlertDays: Number(fAlertDays) || 30,
+        notes: fNotes || undefined,
+      };
+      setLocalPolicies((prev) => [newPolicy, ...prev]);
+      setShowCreate(false);
+      resetForm();
+      flash("Police ajoutée");
+    } catch {
+      flash("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Update
@@ -111,25 +116,30 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
     e.preventDefault();
     if (!editing || !fInsurer || !fStartDate || !fEndDate) return;
     setSaving(true);
-    await updateInsurancePolicy(editing.id, {
-      insurer: fInsurer,
-      policy_number: fPolicyNumber || null,
-      coverage_type: fCoverageType,
-      premium_amount: Number(fPremium) || 0,
-      start_date: fStartDate,
-      end_date: fEndDate,
-      renewal_alert_days: Number(fAlertDays) || 30,
-      notes: fNotes || null,
-    });
-    setLocalPolicies((prev) => prev.map((p) => p.id === editing.id ? {
-      ...p, insurer: fInsurer, policyNumber: fPolicyNumber || undefined, coverageType: fCoverageType,
-      premiumAmount: Number(fPremium) || 0, startDate: fStartDate, endDate: fEndDate,
-      renewalAlertDays: Number(fAlertDays) || 30, notes: fNotes || undefined,
-    } : p));
-    setSaving(false);
-    setEditing(null);
-    resetForm();
-    flash("Police mise à jour");
+    try {
+      await updateInsurancePolicy(editing.id, {
+        insurer: fInsurer,
+        policy_number: fPolicyNumber || null,
+        coverage_type: fCoverageType,
+        premium_amount: Number(fPremium) || 0,
+        start_date: fStartDate,
+        end_date: fEndDate,
+        renewal_alert_days: Number(fAlertDays) || 30,
+        notes: fNotes || null,
+      });
+      setLocalPolicies((prev) => prev.map((p) => p.id === editing.id ? {
+        ...p, insurer: fInsurer, policyNumber: fPolicyNumber || undefined, coverageType: fCoverageType,
+        premiumAmount: Number(fPremium) || 0, startDate: fStartDate, endDate: fEndDate,
+        renewalAlertDays: Number(fAlertDays) || 30, notes: fNotes || undefined,
+      } : p));
+      setEditing(null);
+      resetForm();
+      flash("Police mise à jour");
+    } catch {
+      flash("Erreur lors de la mise à jour");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Delete
@@ -208,10 +218,16 @@ export function AssuranceView({ policies, buildingId }: { policies: InsurancePol
       />
 
       {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+      <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
           Art. 26 Loi 18-00 — Le syndic doit souscrire et maintenir l&apos;assurance de l&apos;immeuble.
+        </p>
+      </div>
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">
+        <Icon name="Users" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
+        <p className="text-[12px] text-palier-800">
+          Les informations d&apos;assurance sont visibles par les résidents dans leur section <strong>Immeuble</strong>.
         </p>
       </div>
 
