@@ -4,9 +4,10 @@ import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { PageHeader, Card } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { saveBuildingSettings, generateAccessCode } from "@/lib/actions";
+import { saveBuildingSettings, resendCodeByPhone, uploadFileAction } from "@/lib/actions";
 import { submitFeedback } from "@/lib/actions";
 import { logout } from "@/lib/auth";
+import { useLang } from "@/lib/LangProvider";
 
 interface NotificationSettings {
   whatsapp_enabled: boolean;
@@ -25,6 +26,7 @@ interface BuildingSettings {
   expense_categories?: string[] | null;
   charge_categories?: string[] | null;
   voisinage_categories?: string[] | null;
+  budget_categories?: string[] | null;
   relance_message?: string | null;
   gardien?: GardienInfo | null;
   notifications?: NotificationSettings | null;
@@ -38,18 +40,18 @@ interface GardienInfo {
 }
 
 /* ── Section navigation ── */
-const sections = [
-  { key: "general", label: "Général", icon: "Building2" },
-  { key: "gardien", label: "Gardien", icon: "ShieldCheck" },
-  { key: "categories", label: "Catégories", icon: "Tags" },
-  { key: "codes", label: "Codes d'accès", icon: "KeyRound" },
-  { key: "notifications", label: "Notifications", icon: "BellRing" },
-  { key: "relance", label: "Relances", icon: "Bell" },
-  { key: "apparence", label: "Apparence", icon: "Palette" },
-  { key: "feedback", label: "Retours", icon: "MessageCircle" },
+const sectionDefs = [
+  { key: "general", icon: "Building2" },
+  { key: "gardien", icon: "ShieldCheck" },
+  { key: "categories", icon: "Tags" },
+  { key: "codes", icon: "KeyRound" },
+  { key: "notifications", icon: "BellRing" },
+  { key: "relance", icon: "Bell" },
+  { key: "apparence", icon: "Palette" },
+  { key: "feedback", icon: "MessageCircle" },
 ] as const;
 
-type SectionKey = typeof sections[number]["key"];
+type SectionKey = typeof sectionDefs[number]["key"];
 
 /* ── Default categories ── */
 const DEFAULT_INCIDENT_CATS = [
@@ -66,21 +68,24 @@ const DEFAULT_CHARGE_CATS = [
 const DEFAULT_VOISINAGE_CATS = [
   "Annonce", "Événement", "Entraide", "Trouvé", "Général", "Service", "Recommandation",
 ];
-
-/* ── Notification events ── */
-const NOTIF_EVENTS: { key: string; label: string; desc: string; icon: string; color: string }[] = [
-  { key: "incident_new", label: "Nouvel incident", desc: "Un résident signale un problème", icon: "TriangleAlert", color: "text-amber-600" },
-  { key: "incident_resolved", label: "Incident résolu", desc: "Un incident est marqué comme résolu", icon: "CircleCheck", color: "text-emerald-600" },
-  { key: "payment_received", label: "Paiement reçu", desc: "Un résident effectue un paiement", icon: "Banknote", color: "text-emerald-600" },
-  { key: "charge_due", label: "Échéance charge", desc: "Un appel de fonds arrive à échéance", icon: "CalendarClock", color: "text-red-600" },
-  { key: "post_new", label: "Nouveau post voisinage", desc: "Un résident publie dans le fil voisinage", icon: "MessageSquare", color: "text-blue-600" },
-  { key: "ag_reminder", label: "Rappel AG", desc: "Rappel avant une assemblée générale", icon: "Users", color: "text-purple-600" },
-  { key: "insurance_expiry", label: "Expiration assurance", desc: "Une police d'assurance arrive à échéance", icon: "Shield", color: "text-red-600" },
-  { key: "mandate_expiry", label: "Expiration mandat", desc: "Le mandat du syndic arrive à terme", icon: "UserCheck", color: "text-amber-600" },
-  { key: "budget_alert", label: "Dépassement budget", desc: "Une catégorie dépasse le budget prévu", icon: "TrendingUp", color: "text-red-600" },
+const DEFAULT_BUDGET_CATS = [
+  "Personnel", "Maintenance", "Fluides", "Assurance", "Gestion", "Travaux", "Autre",
 ];
 
-const DEFAULT_NOTIF_EVENTS: Record<string, boolean> = Object.fromEntries(NOTIF_EVENTS.map((e) => [e.key, true]));
+/* ── Notification events ── */
+const NOTIF_EVENT_DEFS: { key: string; icon: string; color: string }[] = [
+  { key: "incident_new", icon: "TriangleAlert", color: "text-amber-600" },
+  { key: "incident_resolved", icon: "CircleCheck", color: "text-emerald-600" },
+  { key: "payment_received", icon: "Banknote", color: "text-emerald-600" },
+  { key: "charge_due", icon: "CalendarClock", color: "text-red-600" },
+  { key: "post_new", icon: "MessageSquare", color: "text-blue-600" },
+  { key: "ag_reminder", icon: "Users", color: "text-purple-600" },
+  { key: "insurance_expiry", icon: "Shield", color: "text-red-600" },
+  { key: "mandate_expiry", icon: "UserCheck", color: "text-amber-600" },
+  { key: "budget_alert", icon: "TrendingUp", color: "text-red-600" },
+];
+
+const DEFAULT_NOTIF_EVENTS: Record<string, boolean> = Object.fromEntries(NOTIF_EVENT_DEFS.map((e) => [e.key, true]));
 
 export function SettingsView({
   building,
@@ -93,6 +98,15 @@ export function SettingsView({
   units: { id: string; ref: string; floor: number | null; tantiemes: number }[];
   verifiedPhone: string;
 }) {
+  const { i, isAr } = useLang();
+  const T = i.syndic.settings;
+  const C = i.syndic.common;
+
+  const sections = sectionDefs.map((s) => ({
+    ...s,
+    label: T.sections[s.key as keyof typeof T.sections],
+  }));
+
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState("");
   const [activeSection, setActiveSection] = useState<SectionKey>("general");
@@ -103,32 +117,44 @@ export function SettingsView({
   const [welcome, setWelcome] = useState(settings?.welcome_message ?? "");
 
   // ── Gardien ──
-  const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const DAYS = T.gardien.days;
+  const DAY_KEYS = ["0", "1", "2", "3", "4", "5", "6"];
+  const FR_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   const DEFAULT_TACHES = [
     "Nettoyage parties communes", "Sortie poubelles", "Réception courrier",
     "Surveillance entrée", "Arrosage plantes", "Petites réparations",
   ];
   const defaultHoraires: GardienInfo["horaires"] = {};
-  for (const d of DAYS) defaultHoraires[d] = { de: "08:00", a: "18:00", repos: d === "Dimanche" };
+  for (let idx = 0; idx < 7; idx++) defaultHoraires[String(idx)] = { de: "08:00", a: "18:00", repos: idx === 6 };
+  function normalizeHoraires(raw: GardienInfo["horaires"]): GardienInfo["horaires"] {
+    const keys = Object.keys(raw);
+    if (keys.length === 0) return defaultHoraires;
+    if (keys.every((k) => /^\d$/.test(k))) return raw;
+    const result: GardienInfo["horaires"] = {};
+    for (let idx = 0; idx < FR_DAYS.length; idx++) {
+      result[String(idx)] = raw[FR_DAYS[idx]] ?? { de: "08:00", a: "18:00", repos: idx === 6 };
+    }
+    return result;
+  }
 
   const savedGardien = settings?.gardien;
   const [gardienName, setGardienName] = useState(savedGardien?.name ?? "");
   const [gardienPhone, setGardienPhone] = useState(savedGardien?.phone ?? "");
   const [gardienPhoneError, setGardienPhoneError] = useState(() => {
     const p = savedGardien?.phone ?? "";
-    return p && !/^0[567]\d{8}$/.test(p) ? "Numéro invalide (10 chiffres, commence par 05, 06 ou 07)" : "";
+    return p && !/^0[567]\d{8}$/.test(p) ? T.gardien.phoneError : "";
   });
 
   function handleGardienPhone(val: string) {
     const digits = val.replace(/\D/g, "").slice(0, 10);
     setGardienPhone(digits);
     if (digits && !/^0[567]\d{8}$/.test(digits)) {
-      setGardienPhoneError("Numéro invalide (10 chiffres, commence par 05, 06 ou 07)");
+      setGardienPhoneError(T.gardien.phoneError);
     } else {
       setGardienPhoneError("");
     }
   }
-  const [gardienHoraires, setGardienHoraires] = useState<GardienInfo["horaires"]>(savedGardien?.horaires ?? defaultHoraires);
+  const [gardienHoraires, setGardienHoraires] = useState<GardienInfo["horaires"]>(savedGardien?.horaires ? normalizeHoraires(savedGardien.horaires) : defaultHoraires);
   const [gardienTaches, setGardienTaches] = useState<string[]>(savedGardien?.taches ?? DEFAULT_TACHES);
   const [newTache, setNewTache] = useState("");
 
@@ -141,14 +167,16 @@ export function SettingsView({
   const [expenseCats, setExpenseCats] = useState<string[]>(settings?.expense_categories ?? DEFAULT_EXPENSE_CATS);
   const [chargeCats, setChargeCats] = useState<string[]>(settings?.charge_categories ?? DEFAULT_CHARGE_CATS);
   const [voisinageCats, setVoisinageCats] = useState<string[]>(settings?.voisinage_categories ?? DEFAULT_VOISINAGE_CATS);
+  const [budgetCats, setBudgetCats] = useState<string[]>(settings?.budget_categories ?? DEFAULT_BUDGET_CATS);
   const [newIncidentCat, setNewIncidentCat] = useState("");
   const [newExpenseCat, setNewExpenseCat] = useState("");
   const [newChargeCat, setNewChargeCat] = useState("");
   const [newVoisinageCat, setNewVoisinageCat] = useState("");
+  const [newBudgetCat, setNewBudgetCat] = useState("");
 
   // ── Access codes ──
   const [codePhone, setCodePhone] = useState("");
-  const [codeUnit, setCodeUnit] = useState("");
+  const [codeError, setCodeError] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
@@ -159,6 +187,7 @@ export function SettingsView({
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackContact, setFeedbackContact] = useState<"phone" | "email">("phone");
+  const [feedbackFile, setFeedbackFile] = useState<File | null>(null);
 
   // ── Relance ──
   const [relanceMsg, setRelanceMsg] = useState(
@@ -199,6 +228,7 @@ export function SettingsView({
         expense_categories: expenseCats,
         charge_categories: chargeCats,
         voisinage_categories: voisinageCats,
+        budget_categories: budgetCats,
         relance_message: relanceMsg || undefined,
         gardien: gardienName.trim() ? {
           name: gardienName.trim(),
@@ -216,7 +246,7 @@ export function SettingsView({
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, startTransition]);
+  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, budgetCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, startTransition]);
 
   // Auto-save with 1s debounce
   useEffect(() => {
@@ -238,27 +268,47 @@ export function SettingsView({
   }
 
   // ── Access codes ──
+  function handleCodePhone(val: string) {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    setCodePhone(digits);
+    setCodeError("");
+  }
+
   async function handleSendCode() {
     if (generatingCode || !codePhone.trim()) return;
+    setCodeError("");
+
+    // Client-side format validation
+    const normalized = codePhone.trim().replace(/\s+/g, "");
+    if (!/^0[5-7]\d{8}$/.test(normalized)) {
+      setCodeError(T.codes.phoneInvalid);
+      return;
+    }
+
     setGeneratingCode(true);
-    const result = await generateAccessCode({
-      buildingId: building.id,
-      phone: codePhone.trim(),
-      unitRef: codeUnit || undefined,
-    });
+    const result = await resendCodeByPhone(normalized);
+
+    if (result.error === "invalid_format") {
+      setCodeError(T.codes.phoneInvalid);
+      setGeneratingCode(false);
+      return;
+    }
+    if (result.error === "not_found") {
+      setCodeError(T.codes.phoneNotFound);
+      setGeneratingCode(false);
+      return;
+    }
+
     if (result.code) {
-      // Format phone for WhatsApp (remove spaces, leading 0 → +212)
-      let phone = codePhone.trim().replace(/\s+/g, "");
+      // Format phone for WhatsApp (leading 0 → +212)
+      let phone = normalized;
       if (phone.startsWith("0")) phone = "+212" + phone.slice(1);
       if (!phone.startsWith("+")) phone = "+212" + phone;
 
-      const msg = encodeURIComponent(
-        `Bienvenue sur Palier ! Voici votre code d'accès pour rejoindre la résidence ${building.name} :\n\n${result.code}\n\nTéléchargez l'application et saisissez ce code pour commencer.`
-      );
+      const msg = encodeURIComponent(T.codes.whatsappMsg(building.name, result.code));
       window.open(`https://wa.me/${phone.replace("+", "")}?text=${msg}`, "_blank");
 
       setCodePhone("");
-      setCodeUnit("");
       setCodeSent(true);
       setTimeout(() => setCodeSent(false), 5000);
     }
@@ -270,15 +320,15 @@ export function SettingsView({
   return (
     <div>
       <PageHeader
-        title="Paramètres"
-        subtitle="Configuration de la résidence"
+        title={T.title}
+        subtitle={T.subtitle}
         action={
           saveStatus !== "idle" ? (
             <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-soft">
               {saveStatus === "saving" ? (
-                <><Icon name="LoaderCircle" className="h-3.5 w-3.5 animate-spin" /> Sauvegarde…</>
+                <><Icon name="LoaderCircle" className="h-3.5 w-3.5 animate-spin" /> {T.saving}</>
               ) : (
-                <><Icon name="Check" className="h-3.5 w-3.5 text-emerald-600" /> Sauvegardé</>
+                <><Icon name="Check" className="h-3.5 w-3.5 text-emerald-600" /> {T.saved}</>
               )}
             </span>
           ) : undefined
@@ -307,7 +357,7 @@ export function SettingsView({
             <div className="mt-4 border-t border-black/[0.06] pt-3">
               <button onClick={() => setShowLogout(true)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
                 <Icon name="LogOut" className="h-4 w-4" strokeWidth={1.8} />
-                Se déconnecter
+                {T.logout}
               </button>
             </div>
           </div>
@@ -341,14 +391,14 @@ export function SettingsView({
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-palier-100">
                     <Icon name="Building2" className="h-4 w-4 text-palier-600" />
                   </div>
-                  <h2 className="text-[14px] font-semibold text-ink">Résidence</h2>
+                  <h2 className="text-[14px] font-semibold text-ink">{T.general.residence}</h2>
                 </div>
                 <div className="rounded-lg bg-sand/40 p-3.5">
                   <p className="text-[15px] font-semibold text-ink">{building.name}</p>
                   <p className="mt-0.5 text-[12px] text-ink-soft">{building.address} · {building.city}</p>
                   <div className="mt-2 flex gap-4">
-                    <span className="text-[12px] text-ink-soft"><span className="font-semibold text-ink">{building.lots}</span> lots</span>
-                    <span className="text-[12px] text-ink-soft">Syndic : <span className="font-semibold text-ink">{building.syndic || "—"}</span></span>
+                    <span className="text-[12px] text-ink-soft"><span className="font-semibold text-ink" dir="ltr">{building.lots}</span> {T.general.lots}</span>
+                    <span className="text-[12px] text-ink-soft">{T.general.syndicLabel} <span className="font-semibold text-ink">{building.syndic || "—"}</span></span>
                   </div>
                 </div>
               </Card>
@@ -359,20 +409,20 @@ export function SettingsView({
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
                     <Icon name="Phone" className="h-4 w-4 text-blue-600" />
                   </div>
-                  <h2 className="text-[14px] font-semibold text-ink">Coordonnées du syndic</h2>
+                  <h2 className="text-[14px] font-semibold text-ink">{T.general.contactTitle}</h2>
                 </div>
-                <p className="mb-3 text-[12px] text-ink-soft">Ces informations sont visibles par les résidents dans leur application.</p>
+                <p className="mb-3 text-[12px] text-ink-soft">{T.general.contactDesc}</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone vérifié</label>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.general.phoneVerified}</label>
                     <div className={`${inputCls} flex items-center justify-between bg-sand/50 text-ink-soft`}>
                       <span dir="ltr">{phone || "—"}</span>
                       <Icon name="ShieldCheck" className="h-4 w-4 text-emerald-500" />
                     </div>
-                    <p className="mt-1 text-[11px] text-ink-faint">Numéro vérifié lors de l&apos;inscription. Non modifiable.</p>
+                    <p className="mt-1 text-[11px] text-ink-faint">{T.general.phoneVerifiedNote}</p>
                   </div>
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Email</label>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.general.email}</label>
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="syndic@residence.ma" className={inputCls} />
                   </div>
                 </div>
@@ -384,13 +434,13 @@ export function SettingsView({
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
                     <Icon name="MessageSquare" className="h-4 w-4 text-amber-600" />
                   </div>
-                  <h2 className="text-[14px] font-semibold text-ink">Message d&apos;accueil</h2>
+                  <h2 className="text-[14px] font-semibold text-ink">{T.general.welcomeTitle}</h2>
                 </div>
-                <p className="mb-3 text-[12px] text-ink-soft">Affiché aux résidents sur leur page d&apos;accueil.</p>
+                <p className="mb-3 text-[12px] text-ink-soft">{T.general.welcomeDesc}</p>
                 <textarea
                   value={welcome}
                   onChange={(e) => setWelcome(e.target.value)}
-                  placeholder="Bienvenue dans votre résidence…"
+                  placeholder={T.general.welcomePlaceholder}
                   rows={3}
                   className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
                 />
@@ -408,17 +458,17 @@ export function SettingsView({
                     <Icon name="User" className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Identité du gardien</h2>
-                    <p className="text-[12px] text-ink-soft">Informations visibles par les résidents pour le contacter.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.gardien.identityTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.gardien.identityDesc}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Nom complet</label>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.gardien.fullName}</label>
                     <input value={gardienName} onChange={(e) => setGardienName(e.target.value)} placeholder="Ex: Mohammed" className={inputCls} />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Téléphone / WhatsApp</label>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.gardien.phoneWhatsapp}</label>
                     <input type="tel" inputMode="numeric" value={gardienPhone} onChange={(e) => handleGardienPhone(e.target.value)} placeholder="06 XX XX XX XX" maxLength={10} className={`${inputCls} ${gardienPhoneError ? "border-red-400 focus:border-red-400 focus:ring-red-400" : ""}`} dir="ltr" />
                     {gardienPhoneError && <p className="mt-1 text-[11px] text-red-500">{gardienPhoneError}</p>}
                   </div>
@@ -432,39 +482,39 @@ export function SettingsView({
                     <Icon name="Clock" className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Horaires de travail</h2>
-                    <p className="text-[12px] text-ink-soft">Les résidents verront quand le gardien est disponible.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.gardien.scheduleTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.gardien.scheduleDesc}</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  {DAYS.map((day) => {
-                    const h = gardienHoraires[day];
+                  {DAY_KEYS.map((key, idx) => {
+                    const h = gardienHoraires[key] ?? { de: "08:00", a: "18:00", repos: false };
                     return (
-                      <div key={day} className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 hover:bg-sand/30 sm:flex-nowrap sm:gap-3">
-                        <span className="w-[70px] shrink-0 text-[13px] font-medium text-ink sm:w-[80px]">{day}</span>
+                      <div key={key} className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 hover:bg-sand/30 sm:flex-nowrap sm:gap-3">
+                        <span className="w-[70px] shrink-0 text-[13px] font-medium text-ink sm:w-[80px]">{DAYS[idx]}</span>
                         {h.repos ? (
-                          <span className="flex-1 text-[12px] text-ink-faint">Repos</span>
+                          <span className="flex-1 text-[12px] text-ink-faint">{T.gardien.dayOff}</span>
                         ) : (
                           <div className="flex min-w-0 flex-1 items-center gap-1.5">
                             <input
                               type="time"
                               value={h.de}
-                              onChange={(e) => setHoraire(day, "de", e.target.value)}
+                              onChange={(e) => setHoraire(key, "de", e.target.value)}
                               className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none"
                             />
-                            <span className="text-[11px] text-ink-faint">à</span>
+                            <span className="text-[11px] text-ink-faint">{C.at}</span>
                             <input
                               type="time"
                               value={h.a}
-                              onChange={(e) => setHoraire(day, "a", e.target.value)}
+                              onChange={(e) => setHoraire(key, "a", e.target.value)}
                               className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none"
                             />
                           </div>
                         )}
                         <button
-                          onClick={() => setHoraire(day, "repos", !h.repos)}
+                          onClick={() => setHoraire(key, "repos", !h.repos)}
                           className={`flex h-[22px] w-[40px] shrink-0 items-center rounded-full p-0.5 transition-colors ${h.repos ? "bg-black/10" : "bg-palier-600"}`}
-                          title={h.repos ? "Activer" : "Jour de repos"}
+                          title={h.repos ? T.gardien.enableDay : T.gardien.dayOffToggle}
                         >
                           <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${h.repos ? "translate-x-0" : "translate-x-[18px]"}`} />
                         </button>
@@ -481,8 +531,8 @@ export function SettingsView({
                     <Icon name="ClipboardList" className="h-4 w-4 text-amber-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Responsabilités</h2>
-                    <p className="text-[12px] text-ink-soft">Les tâches dont le gardien est responsable, visibles par les résidents.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.gardien.tasksTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.gardien.tasksDesc}</p>
                   </div>
                 </div>
 
@@ -495,7 +545,7 @@ export function SettingsView({
                       </button>
                     </span>
                   ))}
-                  {gardienTaches.length === 0 && <p className="text-[12px] text-ink-soft">Aucune tâche définie</p>}
+                  {gardienTaches.length === 0 && <p className="text-[12px] text-ink-soft">{T.gardien.noTasks}</p>}
                 </div>
 
                 <div className="flex gap-2">
@@ -520,7 +570,7 @@ export function SettingsView({
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
                   >
                     <Icon name="Plus" className="h-3.5 w-3.5" />
-                    Ajouter
+                    {C.add}
                   </button>
                 </div>
               </Card>
@@ -528,7 +578,7 @@ export function SettingsView({
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Ces informations apparaîtront dans l&apos;application des résidents. Ils pourront voir les horaires du gardien et le contacter directement par téléphone ou WhatsApp.
+                  {T.gardien.infoNote}
                 </p>
               </div>
             </>
@@ -540,15 +590,15 @@ export function SettingsView({
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Personnalisez les catégories utilisées dans les filtres et formulaires de votre résidence. Chaque résidence peut avoir ses propres catégories.
+                  {T.categories.intro}
                 </p>
               </div>
 
               {/* Incident categories */}
               <CategoryBlock
-                title="Catégories d'incidents"
-                desc="Utilisées lors du signalement d'un incident par les résidents."
-                note="Les résidents peuvent aussi signaler un incident avec une catégorie personnalisée via « Autre ». Ces nouvelles catégories apparaîtront automatiquement ici."
+                title={T.categories.incidents}
+                desc={T.categories.incidentsDesc}
+                note={T.categories.incidentsNote}
                 icon="TriangleAlert"
                 iconTint="bg-amber-100"
                 iconColor="text-amber-600"
@@ -562,8 +612,8 @@ export function SettingsView({
 
               {/* Expense categories */}
               <CategoryBlock
-                title="Catégories de dépenses"
-                desc="Utilisées dans le journal de caisse (Transparence)."
+                title={T.categories.expenses}
+                desc={T.categories.expensesDesc}
                 icon="BookOpen"
                 iconTint="bg-emerald-100"
                 iconColor="text-emerald-600"
@@ -577,8 +627,8 @@ export function SettingsView({
 
               {/* Charge categories */}
               <CategoryBlock
-                title="Catégories de charges"
-                desc="Utilisées lors de l'émission d'un appel de fonds."
+                title={T.categories.charges}
+                desc={T.categories.chargesDesc}
                 icon="ReceiptText"
                 iconTint="bg-blue-100"
                 iconColor="text-blue-600"
@@ -592,8 +642,8 @@ export function SettingsView({
 
               {/* Voisinage categories */}
               <CategoryBlock
-                title="Types de voisinage"
-                desc="Types de publications dans le fil de voisinage."
+                title={T.categories.voisinage}
+                desc={T.categories.voisinageDesc}
                 icon="MessageSquare"
                 iconTint="bg-purple-100"
                 iconColor="text-purple-600"
@@ -603,6 +653,21 @@ export function SettingsView({
                 placeholder="Ex: Vente, Échange…"
                 onAdd={() => addCat(voisinageCats, setVoisinageCats, newVoisinageCat, setNewVoisinageCat)}
                 onRemove={(i) => removeCat(voisinageCats, setVoisinageCats, i)}
+              />
+
+              {/* Budget categories */}
+              <CategoryBlock
+                title={T.categories.budget}
+                desc={T.categories.budgetDesc}
+                icon="Calculator"
+                iconTint="bg-orange-100"
+                iconColor="text-orange-600"
+                items={budgetCats}
+                newValue={newBudgetCat}
+                setNewValue={setNewBudgetCat}
+                placeholder="Ex: Jardinage, Ascenseur…"
+                onAdd={() => addCat(budgetCats, setBudgetCats, newBudgetCat, setNewBudgetCat)}
+                onRemove={(i) => removeCat(budgetCats, setBudgetCats, i)}
               />
             </>
           )}
@@ -614,9 +679,9 @@ export function SettingsView({
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <div className="text-[12px] text-ink-soft">
-                  <p className="font-semibold">Comment ça fonctionne ?</p>
-                  <p className="mt-1">Lorsque vous ajoutez un résident depuis « Résidents & lots », un code d&apos;accès unique est automatiquement généré et envoyé par WhatsApp.</p>
-                  <p className="mt-1">Si le résident n&apos;a pas reçu son code, utilisez ce formulaire pour en régénérer un et le renvoyer par WhatsApp.</p>
+                  <p className="font-semibold">{T.codes.howTitle}</p>
+                  <p className="mt-1">{T.codes.howDesc1}</p>
+                  <p className="mt-1">{T.codes.howDesc2}</p>
                 </div>
               </div>
 
@@ -627,39 +692,25 @@ export function SettingsView({
                     <Icon name="KeyRound" className="h-4 w-4 text-palier-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Renvoyer un code d&apos;accès</h2>
-                    <p className="text-[12px] text-ink-soft">Le code sera envoyé directement par WhatsApp au résident.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.codes.resendTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.codes.resendDesc}</p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Lot / Appartement</label>
-                    <select
-                      value={codeUnit}
-                      onChange={(e) => setCodeUnit(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">— Sélectionner un lot —</option>
-                      {units
-                        .slice()
-                        .sort((a, b) => a.ref.localeCompare(b.ref, undefined, { numeric: true }))
-                        .map((u) => (
-                          <option key={u.id} value={u.ref}>
-                            {u.ref}{u.floor != null ? ` (étage ${u.floor})` : ""}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">Numéro WhatsApp du résident</label>
+                    <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.codes.phoneLabel}</label>
                     <input
                       type="tel"
                       value={codePhone}
-                      onChange={(e) => setCodePhone(e.target.value)}
+                      onChange={(e) => handleCodePhone(e.target.value)}
                       placeholder="06 XX XX XX XX"
-                      className={inputCls}
+                      className={`${inputCls}${codeError ? " !border-red-400 !ring-red-400" : ""}`}
+                      dir="ltr"
                     />
+                    {codeError && (
+                      <p className="mt-1 text-[11px] text-red-600">{codeError}</p>
+                    )}
                   </div>
                   <button
                     onClick={handleSendCode}
@@ -667,7 +718,7 @@ export function SettingsView({
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-[13px] font-medium text-white hover:bg-[#20bd5a] disabled:opacity-40"
                   >
                     <Icon name="Send" className="h-4 w-4" />
-                    {generatingCode ? "Envoi en cours…" : "Envoyer par WhatsApp"}
+                    {generatingCode ? T.codes.sending : T.codes.sendWhatsApp}
                   </button>
                 </div>
 
@@ -675,7 +726,7 @@ export function SettingsView({
                 {codeSent && (
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5">
                     <Icon name="CircleCheck" className="h-4 w-4 text-emerald-600" />
-                    <p className="text-[12px] font-medium text-emerald-700">Code généré et envoyé par WhatsApp avec succès.</p>
+                    <p className="text-[12px] font-medium text-emerald-700">{T.codes.success}</p>
                   </div>
                 )}
               </Card>
@@ -688,7 +739,7 @@ export function SettingsView({
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Configurez les notifications envoyées par l&apos;application. Choisissez les canaux et les événements qui déclenchent une notification.
+                  {T.notif.intro}
                 </p>
               </div>
 
@@ -699,8 +750,8 @@ export function SettingsView({
                     <Icon name="Radio" className="h-4 w-4 text-palier-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Canaux de notification</h2>
-                    <p className="text-[12px] text-ink-soft">Activez ou désactivez les canaux de communication.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.notif.channelsTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.notif.channelsDesc}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -712,7 +763,7 @@ export function SettingsView({
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-ink">WhatsApp</p>
-                        <p className="text-[11px] text-ink-soft">Notifications envoyées via WhatsApp</p>
+                        <p className="text-[11px] text-ink-soft">{T.notif.whatsappDesc}</p>
                       </div>
                     </div>
                     <button
@@ -730,7 +781,7 @@ export function SettingsView({
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-ink">In-app</p>
-                        <p className="text-[11px] text-ink-soft">Notifications dans l&apos;application résidents</p>
+                        <p className="text-[11px] text-ink-soft">{T.notif.inappDesc}</p>
                       </div>
                     </div>
                     <button
@@ -750,18 +801,18 @@ export function SettingsView({
                     <Icon name="Zap" className="h-4 w-4 text-amber-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Événements</h2>
-                    <p className="text-[12px] text-ink-soft">Choisissez quels événements déclenchent une notification.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.notif.eventsTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.notif.eventsDesc}</p>
                   </div>
                 </div>
                 <div className="divide-y divide-black/[0.04]">
-                  {NOTIF_EVENTS.map((evt) => (
+                  {NOTIF_EVENT_DEFS.map((evt) => (
                     <div key={evt.key} className="flex items-center justify-between gap-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-3">
                         <Icon name={evt.icon} className={`h-4 w-4 shrink-0 ${evt.color}`} />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-medium text-ink">{evt.label}</p>
-                          <p className="text-[11px] text-ink-soft">{evt.desc}</p>
+                          <p className="text-[13px] font-medium text-ink">{T.notif[evt.key as keyof typeof T.notif] as string}</p>
+                          <p className="text-[11px] text-ink-soft">{T.notif[`${evt.key}_desc` as keyof typeof T.notif] as string}</p>
                         </div>
                       </div>
                       <button
@@ -778,13 +829,13 @@ export function SettingsView({
                     onClick={() => setNotifEvents(DEFAULT_NOTIF_EVENTS)}
                     className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft hover:bg-sand/50"
                   >
-                    Tout activer
+                    {T.notif.enableAll}
                   </button>
                   <button
-                    onClick={() => setNotifEvents(Object.fromEntries(NOTIF_EVENTS.map((e) => [e.key, false])))}
+                    onClick={() => setNotifEvents(Object.fromEntries(NOTIF_EVENT_DEFS.map((e) => [e.key, false])))}
                     className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft hover:bg-sand/50"
                   >
-                    Tout désactiver
+                    {T.notif.disableAll}
                   </button>
                 </div>
               </Card>
@@ -797,11 +848,11 @@ export function SettingsView({
                       <Icon name="Moon" className="h-4 w-4 text-indigo-600" />
                     </div>
                     <div>
-                      <h2 className="text-[14px] font-semibold text-ink">Heures calmes</h2>
+                      <h2 className="text-[14px] font-semibold text-ink">{T.notif.quietTitle}</h2>
                       <p className="text-[12px] text-ink-soft">
                         {quietEnabled
-                          ? `Actif · ${quietFrom} → ${quietTo}`
-                          : `Désactivé · ${quietFrom} → ${quietTo}`}
+                          ? <><span>{T.notif.active}</span> · <span dir="ltr">{quietFrom} → {quietTo}</span></>
+                          : <><span>{T.notif.disabled}</span> · <span dir="ltr">{quietFrom} → {quietTo}</span></>}
                       </p>
                     </div>
                   </div>
@@ -814,12 +865,12 @@ export function SettingsView({
                 </div>
 
                 <p className="mb-3 text-[12px] text-ink-soft">
-                  Aucune notification WhatsApp (relances, alertes, rappels) ne sera envoyée pendant cette plage. Les notifications in-app restent actives mais silencieuses — le résident les verra à sa prochaine connexion.
+                  {T.notif.quietDesc}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sand/40 px-4 py-3 sm:flex-nowrap">
                   <div className="min-w-0 flex-1">
-                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">De</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">{T.notif.from}</label>
                     <input
                       type="time"
                       value={quietFrom}
@@ -827,9 +878,9 @@ export function SettingsView({
                       className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-400"
                     />
                   </div>
-                  <span className="mt-4 text-[12px] text-ink-faint">à</span>
+                  <span className="mt-4 text-[12px] text-ink-faint">{C.at}</span>
                   <div className="min-w-0 flex-1">
-                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">Jusqu&apos;à</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-ink-soft">{T.notif.until}</label>
                     <input
                       type="time"
                       value={quietTo}
@@ -842,7 +893,7 @@ export function SettingsView({
                 <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                   <Icon name="Lightbulb" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
                   <p className="text-[12px] text-amber-800">
-                    Exemple : de {quietFrom} à {quietTo}, un rappel de paiement prévu à {quietFrom.replace(":00", ":30")} sera reporté au lendemain à {quietTo}.
+                    {T.notif.quietExample(quietFrom, quietTo, quietFrom.replace(":00", ":30"))}
                   </p>
                 </div>
               </Card>
@@ -857,8 +908,8 @@ export function SettingsView({
                   <Icon name="Bell" className="h-4 w-4 text-coral-600" />
                 </div>
                 <div>
-                  <h2 className="text-[14px] font-semibold text-ink">Message de relance</h2>
-                  <p className="text-[12px] text-ink-soft">Message par défaut envoyé lors d&apos;un rappel de paiement.</p>
+                  <h2 className="text-[14px] font-semibold text-ink">{T.relance.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.relance.desc}</p>
                 </div>
               </div>
 
@@ -870,35 +921,35 @@ export function SettingsView({
               />
 
               <div className="mt-3 rounded-xl bg-sand/50 p-3.5">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Aperçu de la notification</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.relance.previewTitle}</p>
                 <div className="flex gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-coral-100">
                     <Icon name="ReceiptText" className="h-5 w-5 text-coral-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-ink">Rappel de paiement</p>
+                    <p className="text-[13px] font-semibold text-ink">{T.relance.paymentReminder}</p>
                     <p className="text-[12px] text-ink-soft">{relanceMsg || "—"}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-3 rounded-xl border border-palier-200 bg-palier-50/50 p-3.5">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-palier-700">Format par défaut (si le champ est vide)</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-palier-700">{T.relance.defaultFormat}</p>
                 <div className="space-y-1 text-[12px] text-ink-soft">
-                  <p className="font-medium text-ink">Bonjour [Prénom],</p>
-                  <p>Votre cotisation pour [Immeuble] (Lot [Réf]) reste en attente.</p>
-                  <p>• Montant dû : [Montant] MAD</p>
-                  <p>• Déjà payé : [Payé] MAD</p>
-                  <p>• Reste à régler : [Restant] MAD</p>
-                  <p>• Échéance : [Date]</p>
-                  <p>Merci de régulariser votre situation.</p>
+                  <p className="font-medium text-ink">{T.relance.defaultHello}</p>
+                  <p>{T.relance.defaultLine1}</p>
+                  <p>• {T.relance.defaultAmountDue}</p>
+                  <p>• {T.relance.defaultAmountPaid}</p>
+                  <p>• {T.relance.defaultAmountLeft}</p>
+                  <p>• {T.relance.defaultDeadline}</p>
+                  <p>{T.relance.defaultThanks}</p>
                 </div>
               </div>
 
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-3.5 py-2.5">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Ce message est envoyé comme notification dans l&apos;application du résident lorsque vous cliquez sur « Relancer » depuis la page Recouvrement. Si vous personnalisez le message ci-dessus, il remplacera le format par défaut (les informations détaillées du lot, montant et échéance ne seront pas incluses automatiquement).
+                  {T.relance.infoNote}
                 </p>
               </div>
             </Card>
@@ -907,8 +958,8 @@ export function SettingsView({
           {/* ═══ APPARENCE ═══ */}
           {activeSection === "apparence" && (
             <Card>
-              <h3 className="mb-1 text-[14px] font-semibold text-ink">Mode d&apos;affichage</h3>
-              <p className="mb-4 text-[12px] text-ink-soft">Choisissez le thème visuel de l&apos;interface.</p>
+              <h3 className="mb-1 text-[14px] font-semibold text-ink">{T.apparence.title}</h3>
+              <p className="mb-4 text-[12px] text-ink-soft">{T.apparence.desc}</p>
               <ThemeToggle />
             </Card>
           )}
@@ -919,7 +970,7 @@ export function SettingsView({
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
-                  Aidez-nous à améliorer Palier ! Signalez un problème ou proposez une fonctionnalité. Chaque retour est lu par notre équipe.
+                  {T.feedback.info}
                 </p>
               </div>
 
@@ -929,8 +980,8 @@ export function SettingsView({
                     <Icon name="MessageCircle" className="h-4 w-4 text-purple-600" />
                   </div>
                   <div>
-                    <h2 className="text-[14px] font-semibold text-ink">Envoyer un retour</h2>
-                    <p className="text-[12px] text-ink-soft">Votre avis compte pour améliorer l&apos;application.</p>
+                    <h2 className="text-[14px] font-semibold text-ink">{T.feedback.title}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.feedback.desc}</p>
                   </div>
                 </div>
 
@@ -939,25 +990,25 @@ export function SettingsView({
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
                       <Icon name="CircleCheck" className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <p className="text-[14px] font-semibold text-ink">Merci pour votre retour !</p>
-                    <p className="mt-1 text-[12px] text-ink-soft">Notre équipe va l&apos;examiner rapidement.</p>
+                    <p className="text-[14px] font-semibold text-ink">{T.feedback.thankYou}</p>
+                    <p className="mt-1 text-[12px] text-ink-soft">{T.feedback.thankYouSub}</p>
                     <button
                       onClick={() => { setFeedbackSent(false); setFeedbackMsg(""); }}
                       className="mt-4 rounded-lg border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-ink hover:bg-sand/50"
                     >
-                      Envoyer un autre retour
+                      {T.feedback.sendAnother}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {/* Type */}
                     <div>
-                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Type de retour</label>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.feedback.typeLabel}</label>
                       <div className="flex gap-2">
                         {([
-                          { key: "bug" as const, label: "Problème", icon: "Bug" },
-                          { key: "suggestion" as const, label: "Suggestion", icon: "Lightbulb" },
-                          { key: "autre" as const, label: "Autre", icon: "MessageSquare" },
+                          { key: "bug" as const, label: T.feedback.typeBug, icon: "Bug" },
+                          { key: "suggestion" as const, label: T.feedback.typeSuggestion, icon: "Lightbulb" },
+                          { key: "autre" as const, label: T.feedback.typeOther, icon: "MessageSquare" },
                         ]).map((t) => (
                           <button
                             key={t.key}
@@ -978,26 +1029,41 @@ export function SettingsView({
                     {/* Message */}
                     <div>
                       <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">
-                        {feedbackType === "bug" ? "Décrivez le problème" : feedbackType === "suggestion" ? "Décrivez votre idée" : "Votre message"}
+                        {feedbackType === "bug" ? T.feedback.descBug : feedbackType === "suggestion" ? T.feedback.descSuggestion : T.feedback.descOther}
                       </label>
                       <textarea
                         value={feedbackMsg}
                         onChange={(e) => setFeedbackMsg(e.target.value)}
                         placeholder={
                           feedbackType === "bug"
-                            ? "Que s'est-il passé ? Quand et où dans l'application ?"
+                            ? T.feedback.placeholderBug
                             : feedbackType === "suggestion"
-                            ? "Quelle fonctionnalité aimeriez-vous voir ?"
-                            : "Votre message…"
+                            ? T.feedback.placeholderSuggestion
+                            : T.feedback.placeholderOther
                         }
                         rows={4}
                         className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
                       />
                     </div>
 
+                    {/* Attachment */}
+                    <div>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{C.fileAttachment}</label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-black/[0.12] px-3 py-2.5 text-[13px] text-ink-soft transition-colors hover:bg-sand/30">
+                        <Icon name="Paperclip" className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{feedbackFile ? feedbackFile.name : C.selectFile}</span>
+                        {feedbackFile && (
+                          <button type="button" onClick={(e) => { e.preventDefault(); setFeedbackFile(null); }} className="shrink-0">
+                            <Icon name="X" className="h-3.5 w-3.5 text-ink-faint" />
+                          </button>
+                        )}
+                        <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={(e) => setFeedbackFile(e.target.files?.[0] ?? null)} />
+                      </label>
+                    </div>
+
                     {/* Contact preference */}
                     <div>
-                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Comment souhaitez-vous être recontacté ?</label>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.feedback.contactLabel}</label>
                       <div className="flex gap-2">
                         <button
                           onClick={() => setFeedbackContact("phone")}
@@ -1008,7 +1074,7 @@ export function SettingsView({
                           }`}
                         >
                           <Icon name="Phone" className="h-3.5 w-3.5" />
-                          Téléphone
+                          {T.feedback.phone}
                         </button>
                         <button
                           onClick={() => setFeedbackContact("email")}
@@ -1019,21 +1085,21 @@ export function SettingsView({
                           }`}
                         >
                           <Icon name="Mail" className="h-3.5 w-3.5" />
-                          Email
+                          {T.feedback.email}
                         </button>
                       </div>
                     </div>
 
                     {/* Transparency note */}
                     <div className="rounded-xl bg-sand/50 p-3">
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Informations partagées avec l&apos;équipe Palier</p>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.feedback.transparency}</p>
                       <div className="space-y-1 text-[12px] text-ink-soft">
                         <p><span className="font-medium text-ink">Nom :</span> {building.syndic || "—"}</p>
                         <p><span className="font-medium text-ink">Résidence :</span> {building.name}</p>
-                        {feedbackContact === "phone" && <p><span className="font-medium text-ink">Téléphone :</span> {phone || "—"}</p>}
+                        {feedbackContact === "phone" && <p><span className="font-medium text-ink">Téléphone :</span> <span dir="ltr">{phone || "—"}</span></p>}
                         {feedbackContact === "email" && <p><span className="font-medium text-ink">Email :</span> {email || "—"}</p>}
                       </div>
-                      <p className="mt-2 text-[11px] text-ink-faint">Seul le moyen de contact choisi est partagé.</p>
+                      <p className="mt-2 text-[11px] text-ink-faint">{T.feedback.transparencyNote}</p>
                     </div>
 
                     {/* Submit */}
@@ -1041,23 +1107,35 @@ export function SettingsView({
                       onClick={async () => {
                         if (!feedbackMsg.trim()) return;
                         setFeedbackSending(true);
-                        await submitFeedback({
-                          buildingId: building.id,
-                          type: feedbackType,
-                          message: feedbackMsg.trim(),
-                          senderName: building.syndic || "Syndic",
-                          senderPhone: feedbackContact === "phone" ? (phone || null) : null,
-                          senderEmail: feedbackContact === "email" ? (email || null) : null,
-                          contactPreference: feedbackContact,
-                          buildingName: building.name,
-                        });
-                        setFeedbackSending(false);
-                        setFeedbackSent(true);
+                        try {
+                          let attachmentUrl: string | null = null;
+                          if (feedbackFile) {
+                            const fd = new FormData();
+                            fd.append("file", feedbackFile);
+                            const res = await uploadFileAction(fd);
+                            if (res.url) attachmentUrl = res.url;
+                          }
+                          await submitFeedback({
+                            buildingId: building.id,
+                            type: feedbackType,
+                            message: feedbackMsg.trim(),
+                            senderName: building.syndic || "Syndic",
+                            senderPhone: feedbackContact === "phone" ? (phone || null) : null,
+                            senderEmail: feedbackContact === "email" ? (email || null) : null,
+                            contactPreference: feedbackContact,
+                            buildingName: building.name,
+                            attachmentUrl,
+                          });
+                          setFeedbackSent(true);
+                          setFeedbackFile(null);
+                        } catch { /* ignore */ } finally {
+                          setFeedbackSending(false);
+                        }
                       }}
                       disabled={!feedbackMsg.trim() || feedbackSending}
                       className="w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
                     >
-                      {feedbackSending ? "Envoi…" : "Envoyer"}
+                      {feedbackSending ? T.feedback.sending : T.feedback.send}
                     </button>
                   </div>
                 )}
@@ -1069,7 +1147,7 @@ export function SettingsView({
           <div className="border-t border-black/[0.06] pt-4 lg:hidden">
             <button onClick={() => setShowLogout(true)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-ink-soft transition-colors hover:bg-red-50 hover:text-red-600">
               <Icon name="LogOut" className="h-4 w-4" />
-              Se déconnecter
+              {T.logout}
             </button>
           </div>
         </div>
@@ -1083,17 +1161,17 @@ export function SettingsView({
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="LogOut" className="h-4 w-4 text-red-600" />
               </div>
-              <h2 className="text-[15px] font-semibold text-ink">Se déconnecter</h2>
+              <h2 className="text-[15px] font-semibold text-ink">{T.logout}</h2>
             </div>
             <p className="mb-4 text-[13px] text-ink-soft">
-              Êtes-vous sûr de vouloir vous déconnecter de l&apos;espace syndic ?
+              {T.logoutConfirm}
             </p>
             <div className="flex gap-2">
               <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                Annuler
+                {C.cancel}
               </button>
               <button onClick={async () => { localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); await logout(); window.location.href = "/bienvenue"; }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
-                Se déconnecter
+                {T.logout}
               </button>
             </div>
           </div>
@@ -1121,6 +1199,9 @@ function CategoryBlock({
   items: string[]; newValue: string; setNewValue: (v: string) => void; placeholder: string;
   onAdd: () => void; onRemove: (i: number) => void;
 }) {
+  const { i } = useLang();
+  const C = i.syndic.common;
+  const T = i.syndic.settings;
   return (
     <Card>
       <div className="mb-4 flex items-center gap-2">
@@ -1142,16 +1223,16 @@ function CategoryBlock({
 
       {/* Tags */}
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {items.map((cat, i) => (
+        {items.map((cat, idx) => (
           <span key={cat} className="inline-flex items-center gap-1 rounded-lg border border-black/[0.06] bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink">
             {cat}
-            <button onClick={() => onRemove(i)} className="ml-0.5 rounded p-0.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500">
+            <button onClick={() => onRemove(idx)} className="ml-0.5 rounded p-0.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500">
               <Icon name="X" className="h-3 w-3" />
             </button>
           </span>
         ))}
         {items.length === 0 && (
-          <p className="text-[12px] text-ink-soft">Aucune catégorie</p>
+          <p className="text-[12px] text-ink-soft">{T.categories.noCategory}</p>
         )}
       </div>
 
@@ -1170,7 +1251,7 @@ function CategoryBlock({
           className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
         >
           <Icon name="Plus" className="h-3.5 w-3.5" />
-          Ajouter
+          {C.add}
         </button>
       </div>
     </Card>

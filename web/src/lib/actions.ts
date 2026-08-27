@@ -610,6 +610,65 @@ export async function regenerateResidentCode(profileId: string): Promise<{ error
   return { code };
 }
 
+/** Renvoyer un code d'accès en cherchant le résident par téléphone */
+export async function resendCodeByPhone(phone: string): Promise<{ error?: string; code?: string; name?: string; unitRef?: string }> {
+  const session = await requireAuth({ role: "syndic" });
+
+  // Normalize phone (strip spaces)
+  const normalized = phone.replace(/\s+/g, "");
+
+  // Validate format
+  if (!/^0[5-7]\d{8}$/.test(normalized)) return { error: "invalid_format" };
+
+  // Find profile by phone
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name")
+    .eq("phone", normalized)
+    .single();
+  if (!profile) return { error: "not_found" };
+
+  // Verify active membership in this building
+  const { data: membership } = await supabaseAdmin
+    .from("memberships")
+    .select("unit_id")
+    .eq("profile_id", profile.id)
+    .eq("building_id", session.buildingId)
+    .eq("status", "active")
+    .in("role", ["resident", "owner", "tenant"])
+    .single();
+  if (!membership) return { error: "not_found" };
+
+  // Get unit ref
+  const { data: unit } = membership.unit_id
+    ? await supabaseAdmin.from("units").select("ref").eq("id", membership.unit_id).single()
+    : { data: null };
+
+  // Invalidate existing unused codes
+  await supabaseAdmin
+    .from("access_codes")
+    .update({ used_at: new Date().toISOString() })
+    .eq("building_id", session.buildingId)
+    .eq("used_by", profile.id)
+    .eq("role", "resident")
+    .is("used_at", null);
+
+  // Generate new code
+  const _b4 = new Uint8Array(6);
+  crypto.getRandomValues(_b4);
+  const _ch4 = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = "RES-" + Array.from(_b4, (b) => _ch4[b % _ch4.length]).join("");
+  await supabaseAdmin.from("access_codes").insert({
+    building_id: session.buildingId,
+    code,
+    role: "resident",
+    label: `${unit?.ref ?? "—"} – ${profile.full_name ?? "Résident"}`,
+    used_by: profile.id,
+  });
+
+  return { code, name: profile.full_name ?? undefined, unitRef: unit?.ref ?? undefined };
+}
+
 /** Marquer un incident comme en cours de traitement */
 export async function markIncidentInProgress(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
@@ -1721,6 +1780,7 @@ export async function submitFeedback(input: {
   contactPreference: string;
   buildingName: string;
   senderRole?: string;
+  attachmentUrl?: string | null;
 }) {
   await requireAuth({ buildingId: input.buildingId });
   const { error } = await supabaseAdmin.from("feedback").insert({
@@ -1733,6 +1793,7 @@ export async function submitFeedback(input: {
     contact_preference: input.contactPreference,
     building_name: input.buildingName,
     sender_role: input.senderRole ?? "syndic",
+    attachment_url: input.attachmentUrl ?? null,
   });
   if (error) throw new Error("submit_feedback_failed");
 }
