@@ -431,15 +431,21 @@ export interface Annexe10Row {
 }
 
 export function prepareAnnexe10(recouvrement: RecouvrementRow[]) {
-  const rows: Annexe10Row[] = recouvrement.map((r) => ({
-    unitRef: r.ref,
-    ownerName: r.ownerName,
-    tantiemes: r.tantiemes,
-    soldeOuverture: 0,
-    chargesAppelees: round(r.amount),
-    paiementsRecus: round(r.paid),
-    soldeCloture: round(r.amount - r.paid),
-  })).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
+  const rows: Annexe10Row[] = recouvrement.map((r) => {
+    const soldeOuverture = round(r.priorBalance ?? 0);
+    const chargesAppelees = round(r.amount);
+    const paiementsRecus = round(r.paid);
+    const soldeCloture = round(soldeOuverture + chargesAppelees - paiementsRecus);
+    return {
+      unitRef: r.ref,
+      ownerName: r.ownerName,
+      tantiemes: r.tantiemes,
+      soldeOuverture,
+      chargesAppelees,
+      paiementsRecus,
+      soldeCloture,
+    };
+  }).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
 
   return {
     rows,
@@ -735,7 +741,7 @@ export function prepareA13CSV(entries: LedgerInput[], buildingName: string, fisc
   const journal = deriveJournal(entries).sort((a, b) => a.date.localeCompare(b.date));
   const header = "Date,Libellé,Compte débité,Compte crédité,Montant (MAD)";
   const rows = journal.map((j) =>
-    `${j.date},"${j.label.replace(/"/g, '""')}",${j.accountDebit} ${accountLabel(j.accountDebit)},${j.accountCredit} ${accountLabel(j.accountCredit)},${j.amount.toFixed(2)}`
+    `${j.date},"${j.label.replace(/"/g, '""')}","${j.accountDebit} ${accountLabel(j.accountDebit).replace(/"/g, '""')}","${j.accountCredit} ${accountLabel(j.accountCredit).replace(/"/g, '""')}",${j.amount.toFixed(2)}`
   );
   const meta = `# Export comptable — ${buildingName} — Exercice ${fiscalYear}\n# Décret 2.23.700\n# Généré par Palier le ${new Date().toISOString().slice(0, 10)}\n`;
   return meta + header + "\n" + rows.join("\n");

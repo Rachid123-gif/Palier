@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { addResident, updateResident, deactivateResident, reactivateResident, regenerateResidentCode } from "@/lib/actions";
+import { useLang } from "@/lib/LangProvider";
 
 
 interface Resident {
@@ -30,6 +31,9 @@ export function ResidentsView({
   buildingId: string;
 }) {
   const router = useRouter();
+  const { i } = useLang();
+  const T = i.syndic.residents;
+  const C = i.syndic.common;
   const [isPending, startTransition] = useTransition();
   const [localResidents, setLocalResidents] = useState<Resident[]>(residents);
   const [search, setSearch] = useState("");
@@ -87,16 +91,16 @@ export function ResidentsView({
   }
 
   function exportCSV() {
-    const header = "Lot,Nom,Statut,Téléphone,Rôle,Tantièmes";
+    const header = T.csv.header;
     const csvRows = filtered.map((r) =>
-      `${r.unit},"${r.name.replace(/"/g, '""')}",${(r.status ?? "active") === "active" ? "Actif" : "Désactivé"},${r.phone},${r.role === "tenant" ? "Locataire" : "Propriétaire"},${r.tantiemes || ""}`
+      `${r.unit},"${r.name.replace(/"/g, '""')}",${(r.status ?? "active") === "active" ? T.csv.active : T.csv.deactivated},${r.phone},${r.role === "tenant" ? T.roles.tenant : T.roles.owner},${r.tantiemes || ""}`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `palier-residents-${new Date().toISOString().split("T")[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
-    flash("Export CSV téléchargé");
+    flash(T.csv.downloaded);
   }
 
   function openAdd() { setAddForm({ name: "", phone: "", unit: "", role: "owner" }); setAddResult(null); setAddError(""); setModal("add"); }
@@ -110,14 +114,14 @@ export function ResidentsView({
       const res = await addResident({ buildingId, name: addForm.name.trim(), phone, unit: addForm.unit.trim(), role: addForm.role });
       if (res.error) {
         const msgs: Record<string, string> = {
-          unit_not_found: "Ce numéro de lot n'existe pas dans la résidence. Vérifiez le numéro.",
-          profile_error: "Erreur lors de la création du profil. Réessayez.",
-          membership_error: "Erreur lors de l'association au lot. Réessayez.",
-          validation_error: "Numéro de téléphone invalide (10 chiffres, commence par 05, 06 ou 07).",
+          unit_not_found: T.errors.unitNotFound,
+          profile_error: T.errors.profileError,
+          membership_error: T.errors.membershipError,
+          validation_error: T.errors.validationError,
         };
         const errMsg = res.error.includes("invalid_format") || res.error.includes("Numéro invalide")
           ? msgs.validation_error
-          : msgs[res.error] ?? "Une erreur est survenue. Réessayez.";
+          : msgs[res.error] ?? T.errors.genericError;
         setAddError(errMsg);
       } else {
         setAddResult(res.code!);
@@ -155,11 +159,11 @@ export function ResidentsView({
     startTransition(async () => {
       try {
         await updateResident({ profileId: editTarget.id, name: editForm.name.trim(), phone, role: editForm.role, buildingId, unit: editForm.unit.trim() || undefined });
-        flash("Résident modifié");
+        flash(T.toasts.residentModified);
         setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, name: editForm.name.trim(), phone, role: editForm.role, unit: editForm.unit.trim().toUpperCase() || r.unit } : r));
         setModal(null);
       } catch {
-        setEditError("Une erreur est survenue. Réessayez.");
+        setEditError(T.errors.genericError);
       }
     });
   }
@@ -171,10 +175,10 @@ export function ResidentsView({
     startTransition(async () => {
       try {
         await deactivateResident(editTarget.id, buildingId);
-        flash("Résident désactivé");
+        flash(T.toasts.residentDeactivated);
         setLocalResidents((prev) => prev.map((r) => r.id === editTarget.id ? { ...r, status: "inactive", deactivatedAt: new Date().toISOString() } : r));
         setModal(null);
-      } catch { flash("Erreur lors de la désactivation"); }
+      } catch { flash(T.toasts.deactivateError); }
     });
   }
 
@@ -182,9 +186,9 @@ export function ResidentsView({
     startTransition(async () => {
       try {
         await reactivateResident(r.id, buildingId);
-        flash("Résident réactivé");
+        flash(T.toasts.residentReactivated);
         setLocalResidents((prev) => prev.map((res) => res.id === r.id ? { ...res, status: "active", deactivatedAt: null } : res));
-      } catch { flash("Erreur lors de la réactivation"); }
+      } catch { flash(T.toasts.reactivateError); }
     });
   }
 
@@ -194,24 +198,24 @@ export function ResidentsView({
     setCodeLoading(true);
     try {
       const res = await regenerateResidentCode(r.id);
-      if (res.error) { flash("Erreur : résident introuvable"); setCodeTarget(null); }
+      if (res.error) { flash(T.toasts.codeNotFound); setCodeTarget(null); }
       else setCodeValue(res.code!);
-    } catch { flash("Erreur lors de la génération du code"); setCodeTarget(null); }
+    } catch { flash(T.toasts.codeGenError); setCodeTarget(null); }
     setCodeLoading(false);
   }
 
   return (
     <div>
       <PageHeader
-        title="Résidents & lots"
-        subtitle={`${kpis.lots} lots · ${activeResidents.length} résidents actifs`}
+        title={T.title}
+        subtitle={T.subtitle(kpis.lots, activeResidents.length)}
         action={
           <div className="flex gap-2">
             <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
-              <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+              <Icon name="Download" className="h-3.5 w-3.5" /> {C.export}
             </button>
             <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700">
-              <Icon name="Plus" className="h-3.5 w-3.5" /> Ajouter un résident
+              <Icon name="Plus" className="h-3.5 w-3.5" /> {T.addResident}
             </button>
           </div>
         }
@@ -221,7 +225,7 @@ export function ResidentsView({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Les résidents ajoutés ici reçoivent un code d&apos;accès par WhatsApp pour rejoindre la résidence sur l&apos;application Palier. Ils peuvent consulter leurs charges, signaler des incidents et accéder aux documents.
+          {T.info}
         </p>
       </div>
 
@@ -232,28 +236,28 @@ export function ResidentsView({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-100">
               <Icon name="Users" className="h-4 w-4 text-palier-600" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Total résidents</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.totalResidents}</p>
           </div>
-          <p className="text-[28px] font-bold leading-none text-ink">{activeResidents.length}</p>
-          <p className="mt-1.5 text-[12px] font-medium text-ink-soft">{kpis.lots} lots · {inactiveResidents.length > 0 ? `${inactiveResidents.length} désactivé${inactiveResidents.length > 1 ? "s" : ""}` : "tous actifs"}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{activeResidents.length}</p>
+          <p className="mt-1.5 text-[12px] font-medium text-ink-soft">{T.kpi.lotsCount(kpis.lots)} · {inactiveResidents.length > 0 ? T.kpi.deactivatedCount(inactiveResidents.length) : T.kpi.allActive}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
               <Icon name="Building2" className="h-4 w-4 text-emerald-700" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Propriétaires</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.owners}</p>
           </div>
-          <p className="text-[28px] font-bold leading-none text-ink">{ownerCount}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{ownerCount}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100">
               <Icon name="Key" className="h-4 w-4 text-blue-700" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Locataires</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.tenants}</p>
           </div>
-          <p className="text-[28px] font-bold leading-none text-ink">{tenantCount}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{tenantCount}</p>
         </div>
       </div>
 
@@ -263,17 +267,17 @@ export function ResidentsView({
           onClick={() => setStatus("active")}
           className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "active" ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
         >
-          Actifs
-          <span className="ml-1.5 rounded-full bg-palier-50 px-1.5 py-0.5 text-[11px] font-bold text-palier-700">{activeResidents.length}</span>
+          {T.statuses.active}
+          <span className="ml-1.5 rounded-full bg-palier-50 px-1.5 py-0.5 text-[11px] font-bold text-palier-700" dir="ltr">{activeResidents.length}</span>
           {statusFilter === "active" && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
         </button>
         <button
           onClick={() => setStatus("inactive")}
           className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === "inactive" ? "text-amber-700" : "text-ink-soft hover:text-ink"}`}
         >
-          Désactivés
+          {T.statuses.deactivatedPlural}
           {inactiveResidents.length > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{inactiveResidents.length}</span>
+            <span className="ml-1.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700" dir="ltr">{inactiveResidents.length}</span>
           )}
           {statusFilter === "inactive" && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-amber-600" />}
         </button>
@@ -286,7 +290,7 @@ export function ResidentsView({
           <input
             value={search}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={T.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -302,7 +306,7 @@ export function ResidentsView({
               onClick={() => setFilter(r)}
               className={`flex-1 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors md:flex-none ${roleFilter === r ? "bg-palier-50 text-palier-700" : "text-ink hover:bg-sand/50"}`}
             >
-              {r === "all" ? "Tous" : r === "owner" ? "Propriétaires" : "Locataires"}
+              {r === "all" ? T.roles.all : r === "owner" ? T.roles.ownerPlural : T.roles.tenantPlural}
             </button>
           ))}
         </div>
@@ -312,9 +316,9 @@ export function ResidentsView({
       <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-[13px] text-ink-soft">Aucun résultat</p>
+            <p className="text-[13px] text-ink-soft">{C.noResults}</p>
             <button onClick={() => { setSearch(""); setRoleFilter("all"); }} className="mt-1 text-[13px] font-medium text-palier-600">
-              Réinitialiser
+              {C.resetFilters}
             </button>
           </div>
         ) : (
@@ -323,11 +327,11 @@ export function ResidentsView({
             <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="px-4 py-2.5">Lot</th>
-                  <th className="px-4 py-2.5">Nom</th>
-                  <th className="px-4 py-2.5">Statut</th>
-                  <th className="px-4 py-2.5">Téléphone</th>
-                  <th className="px-4 py-2.5 text-right">Actions</th>
+                  <th className="px-4 py-2.5">{T.table.lot}</th>
+                  <th className="px-4 py-2.5">{T.table.name}</th>
+                  <th className="px-4 py-2.5">{T.table.status}</th>
+                  <th className="px-4 py-2.5">{T.table.phone}</th>
+                  <th className="px-4 py-2.5 text-right">{T.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -335,7 +339,7 @@ export function ResidentsView({
                   const isInactive = (r.status ?? "active") === "inactive";
                   return (
                     <tr key={r.id} className={`transition-colors hover:bg-sand/50 ${isInactive ? "opacity-60" : ""}`}>
-                      <td className="px-4 py-2.5 font-medium text-ink">{r.unit}</td>
+                      <td className="px-4 py-2.5 font-medium text-ink" dir="ltr">{r.unit}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
                           <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-medium text-white ${isInactive ? "grayscale" : ""}`} style={{ backgroundColor: r.avatarColor }}>
@@ -344,21 +348,21 @@ export function ResidentsView({
                           <div className="flex items-center gap-2">
                             <span className="text-ink">{r.name}</span>
                             {isInactive && (
-                              <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Désactivé</span>
+                              <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{T.statuses.deactivated}</span>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${r.role === "tenant" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
-                          {r.role === "tenant" ? "Locataire" : "Propriétaire"}
+                          {r.role === "tenant" ? T.roles.tenant : T.roles.owner}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-ink-soft">
+                      <td className="px-4 py-2.5 text-ink-soft" dir="ltr">
                         {r.phone}
                         {isInactive && r.deactivatedAt && (
                           <p className="mt-0.5 text-[10px] text-amber-600">
-                            Désactivé le {new Date(r.deactivatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                            {T.deactivatedOn} {new Date(r.deactivatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                           </p>
                         )}
                       </td>
@@ -371,20 +375,20 @@ export function ResidentsView({
                               className="inline-flex items-center gap-1.5 rounded-md bg-palier-50 px-2.5 py-1.5 text-[11px] font-semibold text-palier-700 transition-colors hover:bg-palier-100 disabled:opacity-50"
                             >
                               <Icon name="UserPlus" className="h-3.5 w-3.5" />
-                              Réactiver
+                              {T.reactivate}
                             </button>
                           ) : (
                             <>
-                              <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-600" title="Renvoyer le code d'accès">
+                              <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-600" title={T.actionTitles.resendCode}>
                                 <Icon name="KeyRound" className="h-3.5 w-3.5" />
                               </button>
-                              <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="WhatsApp">
+                              <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-emerald-50 hover:text-emerald-600" title={T.actionTitles.whatsapp}>
                                 <Icon name="MessageCircle" className="h-3.5 w-3.5" />
                               </a>
-                              <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title="Modifier">
+                              <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title={T.actionTitles.edit}>
                                 <Icon name="Pencil" className="h-3.5 w-3.5" />
                               </button>
-                              <button onClick={() => openDelete(r)} className={`rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500 ${r.role === "syndic" ? "hidden" : ""}`} title="Désactiver">
+                              <button onClick={() => openDelete(r)} className={`rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500 ${r.role === "syndic" ? "hidden" : ""}`} title={T.actionTitles.deactivate}>
                                 <Icon name="Trash2" className="h-3.5 w-3.5" />
                               </button>
                             </>
@@ -410,25 +414,25 @@ export function ResidentsView({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-[14px] font-medium text-ink">{r.name}</p>
-                          {isInactive && <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Désactivé</span>}
+                          {isInactive && <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{T.statuses.deactivated}</span>}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
-                          <span className="font-medium text-ink">Lot {r.unit}</span>
+                          <span className="font-medium text-ink">{T.table.lot} <span dir="ltr">{r.unit}</span></span>
                           <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === "tenant" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
-                            {r.role === "tenant" ? "Locataire" : "Propriétaire"}
+                            {r.role === "tenant" ? T.roles.tenant : T.roles.owner}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[12px] text-ink-soft">{r.phone}</p>
+                        <p className="mt-0.5 text-[12px] text-ink-soft" dir="ltr">{r.phone}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">
                         {isInactive ? (
                           <button onClick={() => handleReactivate(r)} disabled={isPending} className="inline-flex items-center gap-1 rounded-md bg-palier-50 px-2 py-1.5 text-[11px] font-semibold text-palier-700">
-                            <Icon name="UserPlus" className="h-3.5 w-3.5" />Réactiver
+                            <Icon name="UserPlus" className="h-3.5 w-3.5" />{T.reactivate}
                           </button>
                         ) : (
                           <>
-                            <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint" title="Renvoyer le code d'accès"><Icon name="KeyRound" className="h-4 w-4" /></button>
-                            <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
+                            <button onClick={() => handleRegenerateCode(r)} className="rounded-md p-1.5 text-ink-faint" title={T.actionTitles.resendCode}><Icon name="KeyRound" className="h-4 w-4" /></button>
+                            <a href={`https://wa.me/${r.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-ink-faint"><Icon name="MessageCircle" className="h-4 w-4" /></a>
                             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-faint"><Icon name="Pencil" className="h-4 w-4" /></button>
                             <button onClick={() => openDelete(r)} className={`rounded-md p-1.5 text-ink-faint ${r.role === "syndic" ? "hidden" : ""}`}><Icon name="Trash2" className="h-4 w-4" /></button>
                           </>
@@ -442,14 +446,14 @@ export function ResidentsView({
 
             {pages > 1 && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
-                <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+                <span dir="ltr">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} {T.pagination.of} {filtered.length}</span>
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
-                  {Array.from({ length: pages }, (_, i) => (
-                    <button key={i} onClick={() => setPage(i)} className={`rounded-md px-2 py-1 font-medium ${i === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
-                      {i + 1}
+                  {Array.from({ length: pages }, (_, idx) => (
+                    <button key={idx} onClick={() => setPage(idx)} className={`rounded-md px-2 py-1 font-medium ${idx === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
+                      {idx + 1}
                     </button>
                   ))}
                   <button onClick={() => setPage(Math.min(pages - 1, safePage + 1))} disabled={safePage >= pages - 1} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -471,17 +475,17 @@ export function ResidentsView({
                 <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
                   <Icon name="Check" className="h-5 w-5 text-emerald-700" />
                 </span>
-                <p className="mt-3 text-[14px] font-semibold text-emerald-800">Résident ajouté avec succès</p>
+                <p className="mt-3 text-[14px] font-semibold text-emerald-800">{T.addModal.success}</p>
                 <p className="mt-2 text-[12px] text-ink-soft">
-                  Un code d&apos;accès a été envoyé automatiquement par <span className="font-semibold text-palier-700">WhatsApp</span> à {addForm.name.split(" ")[0]}.
+                  {T.addModal.codeSentTo(addForm.name.split(" ")[0])} <span className="font-semibold text-palier-700">{T.addModal.codeSentWhatsapp}</span> {T.addModal.codeSentSuffix(addForm.name.split(" ")[0])}
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
                 <button onClick={openAdd} className="flex-1 rounded-lg border border-black/[0.08] py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
-                  Ajouter un autre
+                  {T.addModal.addAnother}
                 </button>
                 <button onClick={() => setModal(null)} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
-                  Terminé
+                  {T.addModal.done}
                 </button>
               </div>
             </div>
@@ -494,8 +498,8 @@ export function ResidentsView({
                     <Icon name="UserPlus" className="h-5 w-5 text-palier-600" />
                   </span>
                   <div>
-                    <h2 className="text-[16px] font-semibold text-ink">Nouveau résident</h2>
-                    <p className="text-[12px] text-ink-soft">Remplissez les informations du résident</p>
+                    <h2 className="text-[16px] font-semibold text-ink">{T.addModal.title}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.addModal.subtitle}</p>
                   </div>
                 </div>
                 <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -506,31 +510,31 @@ export function ResidentsView({
               <form onSubmit={handleAdd} className="space-y-4">
                 {addError && (
                   <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
-                    <Icon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <Icon name="TriangleAlert" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <p className="text-[12px] font-medium text-red-800">{addError}</p>
                   </div>
                 )}
 
                 {/* Identité */}
                 <div className="space-y-3 rounded-xl border border-black/10 bg-white p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-ink">Identité</p>
-                  <Field label="Nom complet" value={addForm.name} onChange={(v) => { setAddForm({ ...addForm, name: v }); setAddError(""); }} placeholder="Mohamed Alami" required />
-                  <Field label="Téléphone" value={addForm.phone} onChange={(v) => { setAddForm({ ...addForm, phone: v }); setAddError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-ink">{T.addModal.identity}</p>
+                  <Field label={T.addModal.fullName} value={addForm.name} onChange={(v) => { setAddForm({ ...addForm, name: v }); setAddError(""); }} placeholder={T.addModal.namePlaceholder} required />
+                  <Field label={T.addModal.phone} value={addForm.phone} onChange={(v) => { setAddForm({ ...addForm, phone: v }); setAddError(""); }} placeholder={T.addModal.phonePlaceholder} hint={T.addModal.phoneHint} type="tel" required />
                 </div>
 
                 {/* Logement */}
                 <div className="space-y-3 rounded-xl border border-black/10 bg-white p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-ink">Logement</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-ink">{T.addModal.housing}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Numéro de lot" value={addForm.unit} onChange={(v) => { setAddForm({ ...addForm, unit: v }); setAddError(""); }} placeholder="Ex: 1, A3, RDC-2" required />
+                    <Field label={T.addModal.unitNumber} value={addForm.unit} onChange={(v) => { setAddForm({ ...addForm, unit: v }); setAddError(""); }} placeholder={T.addModal.unitPlaceholder} required />
                     <div>
-                      <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
+                      <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.addModal.statusLabel}</label>
                       <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
                         <button type="button" onClick={() => setAddForm({ ...addForm, role: "owner" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${addForm.role === "owner" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                          Propriétaire
+                          {T.roles.owner}
                         </button>
                         <button type="button" onClick={() => setAddForm({ ...addForm, role: "tenant" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${addForm.role === "tenant" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                          Locataire
+                          {T.roles.tenant}
                         </button>
                       </div>
                     </div>
@@ -541,15 +545,15 @@ export function ResidentsView({
                 <div className="flex items-start gap-2.5 rounded-xl border border-palier-200 bg-palier-50 px-3.5 py-3">
                   <Icon name="Send" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
                   <div>
-                    <p className="text-[12px] font-semibold text-ink">Accès automatique</p>
+                    <p className="text-[12px] font-semibold text-ink">{T.addModal.autoAccess}</p>
                     <p className="mt-0.5 text-[12px] text-ink">
-                      Un code d&apos;accès unique sera généré et envoyé automatiquement par <span className="font-bold text-palier-700">WhatsApp</span> au résident.
+                      {T.addModal.autoAccessDesc} <span className="font-bold text-palier-700">{T.addModal.autoAccessWhatsapp}</span> {T.addModal.autoAccessSuffix}
                     </p>
                   </div>
                 </div>
 
                 <button type="submit" disabled={isPending} className="w-full rounded-xl bg-palier-600 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50">
-                  {isPending ? "Ajout en cours…" : "Ajouter le résident"}
+                  {isPending ? T.addModal.submitting : T.addModal.submitBtn}
                 </button>
               </form>
             </div>
@@ -561,7 +565,7 @@ export function ResidentsView({
       {modal === "edit" && editTarget && (
         <Overlay onClose={() => setModal(null)}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[16px] font-semibold text-ink">Modifier le résident</h2>
+            <h2 className="text-[16px] font-semibold text-ink">{T.editModal.title}</h2>
             <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
               <Icon name="X" className="h-4 w-4" />
             </button>
@@ -569,7 +573,7 @@ export function ResidentsView({
           <form onSubmit={handleEdit} className="space-y-3">
             {editError && (
               <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
-                <Icon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                <Icon name="TriangleAlert" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                 <p className="text-[12px] font-medium text-red-800">{editError}</p>
               </div>
             )}
@@ -579,31 +583,31 @@ export function ResidentsView({
               </span>
               <div>
                 <p className="text-[13px] font-medium text-ink">{editTarget.name}</p>
-                <p className="text-[12px] text-ink-soft">Lot {editTarget.unit}</p>
+                <p className="text-[12px] text-ink-soft">{T.table.lot} {editTarget.unit}</p>
               </div>
             </div>
-            <Field label="Nom complet" value={editForm.name} onChange={(v) => { setEditForm({ ...editForm, name: v }); setEditError(""); }} required />
+            <Field label={T.addModal.fullName} value={editForm.name} onChange={(v) => { setEditForm({ ...editForm, name: v }); setEditError(""); }} required />
             {editTarget.role === "syndic" ? (
-              <Field label="Numéro de lot" value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder="Ex: 1, A3, RDC-2" />
+              <Field label={T.addModal.unitNumber} value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder={T.addModal.unitPlaceholder} />
             ) : (
               <>
-                <Field label="Téléphone" value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder="06 12 34 56 78" hint="Le +212 est ajouté automatiquement" type="tel" required />
-                <Field label="Numéro de lot" value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder="Ex: 1, A3, RDC-2" />
+                <Field label={T.addModal.phone} value={editForm.phone} onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditError(""); }} placeholder={T.addModal.phonePlaceholder} hint={T.addModal.phoneHint} type="tel" required />
+                <Field label={T.addModal.unitNumber} value={editForm.unit} onChange={(v) => { setEditForm({ ...editForm, unit: v }); setEditError(""); }} placeholder={T.addModal.unitPlaceholder} />
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink">Statut</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.addModal.statusLabel}</label>
                   <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
                     <button type="button" onClick={() => setEditForm({ ...editForm, role: "owner" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "owner" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                      Propriétaire
+                      {T.roles.owner}
                     </button>
                     <button type="button" onClick={() => setEditForm({ ...editForm, role: "tenant" })} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${editForm.role === "tenant" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
-                      Locataire
+                      {T.roles.tenant}
                     </button>
                   </div>
                 </div>
               </>
             )}
             <button type="submit" disabled={isPending} className="w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-palier-700 disabled:opacity-50">
-              {isPending ? "Enregistrement…" : "Enregistrer les modifications"}
+              {isPending ? T.editModal.saving : T.editModal.saveBtn}
             </button>
           </form>
         </Overlay>
@@ -618,8 +622,8 @@ export function ResidentsView({
                 <Icon name="UserMinus" className="h-5 w-5 text-amber-700" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Retirer ce résident</h2>
-                <p className="text-[12px] text-ink-soft">Cette action est réversible</p>
+                <h2 className="text-[16px] font-semibold text-ink">{T.deleteModal.title}</h2>
+                <p className="text-[12px] text-ink-soft">{T.deleteModal.subtitle}</p>
               </div>
             </div>
             <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -634,52 +638,52 @@ export function ResidentsView({
             </span>
             <div>
               <p className="text-[14px] font-semibold text-ink">{editTarget.name}</p>
-              <p className="text-[12px] text-ink-soft">Lot {editTarget.unit} · {editTarget.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+              <p className="text-[12px] text-ink-soft">{T.table.lot} {editTarget.unit} · {editTarget.role === "tenant" ? T.roles.tenant : T.roles.owner}</p>
             </div>
           </div>
 
           {/* Ce qui va se passer */}
           <div className="mt-4 space-y-2">
-            <p className="text-[12px] font-bold uppercase tracking-wider text-ink">Ce qui va se passer</p>
+            <p className="text-[12px] font-bold uppercase tracking-wider text-ink">{T.deleteModal.whatHappens}</p>
             <div className="space-y-2 rounded-xl border border-black/10 bg-white p-3">
-              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-red-600">N&apos;aura plus accès à</p>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-red-600">{T.deleteModal.losesAccess}</p>
               <div className="flex items-start gap-2.5">
                 <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-                <p className="text-[12px] text-ink">Publier et commenter dans le <span className="font-semibold">voisinage</span></p>
+                <p className="text-[12px] text-ink">{T.deleteModal.loseNeighborhood} <span className="font-semibold">{T.deleteModal.neighborhoodBold}</span></p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-                <p className="text-[12px] text-ink">Signaler des <span className="font-semibold">incidents</span></p>
+                <p className="text-[12px] text-ink">{T.deleteModal.loseIncidents} <span className="font-semibold">{T.deleteModal.incidentsBold}</span></p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-                <p className="text-[12px] text-ink">Voter aux <span className="font-semibold">assemblées générales</span></p>
+                <p className="text-[12px] text-ink">{T.deleteModal.loseAG} <span className="font-semibold">{T.deleteModal.agBold}</span></p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-                <p className="text-[12px] text-ink">Accéder aux <span className="font-semibold">nouveaux documents</span> et écritures de <span className="font-semibold">transparence</span></p>
+                <p className="text-[12px] text-ink">{T.deleteModal.loseDocsPrefix} <span className="font-semibold">{T.deleteModal.newDocsBold}</span> {T.deleteModal.loseDocsMiddle} <span className="font-semibold">{T.deleteModal.transparencyBold}</span></p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="X" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-                <p className="text-[12px] text-ink">Réserver des <span className="font-semibold">services</span> via la résidence</p>
+                <p className="text-[12px] text-ink">{T.deleteModal.loseServices} <span className="font-semibold">{T.deleteModal.servicesBold}</span> {T.deleteModal.loseServicesSuffix}</p>
               </div>
               <div className="my-2 border-t border-black/[0.06]" />
-              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-600">Conservé</p>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-600">{T.deleteModal.kept}</p>
               <div className="flex items-start gap-2.5">
                 <Icon name="Check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                <p className="text-[12px] text-ink">Historique des <span className="font-semibold">charges</span> et appels de fonds</p>
+                <p className="text-[12px] text-ink">{T.deleteModal.keepCharges} <span className="font-semibold">{T.deleteModal.chargesBold}</span> {T.deleteModal.keepChargesSuffix}</p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="Check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                <p className="text-[12px] text-ink">Incidents signalés et <span className="font-semibold">publications</span> passées</p>
+                <p className="text-[12px] text-ink">{T.deleteModal.keepIncidents} <span className="font-semibold">{T.deleteModal.publicationsBold}</span> {T.deleteModal.keepIncidentsSuffix}</p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="Check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                <p className="text-[12px] text-ink"><span className="font-semibold">Documents</span> et <span className="font-semibold">transparence</span> jusqu&apos;à la date de désactivation</p>
+                <p className="text-[12px] text-ink"><span className="font-semibold">{T.deleteModal.docsBold}</span> {T.deleteModal.keepDocsMiddle} <span className="font-semibold">{T.deleteModal.transparencyBold2}</span> {T.deleteModal.keepDocsSuffix}</p>
               </div>
               <div className="flex items-start gap-2.5">
                 <Icon name="Check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                <p className="text-[12px] text-ink">Export des <span className="font-semibold">données personnelles</span> depuis le profil</p>
+                <p className="text-[12px] text-ink">{T.deleteModal.keepExport} <span className="font-semibold">{T.deleteModal.personalDataBold}</span> {T.deleteModal.keepExportSuffix}</p>
               </div>
             </div>
           </div>
@@ -688,16 +692,16 @@ export function ResidentsView({
           <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
             <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <p className="text-[12px] text-ink">
-              Aucune donnée n&apos;est supprimée. Vous pourrez réactiver ce résident ultérieurement si nécessaire.
+              {T.deleteModal.warning}
             </p>
           </div>
 
           <div className="mt-5 flex gap-2">
             <button onClick={() => setModal(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-              Annuler
+              {C.cancel}
             </button>
             <button onClick={handleDeactivate} disabled={isPending} className="flex-1 rounded-xl bg-amber-600 py-2.5 text-[13px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
-              {isPending ? "Désactivation…" : "Retirer le résident"}
+              {isPending ? T.deleteModal.deactivating : T.deleteModal.confirmBtn}
             </button>
           </div>
         </Overlay>
@@ -712,7 +716,7 @@ export function ResidentsView({
                 <Icon name="KeyRound" className="h-5 w-5 text-palier-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Régénérer le code</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{T.codeModal.title}</h2>
                 <p className="text-[12px] text-ink-soft">Lot {codeTarget.unit} · {codeTarget.name}</p>
               </div>
             </div>
@@ -723,7 +727,7 @@ export function ResidentsView({
           {codeLoading ? (
             <div className="py-8 text-center">
               <Icon name="LoaderCircle" className="mx-auto h-6 w-6 animate-spin text-ink-faint" />
-              <p className="mt-2 text-[13px] text-ink-soft">Génération et envoi du code…</p>
+              <p className="mt-2 text-[13px] text-ink-soft">{T.codeModal.generating}</p>
             </div>
           ) : codeValue ? (
             <div>
@@ -731,17 +735,17 @@ export function ResidentsView({
                 <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
                   <Icon name="Check" className="h-5 w-5 text-emerald-700" />
                 </span>
-                <p className="mt-3 text-[14px] font-semibold text-emerald-800">Nouveau code envoyé</p>
+                <p className="mt-3 text-[14px] font-semibold text-emerald-800">{T.codeModal.success}</p>
                 <p className="mt-2 text-[12px] text-ink-soft">
-                  Un nouveau code d&apos;accès a été envoyé automatiquement par <span className="font-semibold text-palier-700">WhatsApp</span> à {codeTarget.name.split(" ")[0]}.
+                  {T.codeModal.codeSentDesc(codeTarget.name.split(" ")[0])} <span className="font-semibold text-palier-700">{T.codeModal.codeSentWhatsapp}</span> {T.codeModal.codeSentSuffix(codeTarget.name.split(" ")[0])}
                 </p>
               </div>
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                <p className="text-[11px] text-amber-800">L&apos;ancien code a été invalidé. Seul le nouveau code est valide.</p>
+                <p className="text-[11px] text-amber-800">{T.codeModal.oldCodeInvalid}</p>
               </div>
               <button onClick={() => setCodeTarget(null)} className="mt-4 w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
-                Fermer
+                {C.close}
               </button>
             </div>
           ) : null}

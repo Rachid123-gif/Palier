@@ -238,6 +238,13 @@ function BienvenueContent() {
     }
   }, [roleFromUrl]);
 
+  // Clear expired session cookie when redirected from inactive membership
+  useEffect(() => {
+    if (searchParams.get("expired") === "1") {
+      document.cookie = "palier_session=; path=/; max-age=0";
+    }
+  }, [searchParams]);
+
   // Registration form state
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -292,7 +299,7 @@ function BienvenueContent() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("palier_onboarding", JSON.stringify({
-        step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, regUnit, recoverPhone,
+        step, role, regName, regBuilding, regCity, regCityCustom, regLots, regUnit,
       }));
     }
   }, [step, role, code, regName, regPhone, regBuilding, regCity, regCityCustom, regLots, regUnit, recoverPhone]);
@@ -306,15 +313,12 @@ function BienvenueContent() {
           const data = JSON.parse(saved);
           if (data.step) setStep(data.step);
           if (data.role) setRole(data.role);
-          if (data.code) setCode(data.code);
           if (data.regName) setRegName(data.regName);
-          if (data.regPhone) setRegPhone(data.regPhone);
           if (data.regBuilding) setRegBuilding(data.regBuilding);
           if (data.regCity) setRegCity(data.regCity);
           if (data.regCityCustom) setRegCityCustom(data.regCityCustom);
           if (data.regLots) setRegLots(data.regLots);
           if (data.regUnit) setRegUnit(data.regUnit);
-          if (data.recoverPhone) setRecoverPhone(data.recoverPhone);
         } catch {}
       }
     }
@@ -1059,7 +1063,7 @@ function BienvenueContent() {
             {role === "syndic" && roleFromUrl !== "syndic" && (
               <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-sand/60 px-4 py-3">
                 <Icon name="Monitor" className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
-                <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener" className="font-semibold text-palier-600 underline">palier.ma</a></p>
+                <p className="text-[12px] leading-snug text-ink-soft">{i.syndicWebNote}<a href="https://palier.ma" target="_blank" rel="noopener noreferrer" className="font-semibold text-palier-600 underline">palier.ma</a></p>
               </div>
             )}
           </form>

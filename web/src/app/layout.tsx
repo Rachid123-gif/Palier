@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono, Cairo } from "next/font/google";
 import { ThemeProvider } from "@/lib/ThemeProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -47,6 +48,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${cairo.variable} h-full antialiased`}
     >
       <body className="min-h-full">
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme:dark)").matches);if(d)document.documentElement.classList.add("dark")}catch(e){}})()`,
+          }}
+        />
         <ThemeProvider>
           {children}
         </ThemeProvider>

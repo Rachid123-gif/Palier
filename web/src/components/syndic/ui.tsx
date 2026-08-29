@@ -21,10 +21,10 @@ export function KpiCard({
   return (
     <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
       <p className="text-[12px] font-medium text-ink-soft">{label}</p>
-      <p className="mt-1 text-[22px] font-bold leading-none text-ink">
+      <p dir="ltr" className="mt-1 text-[22px] font-bold leading-none text-ink">
         {value}{unit && <span className="ml-1 text-[12px] font-medium text-ink-soft">{unit}</span>}
       </p>
-      {hint && <p className="mt-1 text-[11px] text-ink-soft">{hint}</p>}
+      {hint && <p dir="ltr" className="mt-1 text-[11px] text-ink-soft">{hint}</p>}
       {trend && <p className="mt-1 text-[11px] font-semibold text-success">{trend}</p>}
     </div>
   );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
-import { mad, num, shortDate } from "@/lib/format";
+import { mad, num, shortDate, longDate } from "@/lib/format";
 import { Sheet } from "@/components/ui/Sheet";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
@@ -242,6 +242,11 @@ export default function ImmeubleScreen() {
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-medium text-ink-faint">{T.syndic}</p>
               <p className="text-sm font-bold text-ink">{building.syndic}</p>
+              {building.syndicPhone ? (
+                <a href={`tel:${building.syndicPhone}`} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                  <Icon name="Phone" className="h-3.5 w-3.5" /> {building.syndicPhone}
+                </a>
+              ) : null}
             </div>
           </div>
         )}
@@ -274,12 +279,15 @@ export default function ImmeubleScreen() {
                   <div>
                     <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.horaires}</p>
                     <div className="space-y-0.5">
-                      {Object.entries(gardien.horaires).map(([day, h]) => (
-                        <div key={day} className="flex items-center justify-between text-[12px]">
-                          <span className="text-ink-soft capitalize">{day}</span>
-                          <span className="font-medium text-ink">{h.repos ? T.repos : `${h.de} – ${h.a}`}</span>
-                        </div>
-                      ))}
+                      {Object.entries(gardien.horaires).map(([key, h]) => {
+                        const dayLabel = /^\d$/.test(key) ? (T.days?.[parseInt(key)] ?? key) : key;
+                        return (
+                          <div key={key} className="flex items-center justify-between text-[12px]">
+                            <span className="text-ink-soft capitalize">{dayLabel}</span>
+                            <span className="font-medium text-ink">{h.repos ? T.repos : `${h.de} – ${h.a}`}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -303,12 +311,28 @@ export default function ImmeubleScreen() {
                   <h3 className="text-[14px] font-bold text-ink">{T.assurance}</h3>
                 </div>
                 {insurancePolicies.map((p, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[13px]">
-                    <div>
-                      <p className="font-medium text-ink">{p.insurer}</p>
-                      <p className="text-[11px] text-ink-faint">{p.coverageType}</p>
+                  <div key={idx} className="space-y-1 rounded-xl border border-black/5 bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold text-ink">{p.insurer}</p>
+                      {p.coverageType && <span className="rounded-md bg-palier-50 px-2 py-0.5 text-[10px] font-semibold text-palier-700">{p.coverageType}</span>}
                     </div>
-                    <p className="text-[11px] text-ink-soft">{T.jusquAu} {shortDate(p.endDate, lang)}</p>
+                    {p.policyNumber && (
+                      <p className="text-[11px] text-ink-faint">{T.policeNum} : {p.policyNumber}</p>
+                    )}
+                    {p.premiumAmount != null && (
+                      <p className="text-[12px] font-semibold text-ink" dir="ltr">{num(p.premiumAmount, false)} <span className="text-[10px] font-normal text-ink-faint">MAD / {T.primeAnnuelle}</span></p>
+                    )}
+                    <p className="text-[11px] text-ink-soft">
+                      {T.depuisLe} {longDate(p.startDate, lang)} · {T.jusquAu} {longDate(p.endDate, lang)}
+                    </p>
+                    {p.notes && (
+                      <p className="text-[11px] text-ink-faint">{p.notes}</p>
+                    )}
+                    {p.fileUrl && (
+                      <a href={p.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                        <Icon name="ExternalLink" className="h-3.5 w-3.5" /> {T.voirPolice}
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -338,11 +362,24 @@ export default function ImmeubleScreen() {
                   <Icon name="Award" className="h-4 w-4 text-palier-600" />
                   <h3 className="text-[14px] font-bold text-ink">{T.mandatSyndic}</h3>
                 </div>
-                <p className="text-[13px] font-medium text-ink">{mandate.syndicName}</p>
-                <div className="flex gap-4 text-[11px] text-ink-soft">
-                  <span>{T.elu} {shortDate(mandate.electedAt, lang)}</span>
-                  <span>{T.echeance} {shortDate(mandate.mandateEnd, lang)}</span>
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-semibold text-ink">{mandate.syndicName}</p>
+                  <span className="rounded-md bg-sand px-2 py-0.5 text-[10px] font-semibold text-ink-soft">
+                    {mandate.syndicType === "benevole" ? T.benevole : T.professionnel}
+                  </span>
                 </div>
+                {mandate.deputyName && (
+                  <p className="text-[12px] text-ink-soft">{T.adjoint} : {mandate.deputyName}</p>
+                )}
+                <div className="flex gap-4 text-[11px] text-ink-soft">
+                  <span>{T.elu} {longDate(mandate.electedAt, lang)}</span>
+                  <span>{T.echeance} {longDate(mandate.mandateEnd, lang)}</span>
+                </div>
+                {mandate.contractUrl && (
+                  <a href={mandate.contractUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                    <Icon name="ExternalLink" className="h-3.5 w-3.5" /> {T.voirContrat}
+                  </a>
+                )}
               </div>
             )}
 

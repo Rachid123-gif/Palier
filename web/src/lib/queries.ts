@@ -23,17 +23,31 @@ export interface AppData {
   assemblies: Assembly[];
   gardien: { name: string; phone: string; horaires: Record<string, { de: string; a: string; repos: boolean }>; taches: string[] } | null;
   welcomeMessage: string;
-  insurancePolicies: { insurer: string; coverageType: string; startDate: string; endDate: string }[];
-  mandate: { syndicName: string; syndicType: string; mandateEnd: string; electedAt: string } | null;
+  insurancePolicies: { insurer: string; coverageType: string; startDate: string; endDate: string; policyNumber?: string; fileUrl?: string; premiumAmount?: number; notes?: string }[];
+  mandate: { syndicName: string; syndicType: string; mandateEnd: string; electedAt: string; deputyName?: string; contractUrl?: string } | null;
   coproprieteRule: { title: string; fileUrl?: string; adoptedAt?: string } | null;
   budgetSummary: { fiscalYear: number; totalAmount: number; status: string; lines: { label: string; category: string; amountBudgeted: number; amountActual: number }[] } | null;
   urgentWorks: { id: string; title: string; status: string; estimatedCost?: number; declaredAt: string; description?: string }[];
   notifications: { id: string; title: string; body: string; created_at: string; kind: string; read: boolean }[];
+  /** Syndic-configured categories (from building_settings) */
+  incidentCategories: string[] | null;
+  voisinageCategories: string[] | null;
+  chargeCategories: string[] | null;
   /** Multi-building: all buildings user has access to */
   buildings: UserBuilding[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Normalize post type: French/Arabic labels → English keys */
+const POST_TYPE_NORM: Record<string, string> = {
+  "Annonce": "announcement", "Événement": "event", "Entraide": "help",
+  "Trouvé": "found", "Général": "general", "Service": "service", "Recommandation": "recommendation",
+  "إعلان": "announcement", "حدث": "event", "تعاون": "help",
+  "موجود": "found", "عام": "general", "خدمة": "service", "توصية": "recommendation",
+};
+const normalizePostType = (t: string): string => POST_TYPE_NORM[t] ?? t;
+
 const mapCharge = (r: any): Charge => ({
   id: r.id, label: r.label, detail: r.detail, period: r.period,
   amount: Number(r.amount), paid: Number(r.paid), dueDate: r.due_date,
@@ -48,7 +62,7 @@ const mapIncident = (r: any): Incident => ({
 });
 
 const mapPost = (r: any): Post => ({
-  id: r.id, type: r.type, author: r.author_name, authorId: r.profile_id ?? null, role: r.role,
+  id: r.id, type: normalizePostType(r.type) as Post["type"], author: r.author_name, authorId: r.profile_id ?? null, role: r.role,
   avatarColor: r.avatar_color, createdAt: r.created_at, pinned: r.pinned,
   emoji: r.emoji, title: r.title, body: r.body,
   reactions: { like: r.like_count ?? 0, love: r.love_count ?? 0, haha: r.haha_count ?? 0, wow: r.wow_count ?? 0 },
@@ -105,12 +119,13 @@ export async function getUserBuildings(profileId: string): Promise<UserBuilding[
 
 /** Récupère tout le contexte résident depuis Supabase (server-side, sans flicker). */
 export async function fetchAppData(buildingId: string, profileId: string | null, unitId: string | null, buildings?: UserBuilding[]): Promise<AppData> {
-  const [bRes, pRes, uRes, memRes, chRes, ledRes, incRes, postRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes, urgentWorksRes] = await Promise.all([
+  const [bRes, pRes, uRes, memRes, chRes, allChRes, ledRes, incRes, postRes, notifRes, docRes, agRes, allAgRes, settingsRes, insurRes, mandateRes, ruleRes, budgetRes, urgentWorksRes] = await Promise.all([
     supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
     profileId ? supabaseAdmin.from("profiles").select("*").eq("id", profileId).single() : Promise.resolve({ data: null }),
     unitId ? supabaseAdmin.from("units").select("*").eq("id", unitId).single() : supabaseAdmin.from("units").select("*").eq("building_id", buildingId).limit(1).single(),
     profileId ? supabaseAdmin.from("memberships").select("role, status").eq("profile_id", profileId).eq("building_id", buildingId).single() : Promise.resolve({ data: null }),
     unitId ? supabaseAdmin.from("charges").select("*").eq("unit_id", unitId) : Promise.resolve({ data: [] }),
+    supabaseAdmin.from("charges").select("amount, paid").eq("building_id", buildingId),
     supabaseAdmin.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
     supabaseAdmin.from("incidents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
@@ -119,7 +134,7 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
     supabaseAdmin.from("building_settings").select("*").eq("building_id", buildingId).maybeSingle(),
-    supabaseAdmin.from("insurance_policies").select("insurer, coverage_type, start_date, end_date").eq("building_id", buildingId),
+    supabaseAdmin.from("insurance_policies").select("insurer, coverage_type, start_date, end_date, policy_number, file_url, premium_amount, notes").eq("building_id", buildingId),
     supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("copropriete_rules").select("title, file_url, adopted_at").eq("building_id", buildingId).maybeSingle(),
     supabaseAdmin.from("budgets").select("*, budget_lines(*)").eq("building_id", buildingId).eq("status", "approved").order("fiscal_year", { ascending: false }).limit(1).maybeSingle(),
@@ -133,7 +148,7 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
   const incidents = (incRes.data ?? []).map(mapIncident);
 
   const charges = allCharges.filter((c: Charge) => c.status !== "paid");
-  const chargesHistory = allCharges.filter((c: Charge) => c.status === "paid");
+  const chargesHistory = allCharges.filter((c: Charge) => c.status === "paid" || c.paid > 0);
 
   return {
     buildingId,
@@ -162,9 +177,9 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       const totalOut = ledgerEntries.filter((l: any) => l.type === "out").reduce((s: number, l: any) => s + Number(l.amount), 0);
       const computedBalance = totalIn - totalOut;
 
-      const allChargesData = (chRes as any).data ?? [];
-      const totalCharged = allChargesData.reduce((s: number, c: any) => s + Number(c.amount), 0);
-      const totalPaid = allChargesData.reduce((s: number, c: any) => s + Number(c.paid), 0);
+      const buildingCharges = (allChRes as any).data ?? [];
+      const totalCharged = buildingCharges.reduce((s: number, c: any) => s + Number(c.amount), 0);
+      const totalPaid = buildingCharges.reduce((s: number, c: any) => s + Number(c.paid), 0);
       const computedPaymentRate = totalCharged > 0 ? Math.round((totalPaid / totalCharged) * 100) : 100;
 
       return {
@@ -216,12 +231,17 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     insurancePolicies: (insurRes.data ?? []).map((p: any) => ({
       insurer: p.insurer, coverageType: p.coverage_type,
       startDate: p.start_date, endDate: p.end_date,
+      policyNumber: p.policy_number ?? undefined, fileUrl: p.file_url ?? undefined,
+      premiumAmount: p.premium_amount ? Number(p.premium_amount) : undefined,
+      notes: p.notes ?? undefined,
     })),
     mandate: mandateRes.data ? {
       syndicName: mandateRes.data.syndic_name,
       syndicType: mandateRes.data.syndic_type,
       mandateEnd: mandateRes.data.mandate_end,
       electedAt: mandateRes.data.elected_at,
+      deputyName: mandateRes.data.deputy_name ?? undefined,
+      contractUrl: mandateRes.data.contract_url ?? undefined,
     } : null,
     coproprieteRule: ruleRes.data ? {
       title: ruleRes.data.title,
@@ -243,6 +263,9 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       declaredAt: w.declared_at, description: w.description ?? undefined,
     })),
     notifications: ((notifRes as any).data ?? []).map((n: any) => ({ id: n.id, title: n.title, body: n.body, created_at: n.created_at, kind: n.kind, read: !!n.read })),
+    incidentCategories: settingsRes.data?.incident_categories ?? null,
+    voisinageCategories: settingsRes.data?.voisinage_categories ?? null,
+    chargeCategories: settingsRes.data?.charge_categories ?? null,
     buildings: buildings ?? [],
   };
 }

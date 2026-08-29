@@ -4,6 +4,7 @@ import { PageHeader, KpiCard } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 import { mad } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import {
   ANNEXES,
   getAccountingTier,
@@ -38,11 +39,15 @@ interface Props {
 }
 
 export default function ComptabiliteView({ building, ledger, budgets, recouvrement, kpis, urgentWorks }: Props) {
+  const { i } = useLang();
+  const T = i.syndic.compta;
+  const C = i.syndic.common;
+
   const tier = getAccountingTier(building.annualBudget) as AccountingTier;
   const requiredAnnexes = getRequiredAnnexes(tier);
 
-  const tierLabel = tier === "tier1" ? "≤ 200 000 MAD" : tier === "tier2" ? "200 000 – 500 000 MAD" : "≥ 500 000 MAD";
-  const tierName = tier === "tier1" ? "Petit" : tier === "tier2" ? "Moyen" : "Grand";
+  const tierLabel = T.tiers[`${tier}Label` as keyof typeof T.tiers];
+  const tierName = T.tiers[tier as keyof typeof T.tiers];
 
   // Compute totals
   const totalExpenses = ledger.filter((e: any) => e.type === "out" || e.type === "expense").reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
@@ -79,13 +84,16 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
     })), [ledger, fiscalYear]);
 
   // If no entries match the fiscal year filter, fall back to all entries (for backwards compat)
-  const entriesN = ledgerInputs.length > 0 ? ledgerInputs : useMemo(() => ledger.map((e: any) => ({
-    type: (e.type === "income" ? "in" : e.type === "expense" ? "out" : e.type) as "in" | "out",
-    label: e.label ?? "",
-    amount: Number(e.amount ?? 0),
-    category: e.category ?? "",
-    date: e.entry_date ?? "",
-  })), [ledger]);
+  const entriesN = useMemo(() => {
+    if (ledgerInputs.length > 0) return ledgerInputs;
+    return ledger.map((e: any) => ({
+      type: (e.type === "income" ? "in" : e.type === "expense" ? "out" : e.type) as "in" | "out",
+      label: e.label ?? "",
+      amount: Number(e.amount ?? 0),
+      category: e.category ?? "",
+      date: e.entry_date ?? "",
+    }));
+  }, [ledger, ledgerInputs]);
 
   // Budgets: current, previous, next
   const currentBudget = budgets.find((b) => b.fiscalYear === fiscalYear) ?? budgets[0];
@@ -203,76 +211,76 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
     const required = requiredAnnexes;
     if (tier === "tier3") {
       groups.push({
-        title: "Annexes détaillées (3–10)",
-        subtitle: "Régime Grand — obligatoires pour budget ≥ 500 000 MAD",
+        title: T.groups.detailed,
+        subtitle: T.groups.detailedSub,
         annexes: required.filter((a) => parseInt(a.id) >= 3 && parseInt(a.id) <= 10),
       });
     } else if (tier === "tier2") {
       groups.push({
-        title: "Annexes simplifiées (11–12)",
-        subtitle: "Régime Moyen — obligatoires pour budget 200 000 – 500 000 MAD",
+        title: T.groups.simplified,
+        subtitle: T.groups.simplifiedSub,
         annexes: required.filter((a) => a.id === "11" || a.id === "12"),
       });
       const a10 = required.find((a) => a.id === "10");
       if (a10) {
         groups.push({
-          title: "Suivi des contributions",
-          subtitle: "Obligatoire pour tous les régimes",
+          title: T.groups.contributions,
+          subtitle: T.groups.contributionsSub,
           annexes: [a10],
         });
       }
     } else {
       groups.push({
-        title: "Annexes très simplifiées (13)",
-        subtitle: "Régime Petit — obligatoires pour budget ≤ 200 000 MAD",
+        title: T.groups.verySimplified,
+        subtitle: T.groups.verySimplifiedSub,
         annexes: required.filter((a) => a.id.startsWith("13")),
       });
       const a10 = required.find((a) => a.id === "10");
       if (a10) {
         groups.push({
-          title: "Suivi des contributions",
-          subtitle: "Obligatoire pour tous les régimes",
+          title: T.groups.contributions,
+          subtitle: T.groups.contributionsSub,
           annexes: [a10],
         });
       }
     }
     return groups;
-  }, [tier, requiredAnnexes]);
+  }, [tier, requiredAnnexes, T]);
 
   const exportableCount = requiredAnnexes.filter((a) => canExport(a.id)).length;
 
   return (
     <div>
       <PageHeader
-        title="Comptabilité"
-        subtitle={`Régime ${tierName} · ${tierLabel} · Exercice ${fiscalYear}`}
+        title={T.title}
+        subtitle={`${T.regime} ${tierName} · ${tierLabel} · ${fiscalYear}`}
       />
 
       {/* Tier info banner */}
       <div className="mb-4 flex items-start gap-3 rounded-xl border border-palier-200 bg-palier-50/50 px-4 py-3">
         <Icon name="Scale" className="mt-0.5 h-4 w-4 shrink-0 text-palier-700" />
         <div className="text-[12px]">
-          <p className="font-semibold text-palier-800">Régime comptable : {tierName}</p>
+          <p className="font-semibold text-palier-800">{T.regime} {tierName}</p>
           <p className="mt-0.5 text-palier-700">
-            {requiredAnnexes.length} annexe{requiredAnnexes.length > 1 ? "s" : ""} obligatoire{requiredAnnexes.length > 1 ? "s" : ""} selon le Décret 2.23.700.
-            {tier === "tier3" && " Un commissaire aux comptes est requis au-delà de 1 000 000 MAD."}
+            {T.annexesRequired(requiredAnnexes.length)} selon le Décret 2.23.700.
+            {tier === "tier3" && ` ${T.auditRequired}`}
           </p>
         </div>
       </div>
 
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="Recettes" value={mad(totalIncome, { decimals: false })} />
-        <KpiCard label="Dépenses" value={mad(totalExpenses, { decimals: false })} />
-        <KpiCard label="Solde trésorerie" value={mad(kpis.balance, { decimals: false })} />
-        <KpiCard label="Impayés" value={mad(kpis.outstanding, { decimals: false })} hint={kpis.outstanding > 0 ? "à recouvrer" : "aucun impayé"} />
+        <KpiCard label={T.kpi.receipts} value={mad(totalIncome, { decimals: false })} />
+        <KpiCard label={T.kpi.expenses} value={mad(totalExpenses, { decimals: false })} />
+        <KpiCard label={T.kpi.treasuryBalance} value={mad(kpis.balance, { decimals: false })} />
+        <KpiCard label={T.kpi.outstanding} value={mad(kpis.outstanding, { decimals: false })} hint={T.outstandingHint(kpis.outstanding)} />
       </div>
 
       {/* Annexes header */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[15px] font-semibold text-ink">Annexes légales</h2>
-        <span className="rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-bold text-palier-700">
-          {exportableCount}/{requiredAnnexes.length} prêtes
+        <h2 className="text-[15px] font-semibold text-ink">{T.annexesTitle}</h2>
+        <span className="rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-bold text-palier-700" dir="ltr">
+          {exportableCount}/{requiredAnnexes.length} {T.ready}
         </span>
       </div>
 
@@ -280,9 +288,9 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
       <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-palier-200 bg-palier-50/50 px-4 py-3">
         <Icon name="Lightbulb" className="mt-0.5 h-4 w-4 shrink-0 text-palier-700" />
         <div className="text-[12px] text-palier-800">
-          <p className="font-semibold">Comment ça marche ?</p>
+          <p className="font-semibold">{T.howItWorks}</p>
           <p className="mt-0.5 text-palier-700">
-            Ces documents sont exigés par le Décret 2.23.700 et générés automatiquement à partir de vos données (Transparence, Budget, Recouvrement). Téléchargez-les en PDF pour les présenter lors de l&apos;assemblée générale.
+            {T.howItWorksDesc}
           </p>
         </div>
       </div>
@@ -313,11 +321,11 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
                             className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-palier-200 bg-palier-50 px-3 py-1.5 text-[11px] font-semibold text-palier-700 transition-colors hover:bg-palier-100"
                           >
                             <Icon name="Download" className="h-3.5 w-3.5" />
-                            Télécharger PDF
+                            {T.download}
                           </button>
                         )}
                         {!exportable && (
-                          <p className="mt-1.5 text-[11px] text-amber-600">Pas de données disponibles</p>
+                          <p className="mt-1.5 text-[11px] text-amber-600">{T.noData}</p>
                         )}
                       </div>
                     </div>
@@ -332,8 +340,8 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
         {tier === "tier3" && entriesN.length > 0 && (
           <div>
             <div className="mb-2">
-              <h3 className="text-[14px] font-semibold text-ink">Export auditeur</h3>
-              <p className="text-[12px] text-ink-soft">Pour transmission au commissaire aux comptes</p>
+              <h3 className="text-[14px] font-semibold text-ink">{T.auditor.title}</h3>
+              <p className="text-[12px] text-ink-soft">{T.auditor.subtitle}</p>
             </div>
             <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/30 p-4 shadow-card">
               <div className="flex items-start gap-3">
@@ -341,8 +349,8 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
                   CSV
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-ink">Export complet du journal</p>
-                  <p className="mt-0.5 text-[12px] text-ink-soft">Toutes les écritures comptables en format CSV</p>
+                  <p className="text-[13px] font-semibold text-ink">{T.auditor.title}</p>
+                  <p className="mt-0.5 text-[12px] text-ink-soft">{T.auditor.desc}</p>
                   <button
                     onClick={() => {
                       const csv = prepareA13CSV(entriesN, building.name, fiscalYear);
@@ -357,7 +365,7 @@ export default function ComptabiliteView({ building, ledger, budgets, recouvreme
                     className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100"
                   >
                     <Icon name="FileSpreadsheet" className="h-3.5 w-3.5" />
-                    Exporter CSV
+                    {T.auditor.export}
                   </button>
                 </div>
               </div>

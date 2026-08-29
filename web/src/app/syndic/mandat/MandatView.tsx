@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, mad } from "@/lib/format";
 import { createMandate, updateMandate, deleteMandate, uploadFileAction } from "@/lib/actions";
+import { useLang } from "@/lib/LangProvider";
 import type { SyndicMandate } from "@/lib/types";
 
 function daysUntil(iso: string): number {
@@ -27,6 +28,10 @@ function mandateProgress(electedAt: string, mandateEnd: string): number {
 }
 
 export function MandatView({ mandate: initialMandate, buildingId }: { mandate: SyndicMandate | null; buildingId: string }) {
+  const { i, lang } = useLang();
+  const T = i.syndic.mandat;
+  const C = i.syndic.common;
+
   const [mandate, setMandate] = useState<SyndicMandate | null>(initialMandate);
   const [toast, setToast] = useState<string | null>(null);
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
@@ -124,7 +129,7 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
       setMandate(updated);
       setShowForm(false);
     } catch {
-      flash("Erreur lors de l'enregistrement");
+      flash(T.errors.saveError);
     } finally {
       setSaving(false);
     }
@@ -145,9 +150,9 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
 
   function statusBadge() {
     if (!mandate) return null;
-    if (daysRemaining < 0) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">Mandat expiré</span>;
-    if (daysRemaining <= 90) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Expire dans {daysRemaining} j</span>;
-    return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Actif · {daysRemaining} j restants</span>;
+    if (daysRemaining < 0) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">{T.status.expired}</span>;
+    if (daysRemaining <= 90) return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{T.status.expiresIn} <span dir="ltr">{daysRemaining}</span> {C.days}</span>;
+    return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{T.status.active} · <span dir="ltr">{daysRemaining}</span> {C.days}</span>;
   }
 
   const inputCls = "h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20";
@@ -155,11 +160,11 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
   return (
     <div>
       <PageHeader
-        title="Mandat du syndic"
-        subtitle={mandate ? `${mandate.syndicName} · ${mandate.syndicType === "professionnel" ? "Professionnel" : "Bénévole"}` : "Aucun mandat enregistré"}
+        title={T.title}
+        subtitle={mandate ? `${mandate.syndicName} · ${mandate.syndicType === "professionnel" ? T.card.professional : T.card.volunteer}` : T.noMandate}
         action={
           <button onClick={openForm} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
-            <Icon name={mandate ? "Pencil" : "Plus"} className="h-3.5 w-3.5" /> {mandate ? "Modifier" : "Enregistrer un mandat"}
+            <Icon name={mandate ? "Pencil" : "Plus"} className="h-3.5 w-3.5" /> {mandate ? C.modify : T.registerBtn}
           </button>
         }
       />
@@ -168,13 +173,13 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
       <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Art. 19 Loi 18-00 — Le mandat du syndic est de 2 ans, renouvelable par vote AG à la majorité des 3/4.
+          {T.legalInfo}
         </p>
       </div>
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">
         <Icon name="Users" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-600" />
         <p className="text-[12px] text-palier-800">
-          Les informations du mandat sont visibles par les résidents dans leur section <strong>Immeuble</strong>.
+          {T.residentsInfo}
         </p>
       </div>
 
@@ -190,8 +195,8 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
                 <div>
                   <h2 className="text-[16px] font-semibold text-ink">{mandate.syndicName}</h2>
                   <p className="mt-0.5 text-[12px] text-ink-soft">
-                    {mandate.syndicType === "professionnel" ? "Syndic professionnel" : "Syndic bénévole"}
-                    {mandate.deputyName && ` · Adjoint : ${mandate.deputyName}`}
+                    {mandate.syndicType === "professionnel" ? T.card.professional : T.card.volunteer}
+                    {mandate.deputyName && ` · ${T.card.deputy} ${mandate.deputyName}`}
                   </p>
                 </div>
               </div>
@@ -201,21 +206,21 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             {/* Details grid */}
             <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
               <div>
-                <p className="text-[11px] font-semibold text-ink-soft">Date d&apos;élection</p>
-                <p className="mt-0.5 text-[13px] font-medium text-ink">{longDate(mandate.electedAt)}</p>
+                <p className="text-[11px] font-semibold text-ink-soft">{T.card.electedDate}</p>
+                <p className="mt-0.5 text-[13px] font-medium text-ink" dir="ltr">{longDate(mandate.electedAt, lang)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-ink-soft">Fin du mandat</p>
-                <p className="mt-0.5 text-[13px] font-medium text-ink">{longDate(mandate.mandateEnd)}</p>
+                <p className="text-[11px] font-semibold text-ink-soft">{T.card.mandateEnd}</p>
+                <p className="mt-0.5 text-[13px] font-medium text-ink" dir="ltr">{longDate(mandate.mandateEnd, lang)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-ink-soft">Jours restants</p>
-                <p className="mt-0.5 text-[13px] font-medium text-ink">{daysRemaining > 0 ? daysRemaining : 0}</p>
+                <p className="text-[11px] font-semibold text-ink-soft">{T.card.daysRemaining}</p>
+                <p className="mt-0.5 text-[13px] font-medium text-ink" dir="ltr">{daysRemaining > 0 ? daysRemaining : 0}</p>
               </div>
               {mandate.remuneration !== undefined && mandate.remuneration !== null && (
                 <div>
-                  <p className="text-[11px] font-semibold text-ink-soft">Rémunération</p>
-                  <p className="mt-0.5 text-[13px] font-medium text-ink">{mad(mandate.remuneration)}/an</p>
+                  <p className="text-[11px] font-semibold text-ink-soft">{T.card.remuneration}</p>
+                  <p className="mt-0.5 text-[13px] font-medium text-ink" dir="ltr">{mad(mandate.remuneration)}{T.card.perYear}</p>
                 </div>
               )}
             </div>
@@ -223,8 +228,8 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             {/* Progress bar */}
             <div>
               <div className="mb-1.5 flex items-center justify-between text-[11px] text-ink-soft">
-                <span>Durée écoulée</span>
-                <span className="font-semibold">{progress}%</span>
+                <span>{T.card.progress}</span>
+                <span className="font-semibold" dir="ltr">{progress}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-sand/50">
                 <div
@@ -237,9 +242,9 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             {/* Contract link */}
             {mandate.contractUrl && (
               <div className="mt-4">
-                <a href={mandate.contractUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[12px] font-medium text-palier-600 hover:bg-sand/50">
+                <a href={mandate.contractUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[12px] font-medium text-palier-600 hover:bg-sand/50">
                   <Icon name="FileText" className="h-4 w-4" />
-                  Voir le contrat
+                  {T.card.viewContract}
                   <Icon name="ExternalLink" className="h-3 w-3" />
                 </a>
               </div>
@@ -248,10 +253,10 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             {/* Actions */}
             <div className="mt-4 flex gap-2">
               <button onClick={openForm} className="rounded-lg border border-black/[0.08] px-3.5 py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                Modifier
+                {C.modify}
               </button>
               <button onClick={() => setShowDelete(true)} className="rounded-lg border border-red-200 px-3.5 py-2 text-[13px] font-medium text-red-600 hover:bg-red-50">
-                Supprimer
+                {C.delete}
               </button>
             </div>
           </div>
@@ -262,11 +267,11 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-palier-50">
             <Icon name="UserCheck" className="h-7 w-7 text-palier-400" />
           </span>
-          <p className="mt-3 text-[14px] font-semibold text-ink">Aucun mandat configuré</p>
-          <p className="mx-auto mt-1 max-w-xs text-[13px] text-ink-soft">Ajoutez les informations du mandat syndic pour suivre sa durée et son renouvellement.</p>
+          <p className="mt-3 text-[14px] font-semibold text-ink">{T.empty.title}</p>
+          <p className="mx-auto mt-1 max-w-xs text-[13px] text-ink-soft">{T.empty.desc}</p>
           <button onClick={openForm} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
             <Icon name="Plus" className="h-3.5 w-3.5" />
-            Enregistrer le mandat du syndic
+            {T.empty.btn}
           </button>
         </div>
       )}
@@ -281,8 +286,8 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
                   <Icon name="UserCheck" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">{mandate ? "Modifier le mandat" : "Enregistrer un mandat"}</h2>
-                  <p className="text-[12px] text-ink-soft">Informations du syndic en exercice</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{mandate ? T.form.editTitle : T.form.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.form.syndicInfo}</p>
                 </div>
               </div>
               <button onClick={() => { setShowForm(false); resetForm(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -291,41 +296,41 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Nom du syndic *</label>
-                <input type="text" required value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Nom complet" className={inputCls} />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.syndicName}</label>
+                <input type="text" required value={fName} onChange={(e) => setFName(e.target.value)} placeholder={T.form.syndicNamePlaceholder} className={inputCls} />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Type de syndic</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.syndicType}</label>
                 <select value={fType} onChange={(e) => setFType(e.target.value as "benevole" | "professionnel")} className={inputCls}>
-                  <option value="benevole">Bénévole</option>
-                  <option value="professionnel">Professionnel</option>
+                  <option value="benevole">{T.form.volunteer}</option>
+                  <option value="professionnel">{T.form.professional}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Adjoint du syndic</label>
-                <input type="text" value={fDeputy} onChange={(e) => setFDeputy(e.target.value)} placeholder="Nom de l'adjoint (optionnel)" className={inputCls} />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.deputyName}</label>
+                <input type="text" value={fDeputy} onChange={(e) => setFDeputy(e.target.value)} placeholder={T.form.deputyPlaceholder} className={inputCls} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date d&apos;élection *</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.electedDate}</label>
                   <input type="date" required value={fElectedAt} onChange={(e) => handleElectedAtChange(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Fin du mandat</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.mandateEnd}</label>
                   <input type="date" value={fMandateEnd} onChange={(e) => setFMandateEnd(e.target.value)} className={inputCls} />
-                  <p className="mt-0.5 text-[10px] text-ink-faint">Auto-calculé : élection + 2 ans</p>
+                  <p className="mt-0.5 text-[10px] text-ink-faint">{T.form.mandateEndHint}</p>
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Rémunération annuelle (MAD)</label>
-                <input type="number" min="0" step="0.01" value={fRemuneration} onChange={(e) => setFRemuneration(e.target.value)} placeholder="0 si bénévole" className={inputCls} />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.remuneration}</label>
+                <input type="number" min="0" step="0.01" value={fRemuneration} onChange={(e) => setFRemuneration(e.target.value)} placeholder={T.form.remunerationPlaceholder} className={inputCls} />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Contrat (PDF ou image)</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.form.contract}</label>
                 {fContractUrl && !contractFile && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2">
                     <Icon name="FileText" className="h-4 w-4 text-palier-600" />
-                    <a href={fContractUrl} target="_blank" rel="noopener" className="flex-1 truncate text-[12px] font-medium text-palier-600 hover:underline">Voir le contrat actuel</a>
+                    <a href={fContractUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[12px] font-medium text-palier-600 hover:underline">{T.form.currentContract}</a>
                     <button type="button" onClick={() => setFContractUrl("")} className="text-ink-faint hover:text-red-500"><Icon name="X" className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
@@ -336,11 +341,11 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
                   className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50"
                 >
                   <Icon name="Upload" className="h-3.5 w-3.5" />
-                  {contractFile ? contractFile.name : "Importer un fichier"}
+                  {contractFile ? contractFile.name : C.importFile}
                 </button>
               </div>
               <button type="submit" disabled={saving} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
-                {saving ? "Enregistrement…" : mandate ? "Mettre à jour" : "Enregistrer"}
+                {saving ? C.loading : mandate ? C.update : C.save}
               </button>
             </form>
           </div>
@@ -355,17 +360,17 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="Trash2" className="h-4 w-4 text-red-600" />
               </div>
-              <h2 className="text-[15px] font-semibold text-ink">Supprimer ce mandat ?</h2>
+              <h2 className="text-[15px] font-semibold text-ink">{T.deleteConfirm.title}</h2>
             </div>
             <p className="mb-4 text-[13px] text-ink-soft">
-              Le mandat de « {mandate.syndicName} » sera définitivement supprimé. Cette action est irréversible.
+              {mandate.syndicName} — {T.deleteConfirm.msg}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setShowDelete(false)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-                Annuler
+                {C.cancel}
               </button>
               <button onClick={handleDelete} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white hover:bg-red-700">
-                Supprimer
+                {C.delete}
               </button>
             </div>
           </div>

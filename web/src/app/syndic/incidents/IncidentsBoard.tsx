@@ -6,6 +6,7 @@ import type { IncidentComment } from "@/lib/types";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 
 /* ── Types ── */
 
@@ -25,13 +26,9 @@ type Inc = {
 
 /* ── Constants ── */
 
-const catLabels: Record<string, string> = {
-  ascenseur: "Ascenseur", fuite: "Fuite d'eau", electricite: "Électricité", securite: "Sécurité",
-  proprete: "Propreté", nuisibles: "Nuisibles", nuisance: "Nuisance sonore", parking: "Parking",
-  communes: "Parties communes", jardinier: "Jardin", autre: "Autre",
-};
+// catLabels is built inside the component using i18n keys (i.signaler.cats)
 
-const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", urgent: "Urgent", high: "Urgent" };
+// urgencyLabels is built inside the component using i18n keys
 const urgencyColors: Record<string, { bg: string; text: string; dot: string }> = {
   low: { bg: "bg-slate-50", text: "text-slate-600", dot: "bg-slate-400" },
   normal: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
@@ -39,19 +36,29 @@ const urgencyColors: Record<string, { bg: string; text: string; dot: string }> =
   high: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
 };
 
-const statusTabs: { key: "all" | "open" | "in_progress" | "resolved"; label: string }[] = [
-  { key: "all", label: "Tous" },
-  { key: "open", label: "Ouverts" },
-  { key: "in_progress", label: "En cours" },
-  { key: "resolved", label: "Résolus" },
-];
+// statusTabs labels are set inside the component using i18n
 
-const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
 /* ── Main ── */
 
 export function IncidentsBoard({ incidents, openCount, customCategories }: { incidents: Inc[]; openCount: number; customCategories?: string[] | null }) {
+  const { i, lang } = useLang();
+  const T = i.syndic.incidents;
+  const C = i.syndic.common;
+  const TP = i.syndic.transparence;
+  const MONTHS = i.months;
+
+  const urgencyLabels: Record<string, string> = { low: T.urgency.low, normal: T.urgency.normal, urgent: T.urgency.urgent, high: T.urgency.urgent };
+  const catLabels: Record<string, string> = i.signaler.cats as Record<string, string>;
+
+  const statusTabs: { key: "all" | "open" | "in_progress" | "resolved"; label: string }[] = [
+    { key: "all", label: T.tabs.all },
+    { key: "open", label: T.tabs.open },
+    { key: "in_progress", label: T.tabs.inProgress },
+    { key: "resolved", label: T.tabs.resolved },
+  ];
+
   const [localIncidents, setLocalIncidents] = useState(incidents);
   useEffect(() => { setLocalIncidents(incidents); }, [incidents]);
 
@@ -76,51 +83,51 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
   const updateLocal = useCallback((id: string, patch: Partial<Inc>) => {
-    setLocalIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    setLocalIncidents((prev) => prev.map((inc) => (inc.id === id ? { ...inc, ...patch } : inc)));
     setSelected((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
   }, []);
 
   const handleResolve = useCallback(async (id: string) => {
     updateLocal(id, { status: "resolved" });
-    flash("Incident marqué comme résolu");
+    flash(T.detail.resolved);
     try { await resolveIncident(id); }
-    catch { flash("Erreur lors de la mise à jour"); }
-  }, [flash, updateLocal]);
+    catch { flash(C.error); }
+  }, [flash, updateLocal, T.detail.resolved, C.error]);
   const handleInProgress = useCallback(async (id: string) => {
     updateLocal(id, { status: "in_progress" });
-    flash("Incident marqué en cours");
+    flash(T.actions.inProgress);
     try { await markIncidentInProgress(id); }
-    catch { flash("Erreur lors de la mise à jour"); }
-  }, [flash, updateLocal]);
+    catch { flash(C.error); }
+  }, [flash, updateLocal, T.actions.inProgress, C.error]);
   const handleReopen = useCallback(async (id: string) => {
     updateLocal(id, { status: "open" });
-    flash("Incident réouvert");
+    flash(T.actions.reopen);
     try { await reopenIncident(id); }
-    catch { flash("Erreur lors de la réouverture"); }
-  }, [flash, updateLocal]);
+    catch { flash(C.error); }
+  }, [flash, updateLocal, T.actions.reopen, C.error]);
   const handleUrgencyChange = useCallback(async (id: string, urgency: "low" | "normal" | "urgent") => {
     updateLocal(id, { urgency });
-    flash("Urgence mise à jour");
+    flash(C.update);
     try { await updateIncidentUrgency(id, urgency); }
-    catch { flash("Erreur lors de la mise à jour"); }
-  }, [flash, updateLocal]);
+    catch { flash(C.error); }
+  }, [flash, updateLocal, C.update, C.error]);
 
   // Years present in data
   const years = useMemo(() => {
-    return [...new Set(localIncidents.map((i) => new Date(i.created_at).getFullYear().toString()))].sort().reverse();
+    return [...new Set(localIncidents.map((inc) => new Date(inc.created_at).getFullYear().toString()))].sort().reverse();
   }, [localIncidents]);
 
   const customLabel = periodFilter === "custom"
-    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
-    : "Période";
+    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || TP.periods.custom
+    : TP.periods.custom;
 
   // Period-filtered (for KPIs)
   const periodFiltered = useMemo(() => {
     const now = new Date();
     let rows = [...localIncidents];
     if (periodFilter === "custom") {
-      rows = rows.filter((i) => {
-        const d = new Date(i.created_at);
+      rows = rows.filter((inc) => {
+        const d = new Date(inc.created_at);
         const matchYear = !periodYear || d.getFullYear().toString() === periodYear;
         const matchMonth = !periodMonth || d.getMonth().toString() === periodMonth;
         return matchYear && matchMonth;
@@ -130,16 +137,16 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
       if (periodFilter === "mois") ago.setMonth(ago.getMonth() - 1);
       else if (periodFilter === "3mois") ago.setMonth(ago.getMonth() - 3);
       else ago.setMonth(ago.getMonth() - 6);
-      rows = rows.filter((i) => new Date(i.created_at) >= ago);
+      rows = rows.filter((inc) => new Date(inc.created_at) >= ago);
     }
     return rows;
   }, [localIncidents, periodFilter, periodMonth, periodYear]);
 
   // KPIs (follow period)
-  const openInc = periodFiltered.filter((i) => i.status === "open").length;
-  const inProgressInc = periodFiltered.filter((i) => i.status === "in_progress").length;
-  const resolvedInc = periodFiltered.filter((i) => i.status === "resolved").length;
-  const urgentOpen = periodFiltered.filter((i) => i.status !== "resolved" && (i.urgency === "urgent" || i.urgency === "high")).length;
+  const openInc = periodFiltered.filter((inc) => inc.status === "open").length;
+  const inProgressInc = periodFiltered.filter((inc) => inc.status === "in_progress").length;
+  const resolvedInc = periodFiltered.filter((inc) => inc.status === "resolved").length;
+  const urgentOpen = periodFiltered.filter((inc) => inc.status !== "resolved" && (inc.urgency === "urgent" || inc.urgency === "high")).length;
 
   // Merge default + custom category labels
   const allCatLabels = useMemo(() => {
@@ -150,25 +157,25 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
       }
     }
     return merged;
-  }, [customCategories]);
+  }, [customCategories, catLabels]);
 
   // Categories present in data
   const usedCategories = useMemo(() => {
-    const cats = new Set(localIncidents.map((i) => i.category).filter(Boolean));
+    const cats = new Set(localIncidents.map((inc) => inc.category).filter(Boolean));
     return [...cats].sort();
   }, [localIncidents]);
 
   // Full filtering (period + status + urgency + category + search)
   const filtered = useMemo(() => {
     let rows = [...periodFiltered];
-    if (statusFilter === "open") rows = rows.filter((i) => i.status === "open");
-    else if (statusFilter === "in_progress") rows = rows.filter((i) => i.status === "in_progress");
-    else if (statusFilter === "resolved") rows = rows.filter((i) => i.status === "resolved");
-    if (urgencyFilter !== "all") rows = rows.filter((i) => i.urgency === urgencyFilter);
-    if (catFilter !== "all") rows = rows.filter((i) => i.category === catFilter);
+    if (statusFilter === "open") rows = rows.filter((inc) => inc.status === "open");
+    else if (statusFilter === "in_progress") rows = rows.filter((inc) => inc.status === "in_progress");
+    else if (statusFilter === "resolved") rows = rows.filter((inc) => inc.status === "resolved");
+    if (urgencyFilter !== "all") rows = rows.filter((inc) => inc.urgency === urgencyFilter);
+    if (catFilter !== "all") rows = rows.filter((inc) => inc.category === catFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      rows = rows.filter((i) => i.title.toLowerCase().includes(q) || i.details?.toLowerCase().includes(q) || i.reporter_name?.toLowerCase().includes(q));
+      rows = rows.filter((inc) => inc.title.toLowerCase().includes(q) || inc.details?.toLowerCase().includes(q) || inc.reporter_name?.toLowerCase().includes(q));
     }
     return rows.sort((a, b) => {
       const statusOrder: Record<string, number> = { open: 0, in_progress: 1, resolved: 2 };
@@ -190,26 +197,26 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
   function resetFilters() { setStatusFilter("all"); setUrgencyFilter("all"); setCatFilter("all"); setSearch(""); setPeriodFilter("tout"); setPeriodMonth(""); setPeriodYear(""); setPage(0); }
 
   function exportCSV() {
-    const header = "Date,Titre,Catégorie,Urgence,Statut,Signalé par";
-    const csvRows = filtered.map((i) =>
-      `${i.created_at.split("T")[0]},"${i.title.replace(/"/g, '""')}",${allCatLabels[i.category] ?? i.category},${urgencyLabels[i.urgency] ?? i.urgency},${i.status === "resolved" ? "Résolu" : i.status === "in_progress" ? "En cours" : "Ouvert"},"${(i.reporter_name ?? "").replace(/"/g, '""')}"`
+    const header = `${T.table.date},${T.table.incident},${T.allCategories},${T.allUrgencies},${T.table.status},${T.table.reportedBy}`;
+    const csvRows = filtered.map((inc) =>
+      `${inc.created_at.split("T")[0]},"${inc.title.replace(/"/g, '""')}",${allCatLabels[inc.category] ?? inc.category},${urgencyLabels[inc.urgency] ?? inc.urgency},${inc.status === "resolved" ? T.actions.resolve : inc.status === "in_progress" ? T.actions.inProgress : T.tabs.open},"${(inc.reporter_name ?? "").replace(/"/g, '""')}"`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `palier-incidents-${new Date().toISOString().split("T")[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
-    flash("Export CSV téléchargé");
+    flash(TP.csv.downloaded);
   }
 
   return (
     <div>
       <PageHeader
-        title="Incidents"
-        subtitle={`${localIncidents.length} signalements · ${localIncidents.filter((i) => i.status !== "resolved").length} non résolus`}
+        title={T.title}
+        subtitle={`${localIncidents.length} ${T.title.toLowerCase()} · ${localIncidents.filter((inc) => inc.status !== "resolved").length} ${T.tabs.open.toLowerCase()}`}
         action={
           <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
-            <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+            <Icon name="Download" className="h-3.5 w-3.5" /> {C.export}
           </button>
         }
       />
@@ -217,13 +224,13 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Les résidents signalent les incidents depuis leur application. Lorsque vous résolvez un incident ici, le statut est mis à jour dans l&apos;application du résident.
+          {T.info}
         </p>
       </div>
 
       {/* Period filters */}
       <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-        {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
+        {([["tout", TP.periods.all], ["mois", TP.periods.month], ["3mois", TP.periods.threeMonths], ["6mois", TP.periods.sixMonths]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
@@ -246,20 +253,20 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
       {/* KPI Cards */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Ouverts</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{openInc}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.open}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{openInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">En cours</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{inProgressInc}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.inProgress}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{inProgressInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Résolus</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{resolvedInc}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.resolved}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{resolvedInc}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Urgents</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{urgentOpen}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.urgent}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{urgentOpen}</p>
         </div>
       </div>
 
@@ -268,7 +275,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
         {statusTabs.map((tab) => {
           const count = tab.key === "all"
             ? periodFiltered.length
-            : periodFiltered.filter((i) => i.status === tab.key).length;
+            : periodFiltered.filter((inc) => inc.status === tab.key).length;
           return (
             <button
               key={tab.key}
@@ -276,7 +283,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
               className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
             >
               {tab.label}
-              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{count}</span>
+              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`} dir="ltr">{count}</span>
               {statusFilter === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
             </button>
           );
@@ -290,7 +297,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher…"
+            placeholder={C.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -305,10 +312,10 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
             onChange={(e) => { setUrgencyFilter(e.target.value); setPage(0); }}
             className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
           >
-            <option value="all">Toutes urgences</option>
-            <option value="urgent">Urgent</option>
-            <option value="normal">Normal</option>
-            <option value="low">Faible</option>
+            <option value="all">{T.allUrgencies}</option>
+            <option value="urgent">{T.urgency.urgent}</option>
+            <option value="normal">{T.urgency.normal}</option>
+            <option value="low">{T.urgency.low}</option>
           </select>
           {usedCategories.length > 1 && (
             <select
@@ -316,7 +323,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
               onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
               className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
-              <option value="all">Toutes catégories</option>
+              <option value="all">{T.allCategories}</option>
               {usedCategories.map((c) => <option key={c} value={c}>{allCatLabels[c] ?? c}</option>)}
             </select>
           )}
@@ -328,9 +335,9 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Search" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">Aucun incident trouvé</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{T.noIncidents}</p>
             <button onClick={resetFilters} className="mt-1 text-[13px] font-medium text-palier-600">
-              Réinitialiser les filtres
+              {C.resetFilters}
             </button>
           </div>
         ) : (
@@ -339,11 +346,11 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
             <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="w-[35%] px-4 py-2.5">Incident</th>
-                  <th className="w-[13%] px-4 py-2.5">Statut</th>
-                  <th className="w-[14%] px-4 py-2.5">Signalé par</th>
-                  <th className="w-[10%] px-4 py-2.5">Date</th>
-                  <th className="w-[28%] px-4 py-2.5 text-right">Actions</th>
+                  <th className="w-[35%] px-4 py-2.5">{T.table.incident}</th>
+                  <th className="w-[13%] px-4 py-2.5">{T.table.status}</th>
+                  <th className="w-[14%] px-4 py-2.5">{T.table.reportedBy}</th>
+                  <th className="w-[10%] px-4 py-2.5">{T.table.date}</th>
+                  <th className="w-[28%] px-4 py-2.5 text-right">{T.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -361,11 +368,11 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                       <td className="px-4 py-2.5">
                         {isResolved ? (
                           <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                            <Icon name="Check" className="h-3 w-3" />Résolu
+                            <Icon name="Check" className="h-3 w-3" />{T.actions.resolve}
                           </span>
                         ) : inc.status === "in_progress" ? (
                           <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                            <Icon name="Clock" className="h-3 w-3" />En cours
+                            <Icon name="Clock" className="h-3 w-3" />{T.actions.inProgress}
                           </span>
                         ) : (
                           <span className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
@@ -374,11 +381,11 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-[12px] text-ink-soft">{inc.reporter_name}</td>
-                      <td className="px-4 py-2.5 text-[12px] text-ink-soft">{shortDate(inc.created_at)}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-ink-soft" dir="ltr">{shortDate(inc.created_at, lang)}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1.5">
                           <button onClick={() => setSelected(inc)} className="rounded-md px-2 py-1 text-[11px] font-semibold text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
-                            Détails
+                            {T.actions.details}
                           </button>
                           {inc.status === "open" && (
                             <InProgressBtn id={inc.id} onInProgress={handleInProgress} />
@@ -411,11 +418,11 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                       </button>
                       {isResolved ? (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                          <Icon name="Check" className="h-3 w-3" />Résolu
+                          <Icon name="Check" className="h-3 w-3" />{T.actions.resolve}
                         </span>
                       ) : inc.status === "in_progress" ? (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          <Icon name="Clock" className="h-3 w-3" />En cours
+                          <Icon name="Clock" className="h-3 w-3" />{T.actions.inProgress}
                         </span>
                       ) : (
                         <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${urg.bg} ${urg.text}`}>
@@ -425,7 +432,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                     </div>
                     <div className="flex items-center gap-3 text-[12px] text-ink-soft">
                       <span>{inc.reporter_name}</span>
-                      <span>{shortDate(inc.created_at)}</span>
+                      <span dir="ltr">{shortDate(inc.created_at, lang)}</span>
                     </div>
                     {!isResolved ? (
                       <div className="mt-2.5 flex items-center gap-1.5">
@@ -444,15 +451,15 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
 
             {/* Pagination */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
-              <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+              <span dir="ltr">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} / {filtered.length}</span>
               {pages > 1 && (
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
-                  {Array.from({ length: pages }, (_, i) => (
-                    <button key={i} onClick={() => setPage(i)} className={`rounded-md px-2 py-1 font-medium ${i === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
-                      {i + 1}
+                  {Array.from({ length: pages }, (_, idx) => (
+                    <button key={idx} onClick={() => setPage(idx)} className={`rounded-md px-2 py-1 font-medium ${idx === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
+                      <span dir="ltr">{idx + 1}</span>
                     </button>
                   ))}
                   <button onClick={() => setPage(Math.min(pages - 1, safePage + 1))} disabled={safePage >= pages - 1} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -486,8 +493,8 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                 <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Filtrer par période</h2>
-                <p className="text-[12px] text-ink-soft">Sélectionnez un mois et/ou une année</p>
+                <h2 className="text-[16px] font-semibold text-ink">{TP.customPeriod.title}</h2>
+                <p className="text-[12px] text-ink-soft">{TP.customPeriod.month} / {TP.customPeriod.year}</p>
               </div>
             </div>
             <button onClick={() => setPeriodOpen(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -497,7 +504,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
 
           <div className="space-y-4">
             <div>
-              <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
+              <p className="mb-2 text-[12px] font-semibold text-ink">{TP.customPeriod.month}</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {MONTHS.map((m, idx) => (
                   <button
@@ -513,7 +520,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
 
             {years.length > 0 && (
               <div>
-                <p className="mb-2 text-[12px] font-semibold text-ink">Année</p>
+                <p className="mb-2 text-[12px] font-semibold text-ink">{TP.customPeriod.year}</p>
                 <div className="flex flex-wrap gap-2">
                   {years.map((y) => (
                     <button
@@ -533,13 +540,13 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
                 onClick={() => { setPeriodMonth(""); setPeriodYear(""); setPeriodFilter("tout"); setPeriodOpen(false); setPage(0); }}
                 className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
               >
-                Réinitialiser
+                {TP.customPeriod.reset}
               </button>
               <button
                 onClick={() => { setPeriodFilter("custom"); setPeriodOpen(false); setPage(0); }}
                 className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"
               >
-                Appliquer
+                {TP.customPeriod.apply}
               </button>
             </div>
           </div>
@@ -555,6 +562,7 @@ export function IncidentsBoard({ incidents, openCount, customCategories }: { inc
 /* ── Sub-components ── */
 
 function InProgressBtn({ id, onInProgress }: { id: string; onInProgress: (id: string) => void }) {
+  const { i } = useLang();
   const [pending, start] = useTransition();
   return (
     <button
@@ -562,12 +570,13 @@ function InProgressBtn({ id, onInProgress }: { id: string; onInProgress: (id: st
       onClick={() => start(() => onInProgress(id))}
       className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
     >
-      {pending ? "…" : "En cours"}
+      {pending ? "…" : i.syndic.incidents.actions.inProgress}
     </button>
   );
 }
 
 function ResolveBtn({ id, onResolve }: { id: string; onResolve: (id: string) => void }) {
+  const { i } = useLang();
   const [pending, start] = useTransition();
   return (
     <button
@@ -575,12 +584,13 @@ function ResolveBtn({ id, onResolve }: { id: string; onResolve: (id: string) => 
       onClick={() => start(() => onResolve(id))}
       className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
     >
-      {pending ? "…" : "Résolu"}
+      {pending ? "…" : i.syndic.incidents.actions.resolve}
     </button>
   );
 }
 
 function ReopenBtn({ id, onReopen }: { id: string; onReopen: (id: string) => void }) {
+  const { i } = useLang();
   const [pending, start] = useTransition();
   return (
     <button
@@ -588,7 +598,7 @@ function ReopenBtn({ id, onReopen }: { id: string; onReopen: (id: string) => voi
       onClick={() => start(() => onReopen(id))}
       className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
     >
-      {pending ? "…" : "Réouvrir"}
+      {pending ? "…" : i.syndic.incidents.actions.reopen}
     </button>
   );
 }
@@ -606,6 +616,10 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
 function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onUrgencyChange }: {
   incident: Inc; onClose: () => void; onResolve: (id: string) => void; onInProgress: (id: string) => void; onReopen: (id: string) => void; onUrgencyChange: (id: string, urgency: "low" | "normal" | "urgent") => void;
 }) {
+  const { i, lang } = useLang();
+  const T = i.syndic.incidents;
+  const urgencyLabels: Record<string, string> = { low: T.urgency.low, normal: T.urgency.normal, urgent: T.urgency.urgent, high: T.urgency.urgent };
+  const catLabels: Record<string, string> = i.signaler.cats as Record<string, string>;
   const [rp, startR] = useTransition();
   const [ip, startI] = useTransition();
   const [ro, startRo] = useTransition();
@@ -668,57 +682,53 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
             onChange={(e) => startUrg(() => onUrgencyChange(incident.id, e.target.value as "low" | "normal" | "urgent"))}
             className={`rounded-md border-0 px-2 py-0.5 text-[11px] font-semibold outline-none ${urg.bg} ${urg.text} disabled:opacity-50`}
           >
-            <option value="low">Faible</option>
-            <option value="normal">Normal</option>
-            <option value="urgent">Urgent</option>
+            <option value="low">{T.urgency.low}</option>
+            <option value="normal">{T.urgency.normal}</option>
+            <option value="urgent">{T.urgency.urgent}</option>
           </select>
         )}
-        {isResolved && <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Résolu</span>}
-        {isInProgress && <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"><Icon name="Clock" className="h-3 w-3" />En cours</span>}
+        {isResolved && <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{T.actions.resolve}</span>}
+        {isInProgress && <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"><Icon name="Clock" className="h-3 w-3" />{T.actions.inProgress}</span>}
       </div>
 
       {/* Details */}
       <div className="space-y-3">
         <div className="rounded-xl border border-black/10 bg-white p-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">Description</p>
-          <p className="text-[13px] leading-relaxed text-ink">{incident.details || "Aucun détail fourni."}</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.detail.description}</p>
+          <p className="text-[13px] leading-relaxed text-ink">{incident.details || T.detail.noDetails}</p>
         </div>
 
         {/* Photo */}
         {incident.image_url && (
           <div>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">Photo</p>
-            <img
-              src={incident.image_url}
-              alt="Photo de l'incident"
-              className="w-full cursor-pointer rounded-xl object-cover"
-              style={{ maxHeight: 240 }}
-              onClick={() => window.open(incident.image_url!, "_blank")}
-            />
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.detail.photo}</p>
+            <a href={incident.image_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-sand px-4 py-3 text-[13px] font-semibold text-palier-700 hover:bg-palier-50">
+              <Icon name="Image" className="h-4 w-4" /> {T.detail.photo} ↗
+            </a>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-black/10 bg-white p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Signalé par</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.detail.reportedBy}</p>
             <p className="mt-1 text-[13px] font-medium text-ink">{incident.reporter_name}</p>
           </div>
           <div className="rounded-xl border border-black/10 bg-white p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Date</p>
-            <p className="mt-1 text-[13px] font-medium text-ink">{shortDate(incident.created_at)}</p>
-            <p className="text-[11px] text-ink-soft">{timeAgo(incident.created_at)}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.detail.date}</p>
+            <p className="mt-1 text-[13px] font-medium text-ink" dir="ltr">{shortDate(incident.created_at, lang)}</p>
+            <p className="text-[11px] text-ink-soft" dir="ltr">{timeAgo(incident.created_at, lang)}</p>
           </div>
         </div>
       </div>
 
       {/* Comments / Discussion */}
       <div className="mt-4">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-soft">Discussion ({comments.length})</p>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.detail.discussion} (<span dir="ltr">{comments.length}</span>)</p>
         <div className="space-y-2">
           {loadingComments ? (
-            <p className="text-[12px] text-ink-faint">Chargement…</p>
+            <p className="text-[12px] text-ink-faint">{i.syndic.common.loading}</p>
           ) : comments.length === 0 ? (
-            <p className="text-[12px] text-ink-faint">Aucun message pour le moment.</p>
+            <p className="text-[12px] text-ink-faint">{T.detail.noMessages}</p>
           ) : (
             comments.map((c) => (
               <div key={c.id} className="rounded-xl border border-black/5 bg-white p-3">
@@ -728,7 +738,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
                   </span>
                   <span className="text-[12px] font-semibold text-ink">{c.author}</span>
                   {c.role === "syndic" && <span className="rounded bg-palier-50 px-1.5 py-0.5 text-[9px] font-bold text-palier-700">Syndic</span>}
-                  <span className="ml-auto text-[10px] text-ink-faint">{timeAgo(c.createdAt)}</span>
+                  <span className="ml-auto text-[10px] text-ink-faint" dir="ltr">{timeAgo(c.createdAt, lang)}</span>
                 </div>
                 <p className="text-[12px] leading-relaxed text-ink-soft">{c.body}</p>
               </div>
@@ -739,7 +749,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
           <input
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
-            placeholder="Écrire un message…"
+            placeholder={T.detail.writePlaceholder}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendComment()}
             className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30"
           />
@@ -763,7 +773,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
               className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
             >
               <Icon name="Clock" className="h-4 w-4" />
-              {ip ? "…" : "En cours"}
+              {ip ? "…" : T.actions.inProgress}
             </button>
           )}
           <button
@@ -772,7 +782,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             <Icon name="CircleCheck" className="h-4 w-4" />
-            {rp ? "…" : "Marquer résolu"}
+            {rp ? "…" : T.detail.markResolved}
           </button>
         </div>
       )}
@@ -781,7 +791,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
         <div className="mt-5 space-y-2">
           <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
             <Icon name="CircleCheck" className="h-4 w-4 shrink-0 text-emerald-600" />
-            <p className="text-[12px] font-medium text-emerald-800">Cet incident a été résolu</p>
+            <p className="text-[12px] font-medium text-emerald-800">{T.detail.resolved}</p>
           </div>
           <button
             disabled={ro}
@@ -789,7 +799,7 @@ function DetailModal({ incident, onClose, onResolve, onInProgress, onReopen, onU
             className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[13px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
           >
             <Icon name="RotateCcw" className="h-4 w-4" />
-            {ro ? "…" : "Réouvrir l'incident"}
+            {ro ? "…" : T.detail.reopenIncident}
           </button>
         </div>
       )}

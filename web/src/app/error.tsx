@@ -4,7 +4,8 @@ import { useEffect } from "react";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error("[Palier Error]", error);
+    // Log only the digest (safe unique ID), not the full error message
+    if (error.digest) console.error("[Palier Error]", error.digest);
   }, [error]);
 
   return (

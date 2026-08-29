@@ -393,7 +393,7 @@ export default function ServicesScreen() {
               </div>
             ) : placesError ? (
               <div className="py-8 text-center">
-                <Icon name="AlertCircle" className="mx-auto h-8 w-8 text-ink-faint" />
+                <Icon name="CircleAlert" className="mx-auto h-8 w-8 text-ink-faint" />
                 <p className="mt-2 text-[13px] text-ink-soft">{placesError}</p>
                 <button onClick={() => searchPlaces(placeCat)} className="mt-2 text-[13px] font-semibold text-palier-600">{T.reessayer}</button>
               </div>
@@ -526,7 +526,7 @@ export default function ServicesScreen() {
 
           {isInactive && (
             <div className="flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-              <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+              <Icon name="TriangleAlert" className="h-4 w-4 shrink-0 text-amber-600" />
               <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
             </div>
           )}
@@ -555,7 +555,7 @@ export default function ServicesScreen() {
         </div>
         {isInactive && (
           <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-            <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+            <Icon name="TriangleAlert" className="h-4 w-4 shrink-0 text-amber-600" />
             <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
           </div>
         )}
@@ -724,7 +724,7 @@ function PostMenu({ onEdit, onDelete, T }: { onEdit: () => void; onDelete: () =>
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="tap flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-sand">
-        <Icon name="MoreVertical" className="h-4 w-4" />
+        <Icon name="EllipsisVertical" className="h-4 w-4" />
       </button>
       {open && (
         <>

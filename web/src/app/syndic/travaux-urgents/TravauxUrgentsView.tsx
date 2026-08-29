@@ -5,6 +5,7 @@ import { createUrgentWork, updateUrgentWorkStatus, deleteUrgentWork } from "@/li
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { mad, timeAgo, longDate } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import type { UrgentWork } from "@/lib/types";
 
 /* ── Types ── */
@@ -21,19 +22,11 @@ type StatusKey = "all" | "declared" | "approved" | "in_progress" | "completed";
 
 /* ── Constants ── */
 
-const statusTabs: { key: StatusKey; label: string }[] = [
-  { key: "all", label: "Tout" },
-  { key: "declared", label: "Déclarés" },
-  { key: "approved", label: "Approuvés" },
-  { key: "in_progress", label: "En cours" },
-  { key: "completed", label: "Terminés" },
-];
-
-const statusConfig: Record<string, { label: string; bg: string; text: string; icon: string }> = {
-  declared: { label: "Déclaré", bg: "bg-amber-50", text: "text-amber-700", icon: "FileWarning" },
-  approved: { label: "Approuvé", bg: "bg-blue-50", text: "text-blue-700", icon: "CheckCircle" },
-  in_progress: { label: "En cours", bg: "bg-palier-50", text: "text-palier-700", icon: "Hammer" },
-  completed: { label: "Terminé", bg: "bg-emerald-50", text: "text-emerald-700", icon: "CircleCheck" },
+const statusStyles: Record<string, { bg: string; text: string; icon: string }> = {
+  declared: { bg: "bg-amber-50", text: "text-amber-700", icon: "FileWarning" },
+  approved: { bg: "bg-blue-50", text: "text-blue-700", icon: "CircleCheck" },
+  in_progress: { bg: "bg-palier-50", text: "text-palier-700", icon: "Hammer" },
+  completed: { bg: "bg-emerald-50", text: "text-emerald-700", icon: "CircleCheck" },
 };
 
 /* ── Main ── */
@@ -47,6 +40,25 @@ export function TravauxUrgentsView({
   incidents: IncidentRow[];
   buildingId: string;
 }) {
+  const { i, lang } = useLang();
+  const T = i.syndic.travaux;
+  const C = i.syndic.common;
+
+  const statusTabs: { key: StatusKey; label: string }[] = [
+    { key: "all", label: T.tabs.all },
+    { key: "declared", label: T.tabs.declared },
+    { key: "approved", label: T.tabs.approved },
+    { key: "in_progress", label: T.tabs.inProgress },
+    { key: "completed", label: T.tabs.completed },
+  ];
+
+  const statusBadgeLabels: Record<string, string> = {
+    declared: T.statuses.declared,
+    approved: T.statuses.approved,
+    in_progress: T.statuses.inProgress,
+    completed: T.statuses.completed,
+  };
+
   const [localWorks, setLocalWorks] = useState<UrgentWork[]>(urgentWorks);
   useEffect(() => { setLocalWorks(urgentWorks); }, [urgentWorks]);
 
@@ -104,12 +116,12 @@ export function TravauxUrgentsView({
           ...(newStatus === "completed" ? { completedAt: new Date().toISOString(), actualCost: actualCost ?? w.actualCost } : {}),
         } : w));
         const labels: Record<string, string> = {
-          approved: "Travaux approuvés",
-          in_progress: "Travaux en cours",
-          completed: "Travaux terminés",
+          approved: T.statuses.approved,
+          in_progress: T.statuses.inProgress,
+          completed: T.statuses.completed,
         };
-        flash(labels[newStatus] ?? "Statut mis à jour");
-      } catch { flash("Erreur, réessayez"); }
+        flash(labels[newStatus] ?? C.update);
+      } catch { flash(C.networkError); }
     },
     [flash],
   );
@@ -119,9 +131,9 @@ export function TravauxUrgentsView({
       try {
         await deleteUrgentWork(id);
         setLocalWorks((prev) => prev.filter((w) => w.id !== id));
-        flash("Travaux supprimés");
+        flash(C.delete);
         setDeleteTarget(null);
-      } catch { flash("Erreur, réessayez"); }
+      } catch { flash(C.networkError); }
     },
     [flash],
   );
@@ -129,14 +141,14 @@ export function TravauxUrgentsView({
   return (
     <div>
       <PageHeader
-        title="Travaux urgents"
-        subtitle={`${totalWorks} travaux · ${inProgressCount} en cours`}
+        title={T.title}
+        subtitle={`${totalWorks} ${T.title.toLowerCase()} · ${inProgressCount} ${T.kpi.inProgress.toLowerCase()}`}
         action={
           <button
             onClick={() => setDeclareOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700"
           >
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Déclarer
+            <Icon name="Plus" className="h-3.5 w-3.5" /> {T.declareBtn}
           </button>
         }
       />
@@ -145,28 +157,27 @@ export function TravauxUrgentsView({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Art. 26 Loi 18-00 — En cas d&apos;urgence, le syndic peut ordonner des travaux sans attendre
-          l&apos;approbation de l&apos;AG. Ces travaux doivent être ratifiés à la prochaine assemblée.
+          {T.legalInfo}
         </p>
       </div>
 
       {/* KPI cards */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total travaux</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{totalWorks}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.total}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{totalWorks}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">En cours</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{inProgressCount}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.inProgress}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{inProgressCount}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Terminés</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{completedCount}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.completed}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{completedCount}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Coût total</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{mad(totalCost, { decimals: false })}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.totalCost}</p>
+          <p className="text-[22px] font-bold leading-none text-ink" dir="ltr">{mad(totalCost, { decimals: false })}</p>
         </div>
       </div>
 
@@ -184,6 +195,7 @@ export function TravauxUrgentsView({
               {tab.label}
               <span
                 className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1.5 sm:text-[11px] ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}
+                dir="ltr"
               >
                 {count}
               </span>
@@ -202,7 +214,7 @@ export function TravauxUrgentsView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={C.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -220,7 +232,7 @@ export function TravauxUrgentsView({
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
           <Icon name="HardHat" className="mx-auto h-8 w-8 text-ink-faint" />
-          <p className="mt-2 text-[13px] text-ink-soft">Aucun travaux urgent trouvé</p>
+          <p className="mt-2 text-[13px] text-ink-soft">{T.noWorks}</p>
           {(statusFilter !== "all" || search) && (
             <button
               onClick={() => {
@@ -229,14 +241,14 @@ export function TravauxUrgentsView({
               }}
               className="mt-1 text-[13px] font-medium text-palier-600"
             >
-              Réinitialiser les filtres
+              {C.resetFilters}
             </button>
           )}
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((work) => {
-            const cfg = statusConfig[work.status] ?? statusConfig.declared;
+            const sty = statusStyles[work.status] ?? statusStyles.declared;
             const linkedIncident = work.incidentId ? incidentById.get(work.incidentId) : null;
             const isCompleted = work.status === "completed";
 
@@ -254,17 +266,17 @@ export function TravauxUrgentsView({
                     )}
                   </div>
                   <span
-                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${cfg.bg} ${cfg.text}`}
+                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${sty.bg} ${sty.text}`}
                   >
-                    <Icon name={cfg.icon} className="h-3 w-3" />
-                    {cfg.label}
+                    <Icon name={sty.icon} className="h-3 w-3" />
+                    {statusBadgeLabels[work.status]}
                   </span>
                 </div>
 
                 {/* Justification */}
                 <div className="mb-3 rounded-xl border border-black/10 bg-white p-3">
                   <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
-                    Justification légale
+                    {T.card.justification}
                   </p>
                   <p className="text-[12px] leading-relaxed text-ink">{work.justification}</p>
                 </div>
@@ -273,25 +285,25 @@ export function TravauxUrgentsView({
                 <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
                   {work.supplier && (
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Prestataire</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.card.supplier}</p>
                       <p className="mt-0.5 text-[12px] font-medium text-ink">{work.supplier}</p>
                     </div>
                   )}
                   {work.estimatedCost !== undefined && (
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Coût estimé</p>
-                      <p className="mt-0.5 text-[12px] font-medium text-ink">{mad(work.estimatedCost)}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.card.estimatedCost}</p>
+                      <p className="mt-0.5 text-[12px] font-medium text-ink" dir="ltr">{mad(work.estimatedCost)}</p>
                     </div>
                   )}
                   {work.actualCost !== undefined && (
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Coût réel</p>
-                      <p className="mt-0.5 text-[12px] font-medium text-ink">{mad(work.actualCost)}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.card.actualCost}</p>
+                      <p className="mt-0.5 text-[12px] font-medium text-ink" dir="ltr">{mad(work.actualCost)}</p>
                     </div>
                   )}
                   {linkedIncident && (
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">Incident lié</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{T.card.linkedIncident}</p>
                       <p className="mt-0.5 text-[12px] font-medium text-palier-700">{linkedIncident.title}</p>
                     </div>
                   )}
@@ -301,12 +313,12 @@ export function TravauxUrgentsView({
                 <div className="mb-3 flex flex-wrap items-center gap-3 text-[12px] text-ink-soft">
                   <span className="inline-flex items-center gap-1">
                     <Icon name="Calendar" className="h-3 w-3" />
-                    Déclaré {longDate(work.declaredAt)} ({timeAgo(work.declaredAt)})
+                    {T.statuses.declared} <span dir="ltr">{longDate(work.declaredAt, lang)}</span> (<span dir="ltr">{timeAgo(work.declaredAt, lang)}</span>)
                   </span>
                   {work.completedAt && (
                     <span className="inline-flex items-center gap-1">
                       <Icon name="CalendarCheck" className="h-3 w-3" />
-                      Terminé {longDate(work.completedAt)}
+                      {T.statuses.completed} <span dir="ltr">{longDate(work.completedAt, lang)}</span>
                     </span>
                   )}
                 </div>
@@ -317,8 +329,8 @@ export function TravauxUrgentsView({
                     <StatusBtn
                       id={work.id}
                       newStatus="approved"
-                      label="Approuver"
-                      icon="CheckCircle"
+                      label={T.card.approve}
+                      icon="CircleCheck"
                       className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                       onAction={handleStatusChange}
                     />
@@ -327,7 +339,7 @@ export function TravauxUrgentsView({
                     <StatusBtn
                       id={work.id}
                       newStatus="in_progress"
-                      label="Démarrer"
+                      label={T.card.start}
                       icon="Play"
                       className="border-palier-200 bg-palier-50 text-palier-700 hover:bg-palier-100"
                       onAction={handleStatusChange}
@@ -340,7 +352,7 @@ export function TravauxUrgentsView({
                     >
                       <span className="inline-flex items-center gap-1">
                         <Icon name="CircleCheck" className="h-3 w-3" />
-                        Terminer
+                        {T.card.complete}
                       </span>
                     </button>
                   )}
@@ -353,7 +365,7 @@ export function TravauxUrgentsView({
                     >
                       <span className="inline-flex items-center gap-1">
                         <Icon name="FileText" className="h-3 w-3" />
-                        Facture
+                        {T.card.invoice}
                       </span>
                     </a>
                   )}
@@ -364,7 +376,7 @@ export function TravauxUrgentsView({
                     >
                       <span className="inline-flex items-center gap-1">
                         <Icon name="Trash2" className="h-3 w-3" />
-                        Supprimer
+                        {C.delete}
                       </span>
                     </button>
                   )}
@@ -384,7 +396,7 @@ export function TravauxUrgentsView({
           onCreated={(newWork) => {
             setLocalWorks((prev) => [newWork, ...prev]);
             setDeclareOpen(false);
-            flash("Travaux urgents déclarés");
+            flash(T.declareBtn);
           }}
         />
       )}
@@ -397,7 +409,7 @@ export function TravauxUrgentsView({
           onSuccess={(actualCost) => {
             setLocalWorks((prev) => prev.map((w) => w.id === completeOpen.id ? { ...w, status: "completed" as const, completedAt: new Date().toISOString(), actualCost } : w));
             setCompleteOpen(null);
-            flash("Travaux marqués comme terminés");
+            flash(T.statuses.completed);
           }}
         />
       )}
@@ -411,7 +423,7 @@ export function TravauxUrgentsView({
                 <Icon name="Trash2" className="h-5 w-5 text-red-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Supprimer ces travaux ?</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{T.deleteConfirm.title}</h2>
                 <p className="text-[12px] text-ink-soft">{deleteTarget.title}</p>
               </div>
             </div>
@@ -423,14 +435,14 @@ export function TravauxUrgentsView({
             </button>
           </div>
           <p className="mb-5 text-[13px] text-ink-soft">
-            Cette action est irréversible. Les travaux seront définitivement supprimés.
+            {T.deleteConfirm.msg}
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => setDeleteTarget(null)}
               className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
             >
-              Annuler
+              {C.cancel}
             </button>
             <DeleteBtn id={deleteTarget.id} onDelete={handleDelete} />
           </div>
@@ -480,6 +492,8 @@ function StatusBtn({
 }
 
 function DeleteBtn({ id, onDelete }: { id: string; onDelete: (id: string) => Promise<void> }) {
+  const { i } = useLang();
+  const C = i.syndic.common;
   const [pending, start] = useTransition();
   return (
     <button
@@ -487,7 +501,7 @@ function DeleteBtn({ id, onDelete }: { id: string; onDelete: (id: string) => Pro
       onClick={() => start(() => onDelete(id))}
       className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
     >
-      {pending ? "Suppression…" : "Supprimer"}
+      {pending ? "…" : C.delete}
     </button>
   );
 }
@@ -518,6 +532,9 @@ function DeclareModal({
   onClose: () => void;
   onCreated: (work: UrgentWork) => void;
 }) {
+  const { i } = useLang();
+  const T = i.syndic.travaux;
+  const C = i.syndic.common;
   const [pending, start] = useTransition();
   const [form, setForm] = useState({
     title: "",
@@ -531,11 +548,11 @@ function DeclareModal({
 
   function handleSubmit() {
     if (!form.title.trim()) {
-      setFormError("Le titre est requis");
+      setFormError(T.errors.titleRequired);
       return;
     }
     if (!form.justification.trim()) {
-      setFormError("La justification légale est requise (Art. 26 Loi 18-00)");
+      setFormError(T.errors.justRequired);
       return;
     }
     setFormError("");
@@ -562,11 +579,11 @@ function DeclareModal({
           declaredAt: new Date().toISOString(),
         };
         onCreated(newWork);
-      } catch { setFormError("Erreur réseau. Réessayez."); }
+      } catch { setFormError(C.networkError); }
     });
   }
 
-  const openIncidents = incidents.filter((i) => i.status !== "resolved");
+  const openIncidents = incidents.filter((inc) => inc.status !== "resolved");
 
   return (
     <Overlay onClose={onClose}>
@@ -576,7 +593,7 @@ function DeclareModal({
             <Icon name="HardHat" className="h-5 w-5 text-palier-600" />
           </span>
           <div>
-            <h2 className="text-[16px] font-semibold text-ink">Déclarer des travaux urgents</h2>
+            <h2 className="text-[16px] font-semibold text-ink">{T.declare.title}</h2>
             <p className="text-[12px] text-ink-soft">Art. 26 Loi 18-00</p>
           </div>
         </div>
@@ -589,23 +606,23 @@ function DeclareModal({
         {/* Title */}
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-ink">
-            Titre <span className="text-red-500">*</span>
+            {T.declare.titleLabel}
           </label>
           <input
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Ex : Réparation fuite toiture"
+            placeholder={T.declare.titlePlaceholder}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Description</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.declare.description}</label>
           <textarea
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Détails des travaux…"
+            placeholder={T.declare.descPlaceholder}
             rows={3}
             className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
@@ -614,23 +631,23 @@ function DeclareModal({
         {/* Justification */}
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-ink">
-            Justification légale <span className="text-red-500">*</span>
+            {T.declare.justification}
           </label>
           <textarea
             value={form.justification}
             onChange={(e) => setForm({ ...form, justification: e.target.value })}
-            placeholder="Motif d'urgence justifiant l'intervention sans AG…"
+            placeholder={T.declare.justPlaceholder}
             rows={3}
             className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           <p className="mt-1 text-[11px] text-ink-faint">
-            Obligatoire — justifie le recours à l&apos;article 26 de la loi 18-00.
+            {T.declare.justHint}
           </p>
         </div>
 
         {/* Estimated cost */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Coût estimé (MAD)</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.declare.estimatedCost}</label>
           <input
             type="number"
             min="0"
@@ -644,24 +661,24 @@ function DeclareModal({
 
         {/* Supplier */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Prestataire</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.declare.supplier}</label>
           <input
             value={form.supplier}
             onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-            placeholder="Nom du prestataire"
+            placeholder={T.declare.supplierPlaceholder}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
         </div>
 
         {/* Link to incident */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Lier à un incident (optionnel)</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.declare.linkIncident}</label>
           <select
             value={form.incidentId}
             onChange={(e) => setForm({ ...form, incidentId: e.target.value })}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           >
-            <option value="">Aucun incident</option>
+            <option value="">{T.declare.noIncident}</option>
             {openIncidents.map((inc) => (
               <option key={inc.id} value={inc.id}>
                 {inc.title}
@@ -673,7 +690,7 @@ function DeclareModal({
         {/* Error */}
         {formError && (
           <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <Icon name="AlertTriangle" className="h-3.5 w-3.5 shrink-0 text-red-600" />
+            <Icon name="TriangleAlert" className="h-3.5 w-3.5 shrink-0 text-red-600" />
             <p className="text-[12px] font-medium text-red-700">{formError}</p>
           </div>
         )}
@@ -684,7 +701,7 @@ function DeclareModal({
           disabled={pending}
           className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
         >
-          {pending ? "Déclaration…" : "Déclarer les travaux"}
+          {pending ? T.declare.submitting : T.declare.submit}
         </button>
       </div>
     </Overlay>
@@ -702,6 +719,8 @@ function CompleteModal({
   onClose: () => void;
   onSuccess: (actualCost?: number) => void;
 }) {
+  const { i } = useLang();
+  const T = i.syndic.travaux;
   const [pending, start] = useTransition();
   const [actualCost, setActualCost] = useState(work.estimatedCost?.toString() ?? "");
   const [invoiceUrl, setInvoiceUrl] = useState("");
@@ -727,7 +746,7 @@ function CompleteModal({
             <Icon name="CircleCheck" className="h-5 w-5 text-emerald-600" />
           </span>
           <div>
-            <h2 className="text-[16px] font-semibold text-ink">Terminer les travaux</h2>
+            <h2 className="text-[16px] font-semibold text-ink">{T.completeModal.title}</h2>
             <p className="text-[12px] text-ink-soft">{work.title}</p>
           </div>
         </div>
@@ -739,7 +758,7 @@ function CompleteModal({
       <div className="space-y-4">
         {/* Actual cost */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Coût réel (MAD)</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.completeModal.actualCost}</label>
           <input
             type="number"
             min="0"
@@ -750,13 +769,13 @@ function CompleteModal({
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {work.estimatedCost !== undefined && (
-            <p className="mt-1 text-[11px] text-ink-faint">Coût estimé : {mad(work.estimatedCost)}</p>
+            <p className="mt-1 text-[11px] text-ink-faint">{T.completeModal.estimatedCost} <span dir="ltr">{mad(work.estimatedCost)}</span></p>
           )}
         </div>
 
         {/* Invoice URL */}
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Lien vers la facture</label>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.completeModal.invoiceLink}</label>
           <input
             value={invoiceUrl}
             onChange={(e) => setInvoiceUrl(e.target.value)}
@@ -771,7 +790,7 @@ function CompleteModal({
           disabled={pending}
           className="w-full rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
         >
-          {pending ? "Finalisation…" : "Confirmer la fin des travaux"}
+          {pending ? T.completeModal.confirming : T.completeModal.confirm}
         </button>
       </div>
     </Overlay>

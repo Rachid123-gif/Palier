@@ -84,7 +84,7 @@ export default function AgScreen() {
                 <h2 className="mb-3 px-1 text-[17px] font-bold tracking-tight text-ink">{T.votesOuverts}</h2>
                 {isInactive && (
                   <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                    <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+                    <Icon name="TriangleAlert" className="h-4 w-4 shrink-0 text-amber-600" />
                     <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
                   </div>
                 )}

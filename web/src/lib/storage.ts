@@ -32,7 +32,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 function validateFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE) return "File too large (max 5 MB)";
-  if (!ALLOWED_MIME_TYPES.has(file.type)) return `File type not allowed: ${file.type}`;
+  if (!ALLOWED_MIME_TYPES.has(file.type)) return "File type not allowed";
   return null;
 }
 

@@ -6,7 +6,7 @@
 import { SignJWT, jwtVerify } from "jose";
 
 const COOKIE_NAME = "palier_session";
-const MAX_AGE = 60 * 60 * 24 * 90; // 90 days
+const MAX_AGE = 60 * 60 * 24 * 14; // 14 days
 
 export interface SessionData {
   profileId: string | null;

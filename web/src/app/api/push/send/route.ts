@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { SESSION_COOKIE_NAME, decodeSession } from "@/lib/session";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Configure VAPID — set these env vars in production
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -13,11 +14,11 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
   const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-  let result = 0;
+  const maxLen = Math.max(a.length, b.length);
+  const bufA = encoder.encode(a.padEnd(maxLen, "\0"));
+  const bufB = encoder.encode(b.padEnd(maxLen, "\0"));
+  let result = a.length ^ b.length;
   for (let i = 0; i < bufA.length; i++) {
     result |= bufA[i] ^ bufB[i];
   }
@@ -40,6 +41,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }
       syndicBuildingId = session.buildingId;
+
+      // Rate limit push sends per building
+      const rl = await checkRateLimit(`push-send:${syndicBuildingId}`, RATE_LIMITS.push);
+      if (!rl.ok) {
+        return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+      }
     }
 
     const { profileIds, title, body, url } = await request.json();

@@ -5,6 +5,7 @@ import { getUserBuildings } from "@/lib/queries";
 import { requireSyndicSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { RefreshOnFocus } from "@/components/RefreshOnFocus";
+import { LangProvider } from "@/lib/LangProvider";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +31,18 @@ export default async function SyndicLayout({ children }: { children: React.React
     session.profileId ? getUserBuildings(session.profileId) : Promise.resolve([]),
   ]);
   return (
-    <SyndicShell
-      building={{ name: data.building.name, city: data.building.city }}
-      badges={{ dunning: data.kpis.unpaidCount, incidents: data.kpis.openIncidents }}
-      syndicName={data.building.syndic || "Syndic"}
-      buildings={buildings}
-      currentBuildingId={session.buildingId}
-      profileId={session.profileId ?? ""}
-    >
-      {children}
-      <RefreshOnFocus />
-    </SyndicShell>
+    <LangProvider>
+      <SyndicShell
+        building={{ name: data.building.name, city: data.building.city }}
+        badges={{ dunning: data.kpis.unpaidCount, incidents: data.kpis.openIncidents }}
+        syndicName={data.building.syndic || "Syndic"}
+        buildings={buildings}
+        currentBuildingId={session.buildingId}
+        profileId={session.profileId ?? ""}
+      >
+        {children}
+        <RefreshOnFocus />
+      </SyndicShell>
+    </LangProvider>
   );
 }

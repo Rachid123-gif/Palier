@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { timeAgo, shortDate } from "@/lib/format";
 import { deletePost, togglePinPost, createPostSyndic, likePost, fetchComments, createComment, updatePost, uploadFileAction } from "@/lib/actions";
+import { useLang } from "@/lib/LangProvider";
 
 type Post = {
   id: string;
@@ -23,6 +24,8 @@ type Post = {
   wow_count?: number;
   comments_count?: number;
   image_url?: string;
+  file_url?: string;
+  file_name?: string;
 };
 
 type Comment = {
@@ -37,22 +40,45 @@ type Comment = {
 
 const DEFAULT_CATS = ["Annonce", "Événement", "Entraide", "Trouvé", "Général", "Service", "Recommandation"];
 
-const TYPE_COLORS = [
-  "bg-palier-50 text-palier-700",
-  "bg-blue-50 text-blue-700",
-  "bg-amber-50 text-amber-700",
-  "bg-yellow-50 text-yellow-700",
-  "bg-emerald-50 text-emerald-700",
-  "bg-purple-50 text-purple-700",
-  "bg-pink-50 text-pink-700",
-];
+/** Mapping: French label → English PostType key */
+const LABEL_TO_KEY: Record<string, string> = {
+  "Annonce": "announcement", "Événement": "event", "Entraide": "help",
+  "Trouvé": "found", "Général": "general", "Service": "service", "Recommandation": "recommendation",
+  // Arabic labels
+  "إعلان": "announcement", "حدث": "event", "تعاون": "help",
+  "موجود": "found", "عام": "general", "خدمة": "service", "توصية": "recommendation",
+};
+/** Mapping: English PostType key → French label */
+const KEY_TO_LABEL: Record<string, string> = {
+  "announcement": "Annonce", "event": "Événement", "help": "Entraide",
+  "found": "Trouvé", "general": "Général", "service": "Service", "recommendation": "Recommandation",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  "announcement": "bg-palier-50 text-palier-700",
+  "event": "bg-blue-50 text-blue-700",
+  "help": "bg-amber-50 text-amber-700",
+  "found": "bg-yellow-50 text-yellow-700",
+  "general": "bg-emerald-50 text-emerald-700",
+  "service": "bg-purple-50 text-purple-700",
+  "recommendation": "bg-pink-50 text-pink-700",
+};
+const DEFAULT_TYPE_COLOR = "bg-gray-50 text-gray-700";
 
 const PER_PAGE = 15;
 
 export function VoisinageView({ posts, buildingName, buildingId, voisinageCategories }: { posts: Post[]; buildingName: string; buildingId: string; voisinageCategories?: string[] | null }) {
   const categories = voisinageCategories ?? DEFAULT_CATS;
-  const typeLabels: Record<string, string> = Object.fromEntries(categories.map((c) => [c, c]));
-  const typeColors: Record<string, string> = Object.fromEntries(categories.map((c, i) => [c, TYPE_COLORS[i % TYPE_COLORS.length]]));
+  /** Get the English key for a type (handles both labels and keys) */
+  function typeKey(t: string): string { return LABEL_TO_KEY[t] ?? t; }
+  /** Get the display label for a type key */
+  function typeLabel(t: string): string { return KEY_TO_LABEL[t] ?? KEY_TO_LABEL[typeKey(t)] ?? t; }
+  /** Get the color for a type */
+  function typeColor(t: string): string { return TYPE_COLORS[typeKey(t)] ?? DEFAULT_TYPE_COLOR; }
+
+  const { i, lang } = useLang();
+  const T = i.syndic.voisinageSyndic;
+  const C = i.syndic.common;
 
   const [localPosts, setLocalPosts] = useState<Post[]>(posts);
   useEffect(() => { setLocalPosts(posts); }, [posts]);
@@ -69,7 +95,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   const [showCompose, setShowCompose] = useState(false);
   const [composeBody, setComposeBody] = useState("");
   const [composeTitle, setComposeTitle] = useState("");
-  const [composeType, setComposeType] = useState<string>(categories[0] ?? "Annonce");
+  const [composeType, setComposeType] = useState<string>(typeKey(categories[0] ?? "Annonce"));
   const [isPosting, startPosting] = useTransition();
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -88,6 +114,8 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [editBody, setEditBody] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [editMediaFile, setEditMediaFile] = useState<File | null>(null);
+  const [editKeepFile, setEditKeepFile] = useState(true);
   const [isEditing, startEditing] = useTransition();
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
@@ -98,15 +126,22 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
       setShowDeleteConfirm(null);
       setSelected(null);
       setLocalPosts((prev) => prev.filter((p) => p.id !== postId));
-      flash("Publication supprimée");
-    } catch { flash("Erreur lors de la suppression"); }
+      flash(C.delete);
+    } catch { flash(C.error); }
   }
 
   function openEdit(post: Post) {
     setEditingPost(post);
     setEditBody(post.body);
     setEditTitle(post.title ?? "");
+    setEditMediaFile(null);
+    setEditKeepFile(true);
     setSelected(null);
+  }
+
+  function closeEdit() {
+    setEditingPost(null); setEditBody(""); setEditTitle("");
+    setEditMediaFile(null); setEditKeepFile(true);
   }
 
   function handleSaveEdit() {
@@ -116,15 +151,36 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
     const newTitle = editTitle.trim() || undefined;
     startEditing(async () => {
       try {
-        await updatePost({ postId, body: newBody, title: newTitle });
+        let imageUrl: string | null | undefined = undefined;
+        let fileUrl: string | null | undefined = undefined;
+        let fileName: string | null | undefined = undefined;
+
+        if (editMediaFile) {
+          const fd = new FormData();
+          fd.append("file", editMediaFile);
+          const result = await uploadFileAction(fd);
+          if (result.error || !result.url) { flash(C.error); return; }
+          if (editMediaFile.type.startsWith("image/")) {
+            imageUrl = result.url; fileUrl = null; fileName = null;
+          } else {
+            fileUrl = result.url; fileName = editMediaFile.name; imageUrl = null;
+          }
+        } else if (!editKeepFile) {
+          imageUrl = null; fileUrl = null; fileName = null;
+        }
+
+        await updatePost({ postId, body: newBody, title: newTitle, imageUrl, fileUrl, fileName });
         setLocalPosts((prev) =>
-          prev.map((p) => p.id === postId ? { ...p, body: newBody, title: newTitle } : p)
+          prev.map((p) => p.id === postId ? {
+            ...p, body: newBody, title: newTitle,
+            ...(imageUrl !== undefined ? { image_url: imageUrl ?? undefined } : {}),
+            ...(fileUrl !== undefined ? { file_url: fileUrl ?? undefined } : {}),
+            ...(fileName !== undefined ? { file_name: fileName ?? undefined } : {}),
+          } : p)
         );
-        setEditingPost(null);
-        setEditBody("");
-        setEditTitle("");
-        flash("Publication modifiée");
-      } catch { flash("Erreur lors de la modification"); }
+        closeEdit();
+        flash(C.save);
+      } catch { flash(C.error); }
     });
   }
 
@@ -137,8 +193,8 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           prev.map((p) => p.id === post.id ? { ...p, pinned: newPinned } : p)
         );
         setSelected((prev) => prev?.id === post.id ? { ...prev, pinned: newPinned } : prev);
-        flash(post.pinned ? "Publication désépinglée" : "Publication épinglée");
-      } catch { flash("Erreur lors de l'épinglage"); }
+        flash(post.pinned ? T.detail.unpin : T.detail.pin);
+      } catch { flash(C.error); }
     });
   }
 
@@ -167,14 +223,21 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
     startPosting(async () => {
       try {
         let imageUrl: string | undefined;
+        let fileUrl: string | undefined;
+        let fileName: string | undefined;
         if (mediaFile) {
           const fd = new FormData();
           fd.append("file", mediaFile);
           const uploadResult = await uploadFileAction(fd);
-          if (uploadResult.error) { flash("Erreur upload : " + uploadResult.error); return; }
-          imageUrl = uploadResult.url;
+          if (uploadResult.error) { flash(C.error + " : " + uploadResult.error); return; }
+          if (mediaFile.type.startsWith("image/")) {
+            imageUrl = uploadResult.url;
+          } else {
+            fileUrl = uploadResult.url;
+            fileName = mediaFile.name;
+          }
         }
-        await createPostSyndic({ buildingId, body, title, type, imageUrl });
+        await createPostSyndic({ buildingId, body, title, type, imageUrl, fileUrl, fileName });
         const optimisticPost: Post = {
           id: crypto.randomUUID(),
           type,
@@ -191,15 +254,17 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           wow_count: 0,
           comments_count: 0,
           image_url: imageUrl,
+          file_url: fileUrl,
+          file_name: fileName,
         };
         setLocalPosts((prev) => [optimisticPost, ...prev]);
         setComposeBody("");
         setComposeTitle("");
-        setComposeType(categories[0] ?? "Annonce");
+        setComposeType(typeKey(categories[0] ?? "Annonce"));
         clearMedia();
         setShowCompose(false);
-        flash("Publication créée");
-      } catch { flash("Erreur lors de la publication"); }
+        flash(T.compose.publish);
+      } catch { flash(C.error); }
     });
   }
 
@@ -213,7 +278,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           );
           setSelected((prev) => prev?.id === postId ? { ...prev, like_count: (prev.like_count ?? 0) + 1 } : prev);
         }
-      } catch { flash("Erreur"); }
+      } catch { flash(C.error); }
     });
   }, []);
 
@@ -242,7 +307,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           prev.map((p) => p.id === postId ? { ...p, comments_count: (p.comments_count ?? 0) + 1 } : p)
         );
         setSelected((prev) => prev?.id === postId ? { ...prev, comments_count: (prev.comments_count ?? 0) + 1 } : prev);
-      } catch { flash("Erreur lors de l'envoi"); }
+      } catch { flash(C.error); }
     });
   }
 
@@ -255,7 +320,10 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   const typeCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const p of localPosts) map[p.type] = (map[p.type] ?? 0) + 1;
+    for (const p of localPosts) {
+      const k = typeKey(p.type);
+      map[k] = (map[k] ?? 0) + 1;
+    }
     return map;
   }, [localPosts]);
 
@@ -263,7 +331,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
   const filtered = useMemo(() => {
     let rows = [...localPosts];
-    if (typeFilter !== "all") rows = rows.filter((p) => p.type === typeFilter);
+    if (typeFilter !== "all") rows = rows.filter((p) => typeKey(p.type) === typeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((p) =>
@@ -284,26 +352,26 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
   return (
     <div>
       <PageHeader
-        title="Voisinage"
-        subtitle={`${localPosts.length} publications · ${pinnedCount} épinglée${pinnedCount !== 1 ? "s" : ""}`}
+        title={T.title}
+        subtitle={`${localPosts.length} ${T.kpi.publications} · ${pinnedCount} ${T.kpi.pinned}`}
       />
 
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Visualisez les publications des résidents de {buildingName}. Vous pouvez modérer le contenu et suivre l&apos;activité communautaire.
+          {T.infoNote}
         </p>
       </div>
 
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Publications</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{localPosts.length}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.publications}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{localPosts.length}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Épinglées</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{pinnedCount}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.pinned}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{pinnedCount}</p>
         </div>
       </div>
 
@@ -313,14 +381,14 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
         className="mb-3 inline-flex items-center gap-2 rounded-xl bg-palier-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-palier-700"
       >
         <Icon name="Plus" className="h-4 w-4" />
-        Nouvelle publication
+        {T.newPost}
       </button>
 
       {/* Compose form */}
       {showCompose && (
         <div className="mb-4 rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[14px] font-semibold text-ink">Nouvelle publication</h3>
+            <h3 className="text-[14px] font-semibold text-ink">{T.compose.title}</h3>
             <button onClick={() => setShowCompose(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
               <Icon name="X" className="h-4 w-4" />
             </button>
@@ -330,31 +398,31 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             onChange={(e) => setComposeType(e.target.value)}
             className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:w-auto"
           >
-            {Object.entries(typeLabels).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+            {categories.map((c) => (
+              <option key={c} value={typeKey(c)}>{c}</option>
             ))}
           </select>
           <input
             value={composeTitle}
             onChange={(e) => setComposeTitle(e.target.value)}
-            placeholder="Titre (optionnel)"
+            placeholder={T.compose.titlePlaceholder}
             className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           <textarea
             value={composeBody}
             onChange={(e) => setComposeBody(e.target.value)}
-            placeholder="Écrivez votre message…"
+            placeholder={T.compose.contentPlaceholder}
             rows={3}
             className="mb-2 w-full resize-none rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {/* Media upload buttons */}
           <div className="mb-2 flex items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
-              <Icon name="Image" className="h-3.5 w-3.5" /> Photo
+              <Icon name="Image" className="h-3.5 w-3.5" /> {T.compose.photo}
               <input type="file" accept="image/*" className="hidden" onChange={handleMediaSelect} />
             </label>
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-palier-50 hover:text-palier-700">
-              <Icon name="Paperclip" className="h-3.5 w-3.5" /> Fichier
+              <Icon name="Paperclip" className="h-3.5 w-3.5" /> {T.compose.file}
               <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleMediaSelect} />
             </label>
           </div>
@@ -376,14 +444,14 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           )}
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowCompose(false); clearMedia(); }} className="rounded-lg border border-black/[0.08] px-4 py-2 text-[12px] font-medium text-ink hover:bg-sand/50">
-              Annuler
+              {T.compose.cancel}
             </button>
             <button
               onClick={handlePublish}
               disabled={!composeBody.trim() || isPosting}
               className="rounded-lg bg-palier-600 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
             >
-              {isPosting ? "Publication…" : "Publier"}
+              {isPosting ? T.compose.publishing : T.compose.publish}
             </button>
           </div>
         </div>
@@ -396,7 +464,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher…"
+            placeholder={C.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -410,9 +478,9 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
           onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
           className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:w-auto"
         >
-          <option value="all">Tous les types</option>
+          <option value="all">{T.allTypes}</option>
           {usedTypes.map((t) => (
-            <option key={t} value={t}>{typeLabels[t] ?? t} ({typeCounts[t]})</option>
+            <option key={t} value={t}>{typeLabel(t)} ({typeCounts[t]})</option>
           ))}
         </select>
       </div>
@@ -422,7 +490,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="MessageCircle" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">Aucune publication trouvée</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{T.noPublications}</p>
           </div>
         ) : (
           <>
@@ -430,12 +498,12 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="w-[40%] px-4 py-2.5">Publication</th>
-                  <th className="w-[12%] px-4 py-2.5">Type</th>
-                  <th className="w-[14%] px-4 py-2.5">Auteur</th>
-                  <th className="w-[10%] px-4 py-2.5">Date</th>
-                  <th className="w-[14%] px-4 py-2.5 text-right">Engagement</th>
-                  <th className="w-[10%] px-4 py-2.5 text-right">Actions</th>
+                  <th className="w-[40%] px-4 py-2.5">{T.table.publication}</th>
+                  <th className="w-[12%] px-4 py-2.5">{T.table.type}</th>
+                  <th className="w-[14%] px-4 py-2.5">{T.table.author}</th>
+                  <th className="w-[10%] px-4 py-2.5">{T.table.date}</th>
+                  <th className="w-[14%] px-4 py-2.5 text-right">{T.table.engagement}</th>
+                  <th className="w-[10%] px-4 py-2.5 text-right">{T.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -455,8 +523,8 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                         </button>
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
-                          {typeLabels[p.type] ?? p.type}
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColor(p.type)}`}>
+                          {typeLabel(p.type)}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
@@ -467,11 +535,11 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                           <span className="truncate text-[12px] text-ink-soft">{p.author_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-[12px] text-ink-soft">{shortDate(p.created_at)}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-ink-soft" dir="ltr">{shortDate(p.created_at, lang)}</td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-3 text-[12px] text-ink-soft">
-                          <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3 w-3" />{reactions}</span>
-                          <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
+                          <span className="flex items-center gap-1"><Icon name="ThumbsUp" className="h-3 w-3" /><span dir="ltr">{reactions}</span></span>
+                          <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" /><span dir="ltr">{p.comments_count ?? 0}</span></span>
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-right">
@@ -479,14 +547,14 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                           <button
                             onClick={() => handleLike(p.id)}
                             disabled={isLiking}
-                            title="Aimer"
+                            
                             className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
                           >
                             <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => openDetail(p)}
-                            title="Voir"
+                            
                             className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-palier-50 hover:text-palier-700"
                           >
                             <Icon name="Eye" className="h-3.5 w-3.5" />
@@ -507,8 +575,8 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                   <div key={p.id} className="p-4">
                     <button onClick={() => openDetail(p)} className="block w-full text-left">
                       <div className="mb-1.5 flex items-center gap-2">
-                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[p.type] ?? "bg-sand text-ink-soft"}`}>
-                          {typeLabels[p.type] ?? p.type}
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColor(p.type)}`}>
+                          {typeLabel(p.type)}
                         </span>
                         {p.pinned && <Icon name="Pin" className="h-3 w-3 text-palier-600" />}
                       </div>
@@ -521,7 +589,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                           </span>
                           <span>{p.author_name}</span>
                         </div>
-                        <span>{shortDate(p.created_at)}</span>
+                        <span dir="ltr">{shortDate(p.created_at, lang)}</span>
                       </div>
                     </button>
                     <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-soft">
@@ -530,9 +598,9 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                         disabled={isLiking}
                         className="flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
                       >
-                        <Icon name="ThumbsUp" className="h-3 w-3" />{reactions}
+                        <Icon name="ThumbsUp" className="h-3 w-3" /><span dir="ltr">{reactions}</span>
                       </button>
-                      <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" />{p.comments_count ?? 0}</span>
+                      <span className="flex items-center gap-1"><Icon name="MessageCircle" className="h-3 w-3" /><span dir="ltr">{p.comments_count ?? 0}</span></span>
                     </div>
                   </div>
                 );
@@ -541,15 +609,15 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
             {/* Pagination */}
             <div className="flex flex-col items-center gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft sm:flex-row sm:justify-between">
-              <span className="shrink-0">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+              <span className="shrink-0" dir="ltr">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} / {filtered.length}</span>
               {pages > 1 && (
                 <div className="flex flex-wrap justify-center gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
                     <Icon name="ChevronLeft" className="h-3.5 w-3.5" />
                   </button>
-                  {Array.from({ length: pages }, (_, i) => (
-                    <button key={i} onClick={() => setPage(i)} className={`rounded-md px-2 py-1 font-medium ${i === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
-                      {i + 1}
+                  {Array.from({ length: pages }, (_, pg) => (
+                    <button key={pg} onClick={() => setPage(pg)} className={`rounded-md px-2 py-1 font-medium ${pg === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
+                      <span dir="ltr">{pg + 1}</span>
                     </button>
                   ))}
                   <button onClick={() => setPage(Math.min(pages - 1, safePage + 1))} disabled={safePage >= pages - 1} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -573,7 +641,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                 </span>
                 <div>
                   <p className="text-[14px] font-semibold text-ink">{selected.author_name}</p>
-                  <p className="text-[11px] text-ink-soft">{shortDate(selected.created_at)} · {timeAgo(selected.created_at)}</p>
+                  <p className="text-[11px] text-ink-soft"><span dir="ltr">{shortDate(selected.created_at, lang)}</span> · <span dir="ltr">{timeAgo(selected.created_at, lang)}</span></p>
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -582,16 +650,16 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             </div>
 
             <div className="mb-3 flex items-center gap-2">
-              <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColors[selected.type] ?? "bg-sand text-ink-soft"}`}>
-                {typeLabels[selected.type] ?? selected.type}
+              <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${typeColor(selected.type)}`}>
+                {typeLabel(selected.type)}
               </span>
               {selected.pinned && (
                 <span className="flex items-center gap-1 rounded-md bg-palier-50 px-2 py-0.5 text-[11px] font-semibold text-palier-700">
-                  <Icon name="Pin" className="h-3 w-3" />Épinglé
+                  <Icon name="Pin" className="h-3 w-3" />{T.detail.pinned}
                 </span>
               )}
               {selected.role === "syndic" && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Syndic</span>
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{T.detail.syndic}</span>
               )}
             </div>
 
@@ -599,12 +667,15 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">{selected.body}</p>
 
             {selected.image_url && (
-              /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(selected.image_url)
-                ? <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
-                : <a href={selected.image_url} target="_blank" rel="noopener" className="mt-3 inline-flex items-center gap-2 rounded-lg border border-black/[0.08] bg-sand/50 px-4 py-3 text-[13px] font-medium text-palier-700 hover:bg-sand">
-                    <Icon name="FileDown" className="h-4 w-4" />
-                    Télécharger le fichier joint
-                  </a>
+              <img src={selected.image_url} alt="" className="mt-3 w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
+            )}
+
+            {selected.file_url && (
+              <a href={selected.file_url} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-2.5 rounded-xl border border-black/5 bg-sand p-3">
+                <Icon name="FileText" className="h-5 w-5 shrink-0 text-palier-600" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{selected.file_name ?? T.detail.downloadFile}</span>
+                <Icon name="Download" className="h-4 w-4 shrink-0 text-ink-faint" />
+              </a>
             )}
 
             {/* Like + engagement stats */}
@@ -615,25 +686,25 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700 disabled:opacity-50"
               >
                 <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
-                {(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)} réactions
+                <span dir="ltr">{(selected.like_count ?? 0) + (selected.love_count ?? 0) + (selected.haha_count ?? 0) + (selected.wow_count ?? 0)}</span> {T.detail.reactions}
               </button>
               <button
                 onClick={() => loadComments(selected.id)}
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-palier-50 hover:text-palier-700"
               >
                 <Icon name="MessageCircle" className="h-3.5 w-3.5" />
-                {selected.comments_count ?? 0} commentaires
+                <span dir="ltr">{selected.comments_count ?? 0}</span> {T.detail.comments}
               </button>
             </div>
 
             {/* Comments section */}
             {commentsPostId === selected.id && (
               <div className="mt-3 border-t border-black/[0.06] pt-3">
-                <h4 className="mb-2 text-[13px] font-semibold text-ink">Commentaires</h4>
+                <h4 className="mb-2 text-[13px] font-semibold text-ink">{T.detail.comments}</h4>
                 {commentsLoading ? (
-                  <p className="text-[12px] text-ink-soft">Chargement…</p>
+                  <p className="text-[12px] text-ink-soft">{C.loading}</p>
                 ) : comments.length === 0 ? (
-                  <p className="mb-3 text-[12px] text-ink-soft">Aucun commentaire pour le moment.</p>
+                  <p className="mb-3 text-[12px] text-ink-soft">{C.noResults}</p>
                 ) : (
                   <div className="mb-3 max-h-60 space-y-2.5 overflow-y-auto">
                     {comments.map((c) => (
@@ -644,7 +715,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
                             <span className="text-[12px] font-semibold text-ink">{c.author}</span>
-                            <span className="text-[10px] text-ink-faint">{timeAgo(c.createdAt)}</span>
+                            <span className="text-[10px] text-ink-faint" dir="ltr">{timeAgo(c.createdAt, lang)}</span>
                           </div>
                           <p className="text-[12px] leading-snug text-ink-soft">{c.body}</p>
                         </div>
@@ -658,7 +729,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                     value={commentBody}
                     onChange={(e) => setCommentBody(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
-                    placeholder="Écrire un commentaire…"
+                    placeholder={`${T.detail.comments}…`}
                     className="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
                   />
                   <button
@@ -679,7 +750,7 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-palier-50 hover:text-palier-700"
               >
                 <Icon name="Pencil" className="h-3.5 w-3.5" />
-                Modifier
+                {T.detail.modify}
               </button>
               <button
                 onClick={() => handleTogglePin(selected)}
@@ -687,14 +758,14 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-sand/50 disabled:opacity-50"
               >
                 <Icon name="Pin" className="h-3.5 w-3.5" />
-                {selected.pinned ? "Désépingler" : "Épingler"}
+                {selected.pinned ? T.detail.unpin : T.detail.pin}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(selected.id)}
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2.5 text-[12px] font-semibold text-red-700 transition-colors hover:bg-red-100"
               >
                 <Icon name="Trash2" className="h-3.5 w-3.5" />
-                Supprimer
+                {T.detail.delete}
               </button>
             </div>
           </div>
@@ -709,17 +780,17 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="Trash2" className="h-4 w-4 text-red-600" />
               </div>
-              <h2 className="text-[15px] font-semibold text-ink">Supprimer la publication</h2>
+              <h2 className="text-[15px] font-semibold text-ink">{T.deleteConfirm.title}</h2>
             </div>
             <p className="mb-4 text-[13px] text-ink-soft">
-              Cette action est irréversible. La publication et ses commentaires seront définitivement supprimés.
+              {T.deleteConfirm.msg}
             </p>
             <div className="flex gap-2">
               <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                Annuler
+                {C.cancel}
               </button>
               <button onClick={() => handleDelete(showDeleteConfirm)} className="flex-1 rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
-                Supprimer
+                {C.delete}
               </button>
             </div>
           </div>
@@ -728,43 +799,80 @@ export function VoisinageView({ posts, buildingName, buildingId, voisinageCatego
 
       {/* Edit modal */}
       {editingPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={closeEdit}>
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-palier-50">
                   <Icon name="Pencil" className="h-4 w-4 text-palier-600" />
                 </div>
-                <h2 className="text-[15px] font-semibold text-ink">Modifier la publication</h2>
+                <h2 className="text-[15px] font-semibold text-ink">{T.edit.title}</h2>
               </div>
-              <button onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+              <button onClick={closeEdit} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
                 <Icon name="X" className="h-4 w-4" />
               </button>
             </div>
             <input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Titre (optionnel)"
+              placeholder={T.compose.titlePlaceholder}
               className="mb-2 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
             />
             <textarea
               autoFocus
               value={editBody}
               onChange={(e) => setEditBody(e.target.value)}
-              placeholder="Contenu de la publication…"
+              placeholder={T.compose.contentPlaceholder}
               rows={5}
               className="mb-2 w-full resize-none rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
             />
+
+            {/* Existing file */}
+            {editKeepFile && !editMediaFile && (editingPost.image_url || editingPost.file_url) && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-black/5 bg-sand/50 p-2.5">
+                <Icon name={editingPost.image_url ? "Image" : "FileText"} className="h-4 w-4 shrink-0 text-palier-600" />
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">
+                  {editingPost.file_name ?? (editingPost.image_url ? "Image" : "Fichier")}
+                </span>
+                <button onClick={() => setEditKeepFile(false)} className="shrink-0 rounded p-0.5 text-ink-faint hover:text-red-500">
+                  <Icon name="X" className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* New file */}
+            {editMediaFile && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-palier-200 bg-palier-50 p-2.5">
+                <Icon name={editMediaFile.type.startsWith("image/") ? "Image" : "FileText"} className="h-4 w-4 shrink-0 text-palier-600" />
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">{editMediaFile.name}</span>
+                <button onClick={() => setEditMediaFile(null)} className="shrink-0 rounded p-0.5 text-ink-faint hover:text-red-500">
+                  <Icon name="X" className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Add/replace file */}
+            {!editMediaFile && (
+              <label className="mb-3 flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/[0.12] px-3 py-2 text-[12px] font-medium text-ink-soft hover:bg-sand/30">
+                <Icon name="Paperclip" className="h-3.5 w-3.5" />
+                {editKeepFile && (editingPost.image_url || editingPost.file_url) ? T.compose.replaceFile : T.compose.file}
+                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) { setEditMediaFile(f); setEditKeepFile(false); }
+                }} />
+              </label>
+            )}
+
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setEditingPost(null); setEditBody(""); setEditTitle(""); }} className="rounded-lg border border-black/[0.08] px-4 py-2 text-[12px] font-medium text-ink hover:bg-sand/50">
-                Annuler
+              <button onClick={closeEdit} className="rounded-lg border border-black/[0.08] px-4 py-2 text-[12px] font-medium text-ink hover:bg-sand/50">
+                {C.cancel}
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={!editBody.trim() || isEditing}
                 className="rounded-lg bg-palier-600 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50"
               >
-                {isEditing ? "Enregistrement…" : "Enregistrer"}
+                {isEditing ? T.edit.saving : T.edit.save}
               </button>
             </div>
           </div>

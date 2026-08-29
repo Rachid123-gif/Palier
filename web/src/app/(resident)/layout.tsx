@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/resident/BottomNav";
 import { BuildingSwitcherResident } from "@/components/resident/BuildingSwitcherResident";
@@ -29,9 +28,7 @@ export default async function ResidentLayout({
       .single();
 
     if (!membership || membership.status === "inactive") {
-      const cookieStore = await cookies();
-      cookieStore.delete("palier_session");
-      redirect("/bienvenue");
+      redirect("/bienvenue?expired=1");
     }
   }
 

@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { mad } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import {
   createBudget,
   updateBudgetStatus,
@@ -14,14 +15,7 @@ import {
 import type { Budget, BudgetLine } from "@/lib/types";
 import type { SyndicData } from "@/lib/syndic";
 
-const CATEGORIES = ["Personnel", "Maintenance", "Fluides", "Assurance", "Gestion", "Travaux", "Autre"];
-
-const STATUS_LABELS: Record<Budget["status"], string> = {
-  draft: "Brouillon",
-  vote: "En vote",
-  approved: "Approuvé",
-  closed: "Clôturé",
-};
+const DEFAULT_CATEGORIES = ["Personnel", "Maintenance", "Fluides", "Assurance", "Gestion", "Travaux", "Autre"];
 
 const STATUS_COLORS: Record<Budget["status"], string> = {
   draft: "bg-amber-50 text-amber-700",
@@ -37,17 +31,6 @@ function nextStatus(current: Budget["status"]): Budget["status"] | null {
   return idx < STATUS_FLOW.length - 1 ? STATUS_FLOW[idx + 1] : null;
 }
 
-function nextStatusLabel(current: Budget["status"]): string | null {
-  const ns = nextStatus(current);
-  if (!ns) return null;
-  const map: Record<string, string> = {
-    vote: "Soumettre au vote",
-    approved: "Approuver",
-    closed: "Clôturer",
-  };
-  return map[ns] ?? null;
-}
-
 type EmptyLine = { label: string; category: string; amountBudgeted: string; accountCode: string };
 
 export function BudgetView({
@@ -56,13 +39,29 @@ export function BudgetView({
   units,
   kpis,
   building,
+  settings,
 }: {
   budgets: Budget[];
   buildingId: string;
   units: SyndicData["units"];
   kpis: SyndicData["kpis"];
   building: SyndicData["building"];
+  settings: SyndicData["settings"];
 }) {
+  const CATEGORIES = settings?.budget_categories?.length ? settings.budget_categories : DEFAULT_CATEGORIES;
+
+  const { i } = useLang();
+  const T = i.syndic.budget;
+  const C = i.syndic.common;
+
+  const STATUS_LABELS = T.statuses;
+
+  function nextStatusLabel(current: Budget["status"]): string | null {
+    const ns = nextStatus(current);
+    if (!ns) return null;
+    return (T.statusFlow as Record<string, string>)[ns] ?? null;
+  }
+
   const [localBudgets, setLocalBudgets] = useState<Budget[]>(budgets);
   useEffect(() => { setLocalBudgets(budgets); }, [budgets]);
 
@@ -98,15 +97,15 @@ export function BudgetView({
   const budgetTotal = currentBudget?.totalAmount ?? 0;
   const reserveAmount = currentBudget?.reserveFundAmount ?? 0;
   const budgetStatus = currentBudget?.status ?? null;
-  const accountingTier = building.accountingTier === "tier3" ? "Grand" : building.accountingTier === "tier2" ? "Moyen" : "Petit";
+  const accountingTier = building.accountingTier === "tier3" ? "Grand" : building.accountingTier === "tier2" ? "Moyen" : "Petit"; // TODO: i18n if needed
 
   // ── Filtering ──
   const statusTabs: { key: "all" | Budget["status"]; label: string }[] = [
-    { key: "all", label: "Tout" },
-    { key: "draft", label: "Brouillon" },
-    { key: "vote", label: "En vote" },
-    { key: "approved", label: "Approuvé" },
-    { key: "closed", label: "Clôturé" },
+    { key: "all", label: C.all },
+    { key: "draft", label: STATUS_LABELS.draft },
+    { key: "vote", label: STATUS_LABELS.vote },
+    { key: "approved", label: STATUS_LABELS.approved },
+    { key: "closed", label: STATUS_LABELS.closed },
   ];
 
   // Available years from budgets
@@ -180,7 +179,7 @@ export function BudgetView({
       });
       if (res && "error" in res && res.error) {
         setSaving(false);
-        flash("Erreur : " + res.error);
+        flash(T.errors.saveError + res.error);
         return;
       }
       const reserveAmt = Number(reserveFund) || 0;
@@ -204,9 +203,9 @@ export function BudgetView({
       setLocalBudgets((prev) => [...prev, newBudget]);
       setShowCreate(false);
       resetCreate();
-      flash("Budget créé");
+      flash(T.create.create);
     } catch {
-      flash("Erreur lors de la création");
+      flash(T.errors.createError);
     } finally {
       setSaving(false);
     }
@@ -224,9 +223,9 @@ export function BudgetView({
         prev.map((b) => b.id === budget.id ? updated : b)
       );
       setSelected(updated);
-      flash(`Statut mis à jour : ${STATUS_LABELS[ns]}`);
+      flash(`${STATUS_LABELS[ns]}`);
     } catch {
-      flash("Erreur lors de la mise à jour du statut");
+      flash(T.errors.saveError);
     } finally {
       setActionLoading(false);
     }
@@ -264,9 +263,9 @@ export function BudgetView({
       );
       setShowAddLine(false);
       setNewLine({ label: "", category: "Maintenance", amountBudgeted: "", accountCode: "" });
-      flash("Ligne ajoutée");
+      flash(T.addLine.add);
     } catch {
-      flash("Erreur lors de l'ajout de la ligne");
+      flash(T.errors.saveError);
     } finally {
       setActionLoading(false);
     }
@@ -290,9 +289,9 @@ export function BudgetView({
       setSelected((prev) =>
         prev && prev.lines.some((l) => l.id === lineId) ? removeLine(prev) : prev
       );
-      flash("Ligne supprimée");
+      flash(C.delete);
     } catch {
-      flash("Erreur lors de la suppression de la ligne");
+      flash(T.errors.saveError);
     } finally {
       setActionLoading(false);
     }
@@ -306,9 +305,9 @@ export function BudgetView({
       setLocalBudgets((prev) => prev.filter((b) => b.id !== showDeleteConfirm.id));
       setShowDeleteConfirm(null);
       setSelected(null);
-      flash("Budget supprimé");
+      flash(C.delete);
     } catch {
-      flash("Erreur lors de la suppression du budget");
+      flash(T.errors.saveError);
     } finally {
       setActionLoading(false);
     }
@@ -325,11 +324,11 @@ export function BudgetView({
   return (
     <div>
       <PageHeader
-        title="Budget prévisionnel"
+        title={T.title}
         subtitle={`${localBudgets.length} budget${localBudgets.length > 1 ? "s" : ""}${currentBudget ? ` · ${currentYear} : ${STATUS_LABELS[currentBudget.status]}` : ""}`}
         action={
           <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Nouveau budget
+            <Icon name="Plus" className="h-3.5 w-3.5" /> {T.newBudget}
           </button>
         }
       />
@@ -338,22 +337,22 @@ export function BudgetView({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Conformément au Décret 2.23.700, le budget prévisionnel doit être voté en assemblée générale.
+          {T.legalInfo}
         </p>
       </div>
 
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Budget {currentYear}</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{mad(budgetTotal, { decimals: false })}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.currentBudget} {currentYear}</p>
+          <p className="text-[22px] font-bold leading-none text-ink" dir="ltr">{mad(budgetTotal, { decimals: false })}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Fonds de réserve</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{mad(reserveAmount, { decimals: false })}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.reserveFund}</p>
+          <p className="text-[22px] font-bold leading-none text-ink" dir="ltr">{mad(reserveAmount, { decimals: false })}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Statut budget</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.status}</p>
           <p className="text-[16px] font-bold leading-none text-ink">
             {budgetStatus ? (
               <span className={`inline-block rounded-md px-2 py-0.5 text-[13px] font-semibold ${STATUS_COLORS[budgetStatus]}`}>
@@ -363,7 +362,7 @@ export function BudgetView({
           </p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Niveau comptable</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.accountingLevel}</p>
           <p className="text-[16px] font-bold leading-none text-ink">{accountingTier}</p>
         </div>
       </div>
@@ -377,7 +376,7 @@ export function BudgetView({
             className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
-            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>
+            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`} dir="ltr">
               {counts[tab.key]}
             </span>
             {statusFilter === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
@@ -392,7 +391,7 @@ export function BudgetView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par poste..."
+            placeholder={T.searchPlaceholder}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -406,7 +405,7 @@ export function BudgetView({
           onChange={(e) => setYearFilter(e.target.value)}
           className="h-9 shrink-0 rounded-lg border border-black/[0.08] bg-white px-3 pr-8 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
         >
-          <option value="all">Toutes les années</option>
+          <option value="all">{T.yearFilter}</option>
           {availableYears.map((y) => <option key={y} value={y.toString()}>{y}</option>)}
         </select>
       </div>
@@ -416,11 +415,11 @@ export function BudgetView({
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Wallet" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{localBudgets.length === 0 ? "Aucun budget créé" : "Aucun résultat"}</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{localBudgets.length === 0 ? T.noBudget : C.noResults}</p>
             {localBudgets.length === 0 ? (
-              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Créer un budget</button>
+              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">{T.createBudget}</button>
             ) : (
-              <button onClick={() => { setStatusFilter("all"); setYearFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
+              <button onClick={() => { setStatusFilter("all"); setYearFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">{C.resetFilters}</button>
             )}
           </div>
         ) : (
@@ -429,12 +428,12 @@ export function BudgetView({
             <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="w-[18%] px-4 py-2.5">Exercice</th>
-                  <th className="w-[18%] px-4 py-2.5">Statut</th>
-                  <th className="w-[20%] px-4 py-2.5">Montant total</th>
-                  <th className="w-[20%] px-4 py-2.5">Fonds de réserve</th>
-                  <th className="w-[12%] px-4 py-2.5">Lignes</th>
-                  <th className="w-[12%] px-4 py-2.5 text-right">Actions</th>
+                  <th className="w-[18%] px-4 py-2.5">{T.table.fiscalYear}</th>
+                  <th className="w-[18%] px-4 py-2.5">{T.table.status}</th>
+                  <th className="w-[20%] px-4 py-2.5">{T.table.total}</th>
+                  <th className="w-[20%] px-4 py-2.5">{T.table.reserve}</th>
+                  <th className="w-[12%] px-4 py-2.5">{T.table.lines}</th>
+                  <th className="w-[12%] px-4 py-2.5 text-right">{T.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -448,12 +447,12 @@ export function BudgetView({
                         {STATUS_LABELS[b.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-medium text-ink">{mad(b.totalAmount, { decimals: false })}</td>
-                    <td className="px-4 py-2.5 text-ink-soft">{mad(b.reserveFundAmount, { decimals: false })}</td>
-                    <td className="px-4 py-2.5 text-ink-soft">{b.lines.length} poste{b.lines.length > 1 ? "s" : ""}</td>
+                    <td className="px-4 py-2.5 font-medium text-ink" dir="ltr">{mad(b.totalAmount, { decimals: false })}</td>
+                    <td className="px-4 py-2.5 text-ink-soft" dir="ltr">{mad(b.reserveFundAmount, { decimals: false })}</td>
+                    <td className="px-4 py-2.5 text-ink-soft">{T.lineCount(b.lines.length)}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button onClick={() => setSelected(b)} className="text-[11px] font-semibold text-palier-600 hover:underline">
-                        Détails
+                        {T.details}
                       </button>
                     </td>
                   </tr>
@@ -467,18 +466,18 @@ export function BudgetView({
                 <div key={b.id} className="p-4">
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-[14px] font-medium text-ink">Exercice {b.fiscalYear}</p>
-                      <p className="mt-0.5 text-[12px] text-ink-soft">{b.lines.length} poste{b.lines.length > 1 ? "s" : ""}</p>
+                      <p className="text-[14px] font-medium text-ink">{T.exercisePrefix} {b.fiscalYear}</p>
+                      <p className="mt-0.5 text-[12px] text-ink-soft">{T.lineCount(b.lines.length)}</p>
                     </div>
                     <span className={`shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_COLORS[b.status]}`}>
                       {STATUS_LABELS[b.status]}
                     </span>
                   </div>
                   <div className="mb-2.5 flex items-center gap-3 text-[12px] text-ink-soft">
-                    <span>Total : {mad(b.totalAmount, { decimals: false })}</span>
-                    <span>Réserve : {mad(b.reserveFundAmount, { decimals: false })}</span>
+                    <span>{T.detail.total} <span dir="ltr">{mad(b.totalAmount, { decimals: false })}</span></span>
+                    <span>{T.detail.reserve} <span dir="ltr">{mad(b.reserveFundAmount, { decimals: false })}</span></span>
                   </div>
-                  <button onClick={() => setSelected(b)} className="text-[12px] font-semibold text-palier-600">Détails</button>
+                  <button onClick={() => setSelected(b)} className="text-[12px] font-semibold text-palier-600">{T.details}</button>
                 </div>
               ))}
             </div>
@@ -493,14 +492,14 @@ export function BudgetView({
             {/* Header */}
             <div className="mb-5 flex items-start justify-between">
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Budget {selected.fiscalYear}</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{T.detail.title} {selected.fiscalYear}</h2>
                 <div className="mt-1 flex items-center gap-2">
                   <span className={`inline-block whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_COLORS[selected.status]}`}>
                     {STATUS_LABELS[selected.status]}
                   </span>
-                  <span className="text-[12px] text-ink-soft">Total : {mad(selected.totalAmount)}</span>
+                  <span className="text-[12px] text-ink-soft">{T.detail.total} <span dir="ltr">{mad(selected.totalAmount)}</span></span>
                   {selected.approvedAt && (
-                    <span className="text-[11px] text-ink-faint">Approuvé le {new Date(selected.approvedAt).toLocaleDateString("fr-FR")}</span>
+                    <span className="text-[11px] text-ink-faint">{T.detail.approvedOn} <span dir="ltr">{new Date(selected.approvedAt).toLocaleDateString("fr-FR")}</span></span>
                   )}
                 </div>
               </div>
@@ -512,14 +511,14 @@ export function BudgetView({
             {/* Lines table */}
             <div className="mb-4">
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold text-ink">Lignes budgétaires</h3>
+                <h3 className="text-[13px] font-semibold text-ink">{T.detail.lines}</h3>
                 {selected.status === "draft" && (
-                  <button onClick={() => setShowAddLine(true)} className="text-[12px] font-medium text-palier-600">+ Ajouter un poste</button>
+                  <button onClick={() => setShowAddLine(true)} className="text-[12px] font-medium text-palier-600">{T.detail.addLine}</button>
                 )}
               </div>
 
               {selected.lines.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-ink-soft">Aucun poste budgétaire</p>
+                <p className="py-6 text-center text-[13px] text-ink-soft">{T.detail.noLines}</p>
               ) : (
                 <div className="space-y-2">
                   {selected.lines.map((line) => {
@@ -538,9 +537,9 @@ export function BudgetView({
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="text-right">
-                              <p className="text-[13px] font-semibold text-ink">{mad(line.amountBudgeted)}</p>
+                              <p className="text-[13px] font-semibold text-ink" dir="ltr">{mad(line.amountBudgeted)}</p>
                               <p className={`text-[11px] ${overBudget ? "font-semibold text-red-500" : "text-ink-soft"}`}>
-                                Réalisé : {mad(line.amountActual)}
+                                {T.detail.realized} <span dir="ltr">{mad(line.amountActual)}</span>
                               </p>
                             </div>
                             {selected.status === "draft" && (
@@ -558,7 +557,7 @@ export function BudgetView({
                               className={`h-full rounded-full transition-all ${overBudget ? "bg-red-400" : pct > 80 ? "bg-amber-400" : "bg-emerald-500"}`}
                             />
                           </div>
-                          <span className={`text-[11px] font-semibold ${overBudget ? "text-red-500" : "text-ink-soft"}`}>{pct}%</span>
+                          <span className={`text-[11px] font-semibold ${overBudget ? "text-red-500" : "text-ink-soft"}`} dir="ltr">{pct}%</span>
                         </div>
                       </div>
                     );
@@ -572,9 +571,9 @@ export function BudgetView({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Icon name="Shield" className="h-4 w-4 text-palier-600" />
-                      <p className="text-[13px] font-medium text-ink">Fonds de réserve</p>
+                      <p className="text-[13px] font-medium text-ink">{T.detail.reserve}</p>
                     </div>
-                    <p className="text-[13px] font-semibold text-ink">{mad(selected.reserveFundAmount)}</p>
+                    <p className="text-[13px] font-semibold text-ink" dir="ltr">{mad(selected.reserveFundAmount)}</p>
                   </div>
                 </div>
               )}
@@ -583,11 +582,11 @@ export function BudgetView({
             {/* Add line inline form */}
             {showAddLine && selected.status === "draft" && (
               <div className="mb-4 rounded-lg border border-palier-200 bg-white p-3">
-                <p className="mb-2 text-[12px] font-semibold text-ink-soft">Nouveau poste</p>
+                <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.addLine.title}</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     type="text"
-                    placeholder="Libellé"
+                    placeholder={T.addLine.labelPlaceholder}
                     value={newLine.label}
                     onChange={(e) => setNewLine({ ...newLine, label: e.target.value })}
                     className={inputCls}
@@ -601,7 +600,7 @@ export function BudgetView({
                   </select>
                   <input
                     type="number"
-                    placeholder="Montant (MAD)"
+                    placeholder={T.addLine.amountPlaceholder}
                     min="0"
                     value={newLine.amountBudgeted}
                     onChange={(e) => setNewLine({ ...newLine, amountBudgeted: e.target.value })}
@@ -609,7 +608,7 @@ export function BudgetView({
                   />
                   <input
                     type="text"
-                    placeholder="Code comptable (optionnel)"
+                    placeholder={T.addLine.accountCode}
                     value={newLine.accountCode}
                     onChange={(e) => setNewLine({ ...newLine, accountCode: e.target.value })}
                     className={inputCls}
@@ -621,10 +620,10 @@ export function BudgetView({
                     disabled={actionLoading || !newLine.label.trim() || !Number(newLine.amountBudgeted)}
                     className="rounded-lg bg-palier-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50"
                   >
-                    {actionLoading ? "Ajout..." : "Ajouter"}
+                    {actionLoading ? C.loading : T.addLine.add}
                   </button>
                   <button onClick={() => setShowAddLine(false)} className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-[12px] font-semibold text-ink hover:bg-sand/50">
-                    Annuler
+                    {T.addLine.cancel}
                   </button>
                 </div>
               </div>
@@ -638,7 +637,7 @@ export function BudgetView({
                   disabled={actionLoading}
                   className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50"
                 >
-                  {actionLoading ? "Mise à jour..." : nextStatusLabel(selected.status)}
+                  {actionLoading ? C.loading : nextStatusLabel(selected.status)}
                 </button>
               )}
               {selected.status === "draft" && (
@@ -646,7 +645,7 @@ export function BudgetView({
                   onClick={() => setShowDeleteConfirm(selected)}
                   className="rounded-xl border border-red-200 px-4 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-50"
                 >
-                  Supprimer
+                  {T.detail.delete}
                 </button>
               )}
             </div>
@@ -664,8 +663,8 @@ export function BudgetView({
                   <Icon name="Wallet" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Nouveau budget prévisionnel</h2>
-                  <p className="text-[12px] text-ink-soft">Définir les postes et montants prévisionnels</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.create.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.create.defineLines}</p>
                 </div>
               </div>
               <button onClick={() => { setShowCreate(false); resetCreate(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -676,7 +675,7 @@ export function BudgetView({
             <form onSubmit={handleCreate} className="space-y-4">
               {/* Fiscal year */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Exercice fiscal</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.create.fiscalYear}</label>
                 <select
                   value={fiscalYear}
                   onChange={(e) => setFiscalYear(Number(e.target.value))}
@@ -689,14 +688,14 @@ export function BudgetView({
               {/* Budget lines */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-ink-soft">Postes budgétaires</span>
-                  <button type="button" onClick={addFormLine} className="text-[12px] font-medium text-palier-600">+ Ajouter</button>
+                  <span className="text-[12px] font-semibold text-ink-soft">{T.create.lines}</span>
+                  <button type="button" onClick={addFormLine} className="text-[12px] font-medium text-palier-600">{T.create.addLine}</button>
                 </div>
                 <div className="max-h-64 space-y-2 overflow-y-auto">
                   {lines.map((line, i) => (
                     <div key={i} className="rounded-lg border border-black/[0.06] p-2.5">
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-ink-soft">Poste {i + 1}</span>
+                        <span className="text-[11px] font-medium text-ink-soft" dir="ltr">#{i + 1}</span>
                         {lines.length > 1 && (
                           <button type="button" onClick={() => removeFormLine(i)} className="text-ink-faint hover:text-red-500">
                             <Icon name="Trash2" className="h-3 w-3" />
@@ -706,7 +705,7 @@ export function BudgetView({
                       <input
                         type="text"
                         required
-                        placeholder="Libellé (ex : Entretien parties communes)"
+                        placeholder={T.create.lineLabel}
                         value={line.label}
                         onChange={(e) => updateFormLine(i, "label", e.target.value)}
                         className={`mb-1 ${inputCls}`}
@@ -723,7 +722,7 @@ export function BudgetView({
                           type="number"
                           required
                           min="0"
-                          placeholder="Montant (MAD)"
+                          placeholder={T.create.lineAmount}
                           value={line.amountBudgeted}
                           onChange={(e) => updateFormLine(i, "amountBudgeted", e.target.value)}
                           className={inputCls}
@@ -736,7 +735,7 @@ export function BudgetView({
 
               {/* Reserve fund */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Fonds de réserve (MAD)</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.create.reserve}</label>
                 <input
                   type="number"
                   min="0"
@@ -745,14 +744,14 @@ export function BudgetView({
                   onChange={(e) => setReserveFund(e.target.value)}
                   className={inputCls}
                 />
-                <p className="mt-1 text-[11px] text-ink-faint">Minimum 5% du budget total recommandé par la loi 18-00</p>
+                <p className="mt-1 text-[11px] text-ink-faint">{T.create.reserveHint}</p>
               </div>
 
               {/* Total preview */}
               <div className="rounded-lg border border-black/[0.06] bg-white p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[12px] font-semibold text-ink-soft">Total prévisionnel</p>
-                  <p className="text-[16px] font-bold text-ink">{mad(formTotal, { decimals: false })}</p>
+                  <p className="text-[12px] font-semibold text-ink-soft">{T.create.totalPreview}</p>
+                  <p className="text-[16px] font-bold text-ink" dir="ltr">{mad(formTotal, { decimals: false })}</p>
                 </div>
               </div>
 
@@ -761,7 +760,7 @@ export function BudgetView({
                 disabled={saving || lines.every((l) => !l.label.trim() || !Number(l.amountBudgeted))}
                 className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50"
               >
-                {saving ? "Création..." : "Créer le budget"}
+                {saving ? C.loading : T.create.create}
               </button>
             </form>
           </div>
@@ -772,16 +771,16 @@ export function BudgetView({
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowDeleteConfirm(null)}>
           <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-[16px] font-semibold text-ink">Supprimer ce budget ?</h2>
+            <h2 className="text-[16px] font-semibold text-ink">{T.deleteConfirm.title}</h2>
             <p className="mt-1 text-[13px] text-ink-soft">
-              Le budget de l&apos;exercice {showDeleteConfirm.fiscalYear} et toutes ses lignes seront définitivement supprimés.
+              {T.exercisePrefix} {showDeleteConfirm.fiscalYear} {T.deleteConfirm.msg}
             </p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-                Non, garder
+                {T.deleteConfirm.keep}
               </button>
               <button onClick={handleDeleteBudget} disabled={actionLoading} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white hover:bg-red-700 disabled:opacity-50">
-                {actionLoading ? "Suppression..." : "Oui, supprimer"}
+                {actionLoading ? C.loading : T.deleteConfirm.confirm}
               </button>
             </div>
           </div>

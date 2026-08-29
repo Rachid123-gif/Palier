@@ -12,7 +12,6 @@ import { Sheet, Toast } from "@/components/ui/Sheet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
-import { updateProfile } from "@/lib/actions";
 
 type NotifKey = "charges" | "incidents" | "voisinage" | "ag" | "syndic";
 
@@ -22,10 +21,6 @@ export default function ProfilPage() {
   const p = i.profil;
   const router = useRouter();
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(currentUser.name);
-  const [editPhone, setEditPhone] = useState(currentUser.phone);
-  const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ icon: string; title: string; body: string } | null>(null);
 
   const roleLabel = currentUser.role === "tenant" ? p.locataire : p.proprietaire;
@@ -41,21 +36,6 @@ export default function ProfilPage() {
     .toUpperCase();
 
   const errorMsg = p.messageErreur(currentUser.name, building.name);
-
-  async function saveProfile() {
-    if (!editName.trim()) return;
-    setSaving(true);
-    try {
-      await updateProfile({ name: editName.trim(), phone: editPhone.trim() });
-      setEditing(false);
-      setToast({ icon: "Check", title: p.profilMisAJour ?? "Profil mis à jour", body: p.profilMisAJourBody ?? "Vos informations ont été enregistrées." });
-      router.refresh();
-    } catch {
-      setToast({ icon: "AlertCircle", title: p.erreur ?? "Erreur", body: p.erreurProfil ?? "Impossible de mettre à jour le profil." });
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const infoRows = [
     { icon: "User", label: p.nom, value: currentUser.name },
@@ -130,40 +110,20 @@ export default function ProfilPage() {
 
         {/* ═══════ Mes informations ═══════ */}
         <div className="card divide-y divide-black/5 p-0">
-          <div className="flex items-center justify-between px-4 py-3">
+          <div className="px-4 py-3">
             <p className="text-[12px] font-bold uppercase tracking-wider text-ink-soft">{p.mesInfos}</p>
-            <button
-              onClick={() => { if (editing) { saveProfile(); } else { setEditing(true); setEditName(currentUser.name); setEditPhone(currentUser.phone); } }}
-              disabled={saving}
-              className="tap flex items-center gap-1 text-[12px] font-semibold text-palier-600 disabled:opacity-50"
-            >
-              <Icon name={editing ? "Check" : "Pencil"} className="h-3.5 w-3.5" />
-              {editing ? (p.enregistrer ?? "Enregistrer") : (p.modifier ?? "Modifier")}
-            </button>
           </div>
-          {infoRows.map((row) => {
-            const isEditable = editing && (row.icon === "User" || row.icon === "Phone");
-            return (
-              <div key={row.label} className="flex items-center gap-3.5 px-4 py-3.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-50">
-                  <Icon name={row.icon} className="h-4 w-4 text-palier-600" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold text-ink-soft">{row.label}</p>
-                  {isEditable ? (
-                    <input
-                      type={row.icon === "Phone" ? "tel" : "text"}
-                      value={row.icon === "User" ? editName : editPhone}
-                      onChange={(e) => row.icon === "User" ? setEditName(e.target.value) : setEditPhone(e.target.value)}
-                      className="w-full border-b border-palier-200 bg-transparent py-1 text-[14px] font-semibold text-ink outline-none focus:border-palier-500"
-                    />
-                  ) : (
-                    <p className="text-[14px] font-semibold text-ink">{row.value}</p>
-                  )}
-                </div>
+          {infoRows.map((row) => (
+            <div key={row.label} className="flex items-center gap-3.5 px-4 py-3.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-50">
+                <Icon name={row.icon} className="h-4 w-4 text-palier-600" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-ink-soft">{row.label}</p>
+                <p className="text-[14px] font-semibold text-ink">{row.value}</p>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {/* ═══════ Notifications ═══════ */}
@@ -260,7 +220,7 @@ export default function ProfilPage() {
           <a
             href={whatsappLink(building.syndicPhone || "", errorMsg)}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="tap mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-palier-600 py-3 text-[14px] font-semibold text-white"
           >
             <Icon name="MessageCircle" className="h-4 w-4" />

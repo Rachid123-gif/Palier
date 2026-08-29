@@ -8,14 +8,15 @@ import {
   decodeSession,
   type SessionData,
 } from "./session";
+import { checkRateLimit, RATE_LIMITS } from "./rate-limit";
 
 /** Constant-time string comparison to prevent timing attacks */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
   const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-  let result = 0;
+  const maxLen = Math.max(a.length, b.length);
+  const bufA = encoder.encode(a.padEnd(maxLen, "\0"));
+  const bufB = encoder.encode(b.padEnd(maxLen, "\0"));
+  let result = a.length ^ b.length;
   for (let i = 0; i < bufA.length; i++) {
     result |= bufA[i] ^ bufB[i];
   }
@@ -29,6 +30,8 @@ function timingSafeEqual(a: string, b: string): boolean {
 export async function adminLogin(
   secret: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const rl = await checkRateLimit("admin-login", RATE_LIMITS.login);
+  if (!rl.ok) return { ok: false, error: "too_many_attempts" };
   const expected = process.env.PLATFORM_ADMIN_SECRET;
   if (!expected) {
     return { ok: false, error: "not_configured" };

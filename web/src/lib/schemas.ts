@@ -43,10 +43,13 @@ export const createPostSchema = z.object({
 export const updatePostSchema = z.object({
   postId: uuid,
   body: safeString,
-  title: shortString.optional(),
-  category: shortString.optional(),
-  providerName: shortString.optional(),
-  providerPhone: phone.optional(),
+  title: shortString.optional().nullable(),
+  category: shortString.optional().nullable(),
+  providerName: shortString.optional().nullable(),
+  providerPhone: phone.optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
+  fileUrl: z.string().url().optional().nullable(),
+  fileName: z.string().max(255).optional().nullable(),
 });
 
 /* ─── Ledger ─── */
@@ -250,6 +253,7 @@ export const saveBuildingSettingsSchema = z.object({
   expense_categories: z.array(shortString).optional(),
   charge_categories: z.array(shortString).optional(),
   voisinage_categories: z.array(shortString).optional(),
+  budget_categories: z.array(shortString).optional(),
   relance_message: safeString.optional(),
   gardien_name: shortString.optional(),
   gardien_phone: phone.optional(),
@@ -342,4 +346,75 @@ export const updateTantiemesSchema = z.object({
     unitId: uuid,
     tantiemes: z.number().int().min(0).max(10000),
   })).min(1),
+});
+
+/* ─── Dunning Log ─── */
+export const logDunningSchema = z.object({
+  buildingId: uuid,
+  unitId: uuid,
+  channel: z.enum(["push", "sms", "whatsapp", "app"]),
+  message: safeString,
+});
+
+/* ─── Dunning Relance ─── */
+export const sendDunningRelanceSchema = z.object({
+  buildingId: uuid,
+  unitId: uuid,
+  profileId: uuid.nullable(),
+  title: shortString,
+  body: safeString,
+});
+
+/* ─── Documents ─── */
+export const insertDocumentSchema = z.object({
+  buildingId: uuid,
+  title: shortString,
+  docType: shortString,
+  docDate: isoDate,
+  size: z.string().max(50),
+  url: z.string().url(),
+});
+
+export const upsertDocumentSchema = z.object({
+  buildingId: uuid,
+  title: shortString,
+  docType: shortString,
+  docDate: isoDate,
+  size: z.string().max(50),
+  url: z.string().url(),
+  refId: z.string().min(1).max(200),
+});
+
+/* ─── Feedback ─── */
+export const submitFeedbackSchema = z.object({
+  buildingId: uuid,
+  type: shortString,
+  message: safeString,
+  senderName: shortString,
+  senderPhone: phone.nullable().optional(),
+  senderEmail: z.string().email().max(200).or(z.literal("")).nullable().optional(),
+  contactPreference: shortString,
+  buildingName: shortString,
+  senderRole: z.enum(["syndic", "resident"]).optional(),
+  attachmentUrl: z.string().url().nullable().optional(),
+});
+
+/* ─── Incident Urgency ─── */
+export const updateIncidentUrgencySchema = z.object({
+  incidentId: uuid,
+  urgency: z.enum(["low", "normal", "urgent"]),
+});
+
+/* ─── Urgent Work Status ─── */
+export const updateUrgentWorkStatusSchema = z.object({
+  id: uuid,
+  status: z.enum(["declared", "approved", "in_progress", "completed"]),
+  actualCost: amount.optional(),
+});
+
+/* ─── Budget Status ─── */
+export const updateBudgetStatusSchema = z.object({
+  budgetId: uuid,
+  status: z.enum(["draft", "vote", "approved", "closed"]),
+  assemblyId: uuid.optional(),
 });

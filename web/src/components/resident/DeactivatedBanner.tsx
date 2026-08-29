@@ -26,7 +26,7 @@ export function DeactivatedBanner() {
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
-          <Icon name="AlertTriangle" className="h-4 w-4 text-amber-700" />
+          <Icon name="TriangleAlert" className="h-4 w-4 text-amber-700" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold text-amber-900">{d.titre}</p>
@@ -55,7 +55,7 @@ export function DeactivatedBanner() {
             <a
               href={waUrl}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               className="font-semibold text-amber-900 underline"
             >
               {d.contacter}

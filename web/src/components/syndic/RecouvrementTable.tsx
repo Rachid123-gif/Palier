@@ -2,32 +2,33 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
+import { PageHeader } from "@/components/syndic/ui";
 import { mad, num, timeAgo, currentPeriod, shortDate, shortName } from "@/lib/format";
 import { sendRelance, emitCharges, logDunning, syndicRecordPayment, updateChargeCall, deleteChargeCall, fetchBuildingPayments } from "@/lib/actions";
 import { dunningMessage } from "@/lib/whatsapp";
 import { longDate } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import type { RecouvrementRow, ChargeCall } from "@/lib/syndic";
 
 interface PaymentRecord { id: string; amount: number; method: string; note?: string; created_at: string; charge_id?: string }
 interface ReceiptInfo { building: string; residentName: string; lot: string; amount: number; method: string; date: string; receiptId: string; chargeLabel?: string; chargeDueDate?: string }
 
-const METHOD_LABELS: Record<string, string> = { cash: "Espèces", cheque: "Chèque", virement: "Virement", autre: "Autre" };
-
-const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: string }[] = [
-  { key: "all", label: "Tous" },
-  { key: "late", label: "En retard" },
-  { key: "due", label: "À payer" },
-  { key: "partial", label: "Partiels" },
-  { key: "paid", label: "Payés" },
-];
-
-const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
-const DEFAULT_CHARGE_CATS = ["Charges courantes", "Travaux", "Fonds de réserve"];
-
 export function RecouvrementTable({ rows, building, buildingId, chargeCalls, chargeCategories, relanceMessage }: { rows: RecouvrementRow[]; building: string; buildingId: string; chargeCalls: ChargeCall[]; chargeCategories?: string[] | null; relanceMessage?: string | null }) {
-  const effectiveChargeCats = chargeCategories?.length ? chargeCategories : DEFAULT_CHARGE_CATS;
+  const { i, lang } = useLang();
+  const T = i.syndic.recouvrement;
+  const C = i.syndic.common;
+  const MONTHS = i.months;
+  const METHOD_LABELS: Record<string, string> = T.methods;
+  const statusTabs: { key: "all" | "late" | "due" | "partial" | "paid"; label: string }[] = [
+    { key: "all", label: T.statusTabs.all },
+    { key: "late", label: T.statusTabs.late },
+    { key: "due", label: T.statusTabs.due },
+    { key: "partial", label: T.statusTabs.partial },
+    { key: "paid", label: T.statusTabs.paid },
+  ];
+  const effectiveChargeCats = chargeCategories?.length ? chargeCategories : T.defaultChargeCats;
   const [localRows, setLocalRows] = useState<RecouvrementRow[]>(rows);
   useEffect(() => { setLocalRows(rows); }, [rows]);
   const [localCalls, setLocalCalls] = useState<ChargeCall[]>(chargeCalls);
@@ -43,6 +44,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
   const defaultCatValue = (effectiveChargeCats[0] ?? "courantes").toLowerCase().replace(/\s+/g, "_");
   const [emitCategory, setEmitCategory] = useState(defaultCatValue);
   const [emitDueDate, setEmitDueDate] = useState("");
+  const [emitDistribution, setEmitDistribution] = useState<"tantiemes" | "flat">("tantiemes");
   const [periodFilter, setPeriodFilter] = useState<"tout" | "mois" | "3mois" | "6mois" | "custom">("tout");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [periodMonth, setPeriodMonth] = useState("");
@@ -84,7 +86,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
 
   const flash = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); }, []);
 
-  function resetEmit() { setEmitLabel(""); setEmitDetail(""); setEmitAmount(""); setEmitCategory(defaultCatValue); setEmitDueDate(""); }
+  function resetEmit() { setEmitLabel(""); setEmitDetail(""); setEmitAmount(""); setEmitCategory(defaultCatValue); setEmitDueDate(""); setEmitDistribution("tantiemes"); }
 
   async function handlePayment(e: React.FormEvent) {
     e.preventDefault();
@@ -100,7 +102,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
         note: payNote || undefined,
       });
       setPayPending(false);
-      if (res?.error) { flash(res.error === "already_paid" ? "Déjà payé" : res.error === "duplicate_payment" ? "Paiement déjà enregistré" : "Erreur lors de l'enregistrement"); return; }
+      if (res?.error) { flash(res.error === "already_paid" ? T.paymentErrors.alreadyPaid : res.error === "duplicate_payment" ? T.paymentErrors.duplicate : T.paymentErrors.generic); return; }
       const receipt: ReceiptInfo = {
         building,
         residentName: showPayment.ownerName,
@@ -116,8 +118,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
       setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote("");
       setReceiptInfo(receipt);
       setPayHistoryLoaded(false);
-      flash("Paiement enregistré");
-    } catch { setPayPending(false); flash("Erreur réseau. Réessayez."); }
+      flash(T.paymentRecorded);
+    } catch { setPayPending(false); flash(C.networkError); }
   }
 
   async function loadPayHistory() {
@@ -130,24 +132,25 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
   }
 
   function printReceipt(info: ReceiptInfo) {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reçu ${info.receiptId}</title>
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(T.printTitle)} ${esc(info.receiptId)}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:420px;margin:40px auto;padding:30px;border:1px solid #ddd;border-radius:8px}
 .hd{text-align:center;border-bottom:2px solid #222;padding-bottom:16px;margin-bottom:20px}.hd h1{font-size:18px;letter-spacing:1px}.hd p{color:#666;font-size:13px;margin-top:4px}
-.r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}.r .l{color:#666}.r .v{font-weight:600}
+.r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}.r .l{color:#666}.r .v{font-weight:600;direction:ltr}
 .amt{font-size:26px;text-align:center;margin:20px 0;padding:16px;background:#f0fdf4;border-radius:10px;color:#16a34a;font-weight:700}
 .sep{border-top:1px dashed #ccc;margin:16px 0}.sig{margin-top:36px;text-align:center;color:#999;font-size:12px}.sig p:first-child{margin-bottom:6px}
 @media print{body{border:none;margin:0}}</style></head><body>
-<div class="hd"><h1>REÇU DE PAIEMENT</h1><p>${info.receiptId}</p></div>
-<div class="r"><span class="l">Immeuble</span><span class="v">${info.building}</span></div>
-<div class="r"><span class="l">Date</span><span class="v">${info.date}</span></div>
+<div class="hd"><h1>${esc(T.printTitle)}</h1><p dir="ltr">${esc(info.receiptId)}</p></div>
+<div class="r"><span class="l">${esc(T.printBuilding)}</span><span class="v">${esc(info.building)}</span></div>
+<div class="r"><span class="l">${esc(T.printDate)}</span><span class="v">${esc(info.date)}</span></div>
 <div class="sep"></div>
-<div class="r"><span class="l">Résident</span><span class="v">${info.residentName}</span></div>
-<div class="r"><span class="l">Lot</span><span class="v">${info.lot}</span></div>
-${info.chargeLabel ? `<div class="r"><span class="l">Objet</span><span class="v">${info.chargeLabel}</span></div>` : ""}
-${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span class="v">${info.chargeDueDate}</span></div>` : ""}
-<div class="amt">${new Intl.NumberFormat("fr-MA").format(info.amount)} MAD</div>
-<div class="r"><span class="l">Mode de paiement</span><span class="v">${METHOD_LABELS[info.method] ?? info.method}</span></div>
-<div class="sig"><p>________________________________</p><p>Signature du syndic</p></div>
+<div class="r"><span class="l">${esc(T.printResident)}</span><span class="v">${esc(info.residentName)}</span></div>
+<div class="r"><span class="l">${esc(T.printLot)}</span><span class="v">${esc(info.lot)}</span></div>
+${info.chargeLabel ? `<div class="r"><span class="l">${esc(T.printObjet)}</span><span class="v">${esc(info.chargeLabel)}</span></div>` : ""}
+${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</span><span class="v">${esc(info.chargeDueDate)}</span></div>` : ""}
+<div class="amt" dir="ltr">${new Intl.NumberFormat("fr-MA").format(info.amount)} MAD</div>
+<div class="r"><span class="l">${esc(T.printPaymentMode)}</span><span class="v">${esc(METHOD_LABELS[info.method] ?? info.method)}</span></div>
+<div class="sig"><p>________________________________</p><p>${esc(T.printSignature)}</p></div>
 </body></html>`;
     const win = window.open("", "_blank");
     if (!win) return;
@@ -169,12 +172,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       dueDate: editDueDate || undefined,
     });
     setEditPending(false);
-    if (res?.error) flash("Erreur lors de la modification");
+    if (res?.error) flash(T.editError);
     else {
       setLocalCalls((prev) => prev.map((c) => c.label === editCall.label && c.dueDate === editCall.dueDate ? { ...c, label: editLabel || c.label, category: editCategory || c.category, dueDate: editDueDate || c.dueDate } : c));
-      flash("Appel modifié"); setEditCall(null);
+      flash(T.editSuccess); setEditCall(null);
     }
-    } catch { setEditPending(false); flash("Erreur réseau. Réessayez."); }
+    } catch { setEditPending(false); flash(C.networkError); }
   }
 
   async function handleDeleteCall() {
@@ -183,12 +186,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     try {
       const res = await deleteChargeCall(buildingId, deleteCallTarget.label, deleteCallTarget.dueDate);
       setDeletePending(false);
-      if (res?.error) flash("Erreur lors de la suppression");
+      if (res?.error) flash(T.deleteError);
       else {
         setLocalCalls((prev) => prev.filter((c) => !(c.label === deleteCallTarget.label && c.dueDate === deleteCallTarget.dueDate)));
-        flash("Appel supprimé"); setDeleteCallTarget(null);
+        flash(T.deleteSuccess); setDeleteCallTarget(null);
       }
-    } catch { setDeletePending(false); flash("Erreur réseau. Réessayez."); }
+    } catch { setDeletePending(false); flash(C.networkError); }
   }
 
   async function handleEmit(e: React.FormEvent) {
@@ -196,18 +199,24 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     if (!emitLabel || !emitAmount || !emitDueDate) return;
     setEmitPending(true);
     try {
-      const res = await emitCharges({ buildingId, label: emitLabel, detail: emitDetail, amount: Number(emitAmount), category: emitCategory, dueDate: emitDueDate });
+      const res = await emitCharges({ buildingId, label: emitLabel, detail: emitDetail, amount: Number(emitAmount), category: emitCategory, dueDate: emitDueDate, distribution: emitDistribution });
       setEmitPending(false);
       if (res?.error) {
-        flash("Erreur lors de l'émission");
+        flash(T.emitError);
       } else {
         const amt = Number(emitAmount);
-        const newCall: ChargeCall = { label: emitLabel, detail: emitDetail || undefined, category: emitCategory, dueDate: emitDueDate, amount: amt, createdAt: new Date().toISOString(), lots: localRows.length, paid: 0, paidAmount: 0, total: amt * localRows.length };
+        const totalTantiemes = localRows.reduce((s, r) => s + r.tantiemes, 0);
+        const useTantiemes = emitDistribution === "tantiemes" && totalTantiemes > 0;
+        const callTotal = useTantiemes ? amt : amt * localRows.length;
+        const newCall: ChargeCall = { label: emitLabel, detail: emitDetail || undefined, category: emitCategory, dueDate: emitDueDate, amount: amt, createdAt: new Date().toISOString(), lots: localRows.length, paid: 0, paidAmount: 0, total: callTotal };
         setLocalCalls((prev) => [newCall, ...prev]);
-        setLocalRows((prev) => prev.map((r) => ({ ...r, amount: r.amount + Number(emitAmount), status: "due" as any, dueDate: r.dueDate || emitDueDate })));
-        flash(`Appel émis pour ${localRows.length} lots`); setShowEmit(false); resetEmit();
+        setLocalRows((prev) => prev.map((r) => {
+          const unitAmt = useTantiemes ? Math.round((amt * r.tantiemes / totalTantiemes) * 100) / 100 : amt;
+          return { ...r, amount: r.amount + unitAmt, status: "due" as any, dueDate: r.dueDate || emitDueDate };
+        }));
+        flash(T.emitSuccess(localRows.length)); setShowEmit(false); resetEmit();
       }
-    } catch (err) { setEmitPending(false); flash(`Erreur: ${err instanceof Error ? err.message : "inconnue"}`); }
+    } catch (err) { setEmitPending(false); flash(T.genericError(err instanceof Error ? err.message : T.errorUnknown)); }
   }
 
   function relanceBody(r: RecouvrementRow) {
@@ -219,7 +228,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       `• Montant dû : ${r.amount.toLocaleString("fr-MA")} MAD`,
       r.paid > 0 ? `• Déjà payé : ${r.paid.toLocaleString("fr-MA")} MAD` : null,
       r.paid > 0 ? `• Reste à régler : ${remaining.toLocaleString("fr-MA")} MAD` : null,
-      r.dueDate ? `• Échéance : ${shortDate(r.dueDate)}` : null,
+      r.dueDate ? `• Échéance : ${shortDate(r.dueDate, lang)}` : null,
       `Merci de régulariser votre situation.`,
     ];
     return parts.filter(Boolean).join("\n");
@@ -231,10 +240,10 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       buildingId,
       unitId: r.unitId,
       profileId: r.profileId,
-      title: `Rappel de cotisation — ${currentPeriod()}`,
+      title: T.reminderTitle(currentPeriod(lang)),
       body: relanceBody(r),
     });
-    flash("Relance envoyée (in-app)");
+    flash(T.relanceSentInApp);
   }
 
   async function relanceWhatsApp(r: RecouvrementRow) {
@@ -245,10 +254,10 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       amount: r.amount,
       paid: r.paid,
       remaining,
-      period: currentPeriod(),
+      period: currentPeriod(lang),
       building,
       lot: r.ref,
-      dueDate: r.dueDate ? shortDate(r.dueDate) : undefined,
+      dueDate: r.dueDate ? shortDate(r.dueDate, lang) : undefined,
     });
     // Log the dunning in DB
     await logDunning({ buildingId, unitId: r.unitId, channel: "whatsapp", message: msg });
@@ -256,7 +265,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
     const digits = r.phone.replace(/[^0-9]/g, "");
     const waDigits = digits.startsWith("0") ? "212" + digits.slice(1) : digits;
     window.open(`https://wa.me/${waDigits}?text=${encodeURIComponent(msg)}`, "_blank");
-    flash("WhatsApp ouvert");
+    flash(T.whatsappOpened);
   }
 
   async function relanceAll() {
@@ -267,11 +276,11 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       buildingId,
       unitId: r.unitId,
       profileId: r.profileId!,
-      title: `Rappel de cotisation — ${currentPeriod()}`,
+      title: T.reminderTitle(currentPeriod(lang)),
       body: relanceBody(r),
     })));
     setBusy(false);
-    flash(`${targets.length} résidents relancés (in-app)`);
+    flash(T.relanceSentCount(targets.length));
   }
 
   // Years in data
@@ -281,8 +290,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
   }, [localRows]);
 
   const customLabel = periodFilter === "custom"
-    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
-    : "Période";
+    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || T.periods.periode
+    : T.periods.periode;
 
   // Period filtered
   const periodFiltered = useMemo(() => {
@@ -337,17 +346,18 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
   const pageRows = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
 
   function exportCSV() {
-    const header = "Lot,Résident,Rôle,Téléphone,Montant,Payé,Restant,Statut,Dernière relance";
+    const h = T.csvHeaders;
+    const header = `${h.lot},${h.resident},${h.role},${h.telephone},${h.montant},${h.paye},${h.restant},${h.statut},${h.derniereRelance}`;
     const csvRows = filtered.map((r) => {
-      const statusLabel = r.status === "paid" ? "Payé" : r.status === "partial" ? "Partiel" : r.status === "late" ? "En retard" : "À payer";
-      return `${r.ref},"${r.ownerName.replace(/"/g, '""')}",${r.role === "tenant" ? "Locataire" : "Propriétaire"},${r.phone},${r.amount},${r.paid},${r.amount - r.paid},${statusLabel},${r.lastDunnedAt ? r.lastDunnedAt.split("T")[0] : ""}`;
+      const statusLabel = T.statuses[r.status as keyof typeof T.statuses] ?? r.status;
+      return `${r.ref},"${r.ownerName.replace(/"/g, '""')}",${r.role === "tenant" ? T.roles.tenant : T.roles.owner},${r.phone},${r.amount},${r.paid},${r.amount - r.paid},${statusLabel},${r.lastDunnedAt ? r.lastDunnedAt.split("T")[0] : ""}`;
     });
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `palier-recouvrement-${new Date().toISOString().split("T")[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
-    flash("Export CSV téléchargé");
+    flash(T.csvExported);
   }
 
   function resetFilters() {
@@ -357,9 +367,19 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
   return (
     <div>
+      <PageHeader
+        title={i.syndic.shell.recouvrement}
+        subtitle={`${rows.length} ${T.lots} · ${currentPeriod(lang)}`}
+      />
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+        <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+        <p className="text-[12px] text-ink-soft">
+          {T.legalInfo}
+        </p>
+      </div>
       {/* View toggle */}
       <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-        {([["suivi", "Suivi", "Suivi des paiements"], ["historique", "Appels", "Historique des appels"], ["paiements", "Paiements", "Historique des paiements"]] as const).map(([key, mobileLabel, label]) => (
+        {([["suivi", T.tabs.suivi, T.tabs.suiviFull], ["historique", T.tabs.historique, T.tabs.historiqueFull], ["paiements", T.tabs.paiements, T.tabs.paiementsFull]] as const).map(([key, mobileLabel, label]) => (
           <button
             key={key}
             onClick={() => { setView(key); if (key === "paiements") loadPayHistory(); }}
@@ -376,7 +396,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       <>
       {/* Period filters */}
       <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-        {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
+        {([["tout", T.periods.tout], ["mois", T.periods.mois], ["3mois", T.periods.troisMois], ["6mois", T.periods.sixMois]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
@@ -399,20 +419,20 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       {/* KPI Cards */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total appelé</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{num(totalDue, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.totalAppele}</p>
+          <p dir="ltr" className="text-[22px] font-bold leading-none text-ink">{num(totalDue, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Encaissé</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{num(totalPaid, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.encaisse}</p>
+          <p dir="ltr" className="text-[22px] font-bold leading-none text-ink">{num(totalPaid, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Restant</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{num(totalRemaining, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.restant}</p>
+          <p dir="ltr" className="text-[22px] font-bold leading-none text-ink">{num(totalRemaining, false)}<span className="ml-1 text-[12px] font-medium text-ink-soft">MAD</span></p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Taux de recouvrement</p>
-          <p className="text-[22px] font-bold leading-none text-ink">{rate}%</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.tauxRecouvrement}</p>
+          <p dir="ltr" className="text-[22px] font-bold leading-none text-ink">{rate}%</p>
         </div>
       </div>
 
@@ -425,7 +445,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             className={`relative whitespace-nowrap pb-2.5 text-[12px] font-semibold transition-colors sm:text-[13px] ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
-            <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1.5 sm:text-[11px] ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{statusCounts[tab.key]}</span>
+            <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1.5 sm:text-[11px] ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}><span dir="ltr">{statusCounts[tab.key]}</span></span>
             {statusFilter === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
           </button>
         ))}
@@ -438,7 +458,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher par nom, lot ou téléphone…"
+            placeholder={T.searchPlaceholder}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -449,10 +469,10 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         </div>
         <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
           <button onClick={() => setShowEmit(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre
+            <Icon name="Plus" className="h-3.5 w-3.5" /> {T.emettre}
           </button>
           <button onClick={exportCSV} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
-            <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+            <Icon name="Download" className="h-3.5 w-3.5" /> {T.exporter}
           </button>
           {unpaidFiltered > 0 && (
             <button
@@ -461,7 +481,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-50"
             >
               <Icon name={busy ? "LoaderCircle" : "Send"} className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-              Relancer ({unpaidFiltered})
+              {T.relancerCount(unpaidFiltered)}
             </button>
           )}
         </div>
@@ -472,9 +492,9 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="Search" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">Aucun résultat</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{C.noResults}</p>
             <button onClick={resetFilters} className="mt-1 text-[13px] font-medium text-palier-600">
-              Réinitialiser les filtres
+              {C.resetFilters}
             </button>
           </div>
         ) : (
@@ -483,13 +503,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="px-3 py-2.5">Lot</th>
-                  <th className="px-3 py-2.5">Résident</th>
-                  <th className="px-3 py-2.5">Montant</th>
-                  <th className="px-3 py-2.5 whitespace-nowrap">Échéance</th>
-                  <th className="px-3 py-2.5 whitespace-nowrap">Statut</th>
-                  <th className="px-3 py-2.5 whitespace-nowrap">Dernière relance</th>
-                  <th className="px-3 py-2.5 text-right whitespace-nowrap">Actions</th>
+                  <th className="px-3 py-2.5">{T.headers.lot}</th>
+                  <th className="px-3 py-2.5">{T.headers.resident}</th>
+                  <th className="px-3 py-2.5">{T.headers.montant}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{T.headers.echeance}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{T.headers.statut}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{T.headers.derniereRelance}</th>
+                  <th className="px-3 py-2.5 text-right whitespace-nowrap">{T.headers.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -499,7 +519,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   const isOverdue = r.dueDate && new Date(r.dueDate) < new Date() && !isPaid;
                   return (
                     <tr key={r.unitId} className={`transition-colors hover:bg-sand/50 ${isPaid ? "opacity-60" : ""}`}>
-                      <td className="whitespace-nowrap px-3 py-2.5 font-medium text-ink">{r.ref}</td>
+                      <td dir="ltr" className="whitespace-nowrap px-3 py-2.5 font-medium text-ink">{r.ref}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: r.avatarColor }}>
@@ -507,19 +527,19 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                           </span>
                           <div className="min-w-0">
                             <p className="truncate text-ink">{shortName(r.ownerName)}</p>
-                            <p className="text-[11px] text-ink-soft">{r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+                            <p className="text-[11px] text-ink-soft">{r.role === "tenant" ? T.roles.tenant : T.roles.owner}</p>
                           </div>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5">
-                        <p className="font-medium text-ink">{mad(r.amount, { decimals: false })}</p>
-                        {r.status === "partial" && <p className="text-[11px] text-blue-600">{mad(remaining, { decimals: false })} restant</p>}
+                        <p dir="ltr" className="font-medium text-ink">{mad(r.amount, { decimals: false })}</p>
+                        {r.status === "partial" && <p dir="ltr" className="text-[11px] text-blue-600">{mad(remaining, { decimals: false })} {T.restantSuffix}</p>}
                       </td>
                       <td className={`whitespace-nowrap px-3 py-2.5 text-[12px] ${isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}`}>
-                        {r.dueDate ? shortDate(r.dueDate) : "—"}
+                        {r.dueDate ? shortDate(r.dueDate, lang) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5"><StatusPill status={r.status} /></td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt) : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-ink-soft">{r.lastDunnedAt ? timeAgo(r.lastDunnedAt, lang) : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5">
                         {!isPaid && (
                           <div className="flex items-center justify-end gap-1.5">
@@ -528,14 +548,14 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                               disabled={!r.chargeId}
                               className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
                             >
-                              <Icon name="Banknote" className="h-3 w-3" /> Encaisser
+                              <Icon name="Banknote" className="h-3 w-3" /> {T.encaisser}
                             </button>
                             <button
                               onClick={() => relance(r)}
                               disabled={!r.profileId}
                               className="inline-flex items-center gap-1 rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-40"
                             >
-                              <Icon name="Bell" className="h-3 w-3" /> Relancer
+                              <Icon name="Bell" className="h-3 w-3" /> {T.relancer}
                             </button>
                             <button
                               onClick={() => relanceWhatsApp(r)}
@@ -570,12 +590,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                           <p className="truncate text-[13px] font-semibold text-ink">{shortName(r.ownerName)}</p>
                           <StatusPill status={r.status} />
                         </div>
-                        <p className="mt-0.5 text-[11px] text-ink-soft">Lot {r.ref} · {r.role === "tenant" ? "Locataire" : "Propriétaire"}</p>
+                        <p className="mt-0.5 text-[11px] text-ink-soft">{T.headers.lot} <span dir="ltr">{r.ref}</span> · {r.role === "tenant" ? T.roles.tenant : T.roles.owner}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px]">
-                          <span className="font-semibold text-ink">{mad(r.amount, { decimals: false })}</span>
-                          {r.status === "partial" && <span className="text-blue-600">{mad(remaining, { decimals: false })} restant</span>}
+                          <span dir="ltr" className="font-semibold text-ink">{mad(r.amount, { decimals: false })}</span>
+                          {r.status === "partial" && <span dir="ltr" className="text-blue-600">{mad(remaining, { decimals: false })} {T.restantSuffix}</span>}
                           {r.dueDate && (
-                            <span className={isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}>{shortDate(r.dueDate)}</span>
+                            <span className={isOverdue ? "font-semibold text-red-600" : "text-ink-soft"}>{shortDate(r.dueDate, lang)}</span>
                           )}
                         </div>
                       </div>
@@ -583,10 +603,10 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                     {!isPaid && (
                       <div className="mt-2 flex items-center gap-1.5 pl-[42px]">
                         <button onClick={() => { setShowPayment(r); setPayAmount((r.amount - r.paid).toString()); }} disabled={!r.chargeId} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
-                          <Icon name="Banknote" className="h-3 w-3" /> Encaisser
+                          <Icon name="Banknote" className="h-3 w-3" /> {T.encaisser}
                         </button>
                         <button onClick={() => relance(r)} disabled={!r.profileId} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-palier-600 px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
-                          <Icon name="Bell" className="h-3 w-3" /> Relancer
+                          <Icon name="Bell" className="h-3 w-3" /> {T.relancer}
                         </button>
                         <button onClick={() => relanceWhatsApp(r)} disabled={!r.phone} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#25D366] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40">
                           <Icon name="MessageCircle" className="h-3 w-3" /> WA
@@ -600,7 +620,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
             {/* Pagination */}
             <div className="flex flex-col items-center gap-2 border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft sm:flex-row sm:justify-between">
-              <span className="shrink-0">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+              <span dir="ltr" className="shrink-0">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} / {filtered.length}</span>
               {pages > 1 && (
                 <div className="flex flex-wrap justify-center gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -625,12 +645,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       ) : view === "historique" ? (
       /* Historique des appels */
       (() => {
-        const catLabels: Record<string, string> = { courantes: "Courantes", travaux: "Travaux", provision: "Provision", regularisation: "Régularisation" };
+        const catLabels: Record<string, string> = T.catLabels;
         const histCategories = [...new Set(localCalls.map((c) => c.category))];
         const histYears = [...new Set(localCalls.filter((c) => c.dueDate).map((c) => new Date(c.dueDate).getFullYear().toString()))].sort().reverse();
         const histCustomLabel = histPeriod === "custom"
-          ? [histPeriodMonth ? MONTHS[parseInt(histPeriodMonth)]?.slice(0, 4) + "." : "", histPeriodYear].filter(Boolean).join(" ") || "Période"
-          : "Période";
+          ? [histPeriodMonth ? MONTHS[parseInt(histPeriodMonth)]?.slice(0, 4) + "." : "", histPeriodYear].filter(Boolean).join(" ") || T.periods.periode
+          : T.periods.periode;
         const filteredCalls = localCalls.filter((c) => {
           if (histCat !== "all" && c.category !== histCat) return false;
           if (histSearch.trim()) {
@@ -655,7 +675,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
       <div>
         {/* Period tabs */}
         <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-          {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
+          {([["tout", T.periods.tout], ["mois", T.periods.mois], ["3mois", T.periods.troisMois], ["6mois", T.periods.sixMois]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => { setHistPeriod(key); setHistPeriodMonth(""); setHistPeriodYear(""); }}
@@ -682,7 +702,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <input
               value={histSearch}
               onChange={(e) => setHistSearch(e.target.value)}
-              placeholder="Rechercher…"
+              placeholder={T.searchHistPlaceholder}
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
             />
             {histSearch && (
@@ -698,26 +718,26 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               onChange={(e) => setHistCat(e.target.value)}
               className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-medium text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
-              <option value="all">Toutes catégories</option>
+              <option value="all">{T.toutesCategories}</option>
               {histCategories.map((cat) => <option key={cat} value={cat}>{catLabels[cat] ?? cat}</option>)}
             </select>
           )}
           <button onClick={() => setShowEmit(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Émettre
+            <Icon name="Plus" className="h-3.5 w-3.5" /> {T.emettre}
           </button>
           </div>
         </div>
 
-        <p className="mb-3 text-[12px] text-ink-soft">{filteredCalls.length} appel{filteredCalls.length > 1 ? "s" : ""}</p>
+        <p className="mb-3 text-[12px] text-ink-soft">{T.appelCount(filteredCalls.length)}</p>
 
         {filteredCalls.length === 0 ? (
           <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
             <Icon name="Receipt" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{localCalls.length === 0 ? "Aucun appel de fonds émis" : "Aucun résultat"}</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{localCalls.length === 0 ? T.aucunAppelEmis : C.noResults}</p>
             {localCalls.length === 0 ? (
-              <button onClick={() => setShowEmit(true)} className="mt-1 text-[13px] font-medium text-palier-600">Émettre un premier appel</button>
+              <button onClick={() => setShowEmit(true)} className="mt-1 text-[13px] font-medium text-palier-600">{T.emettreUnPremierAppel}</button>
             ) : (
-              <button onClick={() => { setHistSearch(""); setHistCat("all"); setHistPeriod("tout"); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
+              <button onClick={() => { setHistSearch(""); setHistCat("all"); setHistPeriod("tout"); }} className="mt-1 text-[13px] font-medium text-palier-600">{C.resetFilters}</button>
             )}
           </div>
         ) : (
@@ -726,12 +746,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="px-4 py-2.5">Libellé</th>
-                  <th className="px-4 py-2.5 whitespace-nowrap">Catégorie</th>
-                  <th className="px-4 py-2.5 whitespace-nowrap">Montant / lot</th>
-                  <th className="px-4 py-2.5 whitespace-nowrap">Échéance</th>
-                  <th className="px-4 py-2.5 w-[180px]">Paiement</th>
-                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Actions</th>
+                  <th className="px-4 py-2.5">{T.histHeaders.libelle}</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">{T.histHeaders.categorie}</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">{T.histHeaders.montantParLot}</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">{T.histHeaders.echeance}</th>
+                  <th className="px-4 py-2.5 w-[180px]">{T.histHeaders.paiement}</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">{T.histHeaders.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
@@ -744,18 +764,18 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                         {c.detail && <p className="mt-0.5 truncate text-[11px] text-ink-soft">{c.detail}</p>}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{catLabels[c.category] ?? c.category}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{mad(c.amount, { decimals: false })}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{c.dueDate ? shortDate(c.dueDate) : "—"}</td>
+                      <td dir="ltr" className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{mad(c.amount, { decimals: false })}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{c.dueDate ? shortDate(c.dueDate, lang) : "—"}</td>
                       <td className="px-4 py-2.5">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-medium text-ink-soft">{paidRate}%</span>
-                            <span className="text-ink-faint">{c.paid}/{c.lots} lots</span>
+                            <span dir="ltr" className="font-medium text-ink-soft">{paidRate}%</span>
+                            <span dir="ltr" className="text-ink-faint">{c.paid}/{c.lots} {T.lots}</span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-sand/50">
                             <div className="h-full rounded-full bg-palier-600 transition-all" style={{ width: `${paidRate}%` }} />
                           </div>
-                          <p className="text-[10px] text-ink-faint">{mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</p>
+                          <p dir="ltr" className="text-[10px] text-ink-faint">{mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</p>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5">
@@ -764,13 +784,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                             onClick={() => { setEditCall(c); setEditLabel(c.label); setEditCategory(c.category); setEditDueDate(c.dueDate); }}
                             className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink"
                           >
-                            <Icon name="Pencil" className="h-3 w-3" /> Modifier
+                            <Icon name="Pencil" className="h-3 w-3" /> {C.modify}
                           </button>
                           <button
                             onClick={() => setDeleteCallTarget(c)}
                             className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
                           >
-                            <Icon name="Trash2" className="h-3 w-3" /> Supprimer
+                            <Icon name="Trash2" className="h-3 w-3" /> {C.delete}
                           </button>
                         </div>
                       </td>
@@ -790,24 +810,24 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                       <div className="min-w-0 flex-1">
                         <p className="text-[14px] font-medium text-ink">{c.label}</p>
                         {c.detail && <p className="mt-0.5 text-[12px] text-ink-soft">{c.detail}</p>}
-                        <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[c.category] ?? c.category} · {c.dueDate ? shortDate(c.dueDate) : "—"}</p>
+                        <p className="mt-0.5 text-[12px] text-ink-soft">{catLabels[c.category] ?? c.category} · {c.dueDate ? shortDate(c.dueDate, lang) : "—"}</p>
                       </div>
-                      <p className="shrink-0 text-[14px] font-semibold text-ink">{mad(c.amount, { decimals: false })}</p>
+                      <p dir="ltr" className="shrink-0 text-[14px] font-semibold text-ink">{mad(c.amount, { decimals: false })}</p>
                     </div>
                     <div className="mt-2 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-medium text-ink-soft">{paidRate}% — {mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</span>
-                        <span className="text-ink-faint">{c.paid}/{c.lots} lots</span>
+                        <span dir="ltr" className="font-medium text-ink-soft">{paidRate}% — {mad(c.paidAmount, { decimals: false })} / {mad(c.total, { decimals: false })}</span>
+                        <span dir="ltr" className="text-ink-faint">{c.paid}/{c.lots} {T.lots}</span>
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-sand/50">
                         <div className="h-full rounded-full bg-palier-600 transition-all" style={{ width: `${paidRate}%` }} />
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <button onClick={() => { setEditCall(c); setEditLabel(c.label); setEditCategory(c.category); setEditDueDate(c.dueDate); }} className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink">
-                          <Icon name="Pencil" className="h-3 w-3" /> Modifier
+                          <Icon name="Pencil" className="h-3 w-3" /> {C.modify}
                         </button>
                         <button onClick={() => setDeleteCallTarget(c)} className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-500 hover:text-red-600">
-                          <Icon name="Trash2" className="h-3 w-3" /> Supprimer
+                          <Icon name="Trash2" className="h-3 w-3" /> {C.delete}
                         </button>
                       </div>
                     </div>
@@ -827,8 +847,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Filtrer par période</h2>
-                  <p className="text-[12px] text-ink-soft">Sélectionnez un mois et/ou une année</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.periodModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.periodModal.subtitle}</p>
                 </div>
               </div>
               <button onClick={() => setHistPeriodOpen(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -837,7 +857,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             </div>
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
+                <p className="mb-2 text-[12px] font-semibold text-ink">{T.periodModal.mois}</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {MONTHS.map((m, idx) => (
                     <button
@@ -852,7 +872,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               </div>
               {histYears.length > 0 && (
                 <div>
-                  <p className="mb-2 text-[12px] font-semibold text-ink">Année</p>
+                  <p className="mb-2 text-[12px] font-semibold text-ink">{T.periodModal.annee}</p>
                   <div className="flex flex-wrap gap-2">
                     {histYears.map((y) => (
                       <button
@@ -871,13 +891,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   onClick={() => { setHistPeriodMonth(""); setHistPeriodYear(""); setHistPeriod("tout"); setHistPeriodOpen(false); }}
                   className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
                 >
-                  Réinitialiser
+                  {T.periodModal.reinitialiser}
                 </button>
                 <button
                   onClick={() => { setHistPeriod("custom"); setHistPeriodOpen(false); }}
                   className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"
                 >
-                  Appliquer
+                  {T.periodModal.appliquer}
                 </button>
               </div>
             </div>
@@ -904,7 +924,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               <input
                 value={payHistSearch}
                 onChange={(e) => setPayHistSearch(e.target.value)}
-                placeholder="Rechercher par nom, lot ou note…"
+                placeholder={T.searchPayPlaceholder}
                 className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
               />
               {payHistSearch && (
@@ -913,17 +933,17 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 </button>
               )}
             </div>
-            <p className="mb-3 text-[12px] text-ink-soft">{filteredPayments.length} paiement{filteredPayments.length > 1 ? "s" : ""}</p>
+            <p className="mb-3 text-[12px] text-ink-soft">{T.paiementCount(filteredPayments.length)}</p>
 
             {payHistoryLoading ? (
               <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
                 <Icon name="LoaderCircle" className="mx-auto h-8 w-8 animate-spin text-ink-faint" />
-                <p className="mt-2 text-[13px] text-ink-soft">Chargement…</p>
+                <p className="mt-2 text-[13px] text-ink-soft">{C.loading}</p>
               </div>
             ) : filteredPayments.length === 0 ? (
               <div className="rounded-2xl border border-black/[0.06] bg-cream-card py-12 text-center shadow-card">
                 <Icon name="Receipt" className="mx-auto h-8 w-8 text-ink-faint" />
-                <p className="mt-2 text-[13px] text-ink-soft">{payHistory.length === 0 ? "Aucun paiement enregistré" : "Aucun résultat"}</p>
+                <p className="mt-2 text-[13px] text-ink-soft">{payHistory.length === 0 ? T.aucunPaiement : C.noResults}</p>
               </div>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-cream-card shadow-card">
@@ -931,13 +951,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 <table className="hidden w-full text-left text-[13px] lg:table">
                   <thead>
                     <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                      <th className="px-3 py-2.5">Date</th>
-                      <th className="px-3 py-2.5">Résident</th>
-                      <th className="px-3 py-2.5">Lot</th>
-                      <th className="px-3 py-2.5">Montant</th>
-                      <th className="px-3 py-2.5">Mode</th>
-                      <th className="px-3 py-2.5">Note</th>
-                      <th className="px-3 py-2.5 text-right">Reçu</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.date}</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.resident}</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.lot}</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.montant}</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.mode}</th>
+                      <th className="px-3 py-2.5">{T.payHeaders.note}</th>
+                      <th className="px-3 py-2.5 text-right">{T.payHeaders.recu}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/[0.04]">
@@ -945,7 +965,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                       const row = p.charge_id ? chargeMap.get(p.charge_id) : null;
                       return (
                         <tr key={p.id} className="transition-colors hover:bg-sand/50">
-                          <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">{longDate(p.created_at)}</td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">{longDate(p.created_at, lang)}</td>
                           <td className="px-3 py-2.5">
                             {row ? (
                               <div className="flex items-center gap-2">
@@ -956,8 +976,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                               </div>
                             ) : <span className="text-ink-soft">—</span>}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-2.5 font-medium text-ink">{row?.ref ?? "—"}</td>
-                          <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-emerald-600">{mad(p.amount, { decimals: false })}</td>
+                          <td dir="ltr" className="whitespace-nowrap px-3 py-2.5 font-medium text-ink">{row?.ref ?? "—"}</td>
+                          <td dir="ltr" className="whitespace-nowrap px-3 py-2.5 font-semibold text-emerald-600">{mad(p.amount, { decimals: false })}</td>
                           <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">{METHOD_LABELS[p.method] ?? p.method}</td>
                           <td className="px-3 py-2.5 text-[12px] text-ink-soft max-w-[200px] truncate">{p.note || "—"}</td>
                           <td className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -973,7 +993,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                               })}
                               className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink"
                             >
-                              <Icon name="Printer" className="h-3 w-3" /> Imprimer
+                              <Icon name="Printer" className="h-3 w-3" /> {T.imprimer}
                             </button>
                           </td>
                         </tr>
@@ -997,10 +1017,10 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                             )}
                             <div>
                               <p className="text-[14px] font-medium text-ink">{row ? shortName(row.ownerName) : "—"}</p>
-                              <p className="text-[12px] text-ink-soft">Lot {row?.ref ?? "—"} · {longDate(p.created_at)}</p>
+                              <p className="text-[12px] text-ink-soft">{T.payHeaders.lot} <span dir="ltr">{row?.ref ?? "—"}</span> · {longDate(p.created_at, lang)}</p>
                             </div>
                           </div>
-                          <p className="text-[14px] font-semibold text-emerald-600">{mad(p.amount, { decimals: false })}</p>
+                          <p dir="ltr" className="text-[14px] font-semibold text-emerald-600">{mad(p.amount, { decimals: false })}</p>
                         </div>
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px] text-ink-soft">
@@ -1019,7 +1039,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                             })}
                             className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink"
                           >
-                            <Icon name="Printer" className="h-3 w-3" /> Reçu
+                            <Icon name="Printer" className="h-3 w-3" /> {T.payHeaders.recu}
                           </button>
                         </div>
                       </div>
@@ -1042,8 +1062,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <Icon name="Receipt" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Émettre un appel de fonds</h2>
-                  <p className="text-[12px] text-ink-soft">L&apos;appel sera envoyé à {localRows.length} lots</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.emitModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.emitModal.subtitle(localRows.length)}</p>
                 </div>
               </div>
               <button onClick={() => { setShowEmit(false); resetEmit(); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -1052,20 +1072,31 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             </div>
             <form onSubmit={handleEmit} className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Libellé</label>
-                <input type="text" value={emitLabel} onChange={(e) => setEmitLabel(e.target.value)} placeholder="Charges courantes Juillet 2026" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.label}</label>
+                <input type="text" value={emitLabel} onChange={(e) => setEmitLabel(e.target.value)} placeholder={T.emitModal.labelPlaceholder} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Détail</label>
-                <input type="text" value={emitDetail} onChange={(e) => setEmitDetail(e.target.value)} placeholder="Syndic + ascenseur + nettoyage" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.detail}</label>
+                <input type="text" value={emitDetail} onChange={(e) => setEmitDetail(e.target.value)} placeholder={T.emitModal.detailPlaceholder} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.distributionLabel}</label>
+                <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
+                  <button type="button" onClick={() => setEmitDistribution("tantiemes")} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${emitDistribution === "tantiemes" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
+                    {T.emitModal.distributionTantiemes}
+                  </button>
+                  <button type="button" onClick={() => setEmitDistribution("flat")} className={`flex-1 rounded-md py-2 text-[12px] font-medium transition-colors ${emitDistribution === "flat" ? "bg-palier-50 text-palier-700" : "text-ink"}`}>
+                    {T.emitModal.distributionFlat}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Montant / lot (MAD)</label>
-                  <input type="number" value={emitAmount} onChange={(e) => setEmitAmount(e.target.value)} placeholder="500" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{emitDistribution === "tantiemes" ? T.emitModal.montantTotal : T.emitModal.montantParLot}</label>
+                  <input type="number" value={emitAmount} onChange={(e) => setEmitAmount(e.target.value)} placeholder={T.emitModal.montantPlaceholder} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Catégorie</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.categorie}</label>
                   <select value={emitCategory} onChange={(e) => setEmitCategory(e.target.value)} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20">
                     {effectiveChargeCats.map((cat) => (
                       <option key={cat} value={cat.toLowerCase().replace(/\s+/g, "_")}>{cat}</option>
@@ -1074,11 +1105,11 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date d&apos;échéance</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.dateEcheance}</label>
                 <input type="date" value={emitDueDate} onChange={(e) => setEmitDueDate(e.target.value)} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
               </div>
               <button type="submit" disabled={emitPending} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
-                {emitPending ? "Émission…" : "Émettre l'appel"}
+                {emitPending ? T.emitModal.submitting : T.emitModal.submit}
               </button>
             </form>
           </div>
@@ -1095,8 +1126,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Filtrer par période</h2>
-                  <p className="text-[12px] text-ink-soft">Sélectionnez un mois et/ou une année</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.periodModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.periodModal.subtitle}</p>
                 </div>
               </div>
               <button onClick={() => setPeriodOpen(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -1106,7 +1137,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
+                <p className="mb-2 text-[12px] font-semibold text-ink">{T.periodModal.mois}</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {MONTHS.map((m, idx) => (
                     <button
@@ -1122,7 +1153,7 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
 
               {years.length > 0 && (
                 <div>
-                  <p className="mb-2 text-[12px] font-semibold text-ink">Année</p>
+                  <p className="mb-2 text-[12px] font-semibold text-ink">{T.periodModal.annee}</p>
                   <div className="flex flex-wrap gap-2">
                     {years.map((y) => (
                       <button
@@ -1142,13 +1173,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   onClick={() => { setPeriodMonth(""); setPeriodYear(""); setPeriodFilter("tout"); setPeriodOpen(false); setPage(0); }}
                   className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
                 >
-                  Réinitialiser
+                  {T.periodModal.reinitialiser}
                 </button>
                 <button
                   onClick={() => { setPeriodFilter("custom"); setPeriodOpen(false); setPage(0); }}
                   className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"
                 >
-                  Appliquer
+                  {T.periodModal.appliquer}
                 </button>
               </div>
             </div>
@@ -1166,8 +1197,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <Icon name="Banknote" className="h-5 w-5 text-emerald-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Enregistrer un paiement</h2>
-                  <p className="text-[12px] text-ink-soft">Lot {showPayment.ref} · {showPayment.ownerName}</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.payModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.headers.lot} <span dir="ltr">{showPayment.ref}</span> · {showPayment.ownerName}</p>
                 </div>
               </div>
               <button onClick={() => { setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote(""); }} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -1175,31 +1206,31 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               </button>
             </div>
             <div className="mb-4 rounded-xl bg-black/[0.02] p-3.5 space-y-1.5">
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Montant total</span><span className="font-semibold text-ink">{mad(showPayment.amount, { decimals: false })}</span></div>
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Déjà payé</span><span className="font-semibold text-ink">{mad(showPayment.paid, { decimals: false })}</span></div>
-              <div className="flex justify-between text-[13px] border-t border-black/[0.06] pt-1.5"><span className="text-ink-soft">Reste à payer</span><span className="font-bold text-emerald-600">{mad(showPayment.amount - showPayment.paid, { decimals: false })}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.payModal.totalAmount}</span><span dir="ltr" className="font-semibold text-ink">{mad(showPayment.amount, { decimals: false })}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.payModal.alreadyPaid}</span><span dir="ltr" className="font-semibold text-ink">{mad(showPayment.paid, { decimals: false })}</span></div>
+              <div className="flex justify-between text-[13px] border-t border-black/[0.06] pt-1.5"><span className="text-ink-soft">{T.payModal.remaining}</span><span dir="ltr" className="font-bold text-emerald-600">{mad(showPayment.amount - showPayment.paid, { decimals: false })}</span></div>
             </div>
             <form onSubmit={handlePayment} className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Montant reçu (MAD)</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.payModal.amountReceived}</label>
                 <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} min="1" max={showPayment.amount - showPayment.paid} step="0.01" required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20" />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Mode de paiement</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.payModal.paymentMethod}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {([["cash", "Espèces"], ["cheque", "Chèque"], ["virement", "Virement"], ["autre", "Autre"]] as const).map(([key, label]) => (
+                  {(["cash", "cheque", "virement", "autre"] as const).map((key) => (
                     <button key={key} type="button" onClick={() => setPayMethod(key)} className={`rounded-xl py-2 text-[13px] font-semibold transition-colors ${payMethod === key ? "bg-emerald-600 text-white" : "border border-black/[0.08] bg-white text-ink hover:bg-sand/50"}`}>
-                      {label}
+                      {T.methods[key]}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Note (optionnel)</label>
-                <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ex : chèque n°12345, reçu en main propre…" className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20" />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.payModal.noteLabel}</label>
+                <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder={T.payModal.notePlaceholder} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20" />
               </div>
               <button type="submit" disabled={payPending || !payAmount || Number(payAmount) <= 0} className="w-full rounded-xl bg-emerald-600 py-2.5 text-[13px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                {payPending ? "Enregistrement…" : "Enregistrer le paiement"}
+                {payPending ? T.payModal.submitting : T.payModal.submit}
               </button>
             </form>
           </div>
@@ -1216,8 +1247,8 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   <Icon name="Pencil" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Modifier l&apos;appel</h2>
-                  <p className="text-[12px] text-ink-soft">Modification appliquée à {editCall.lots} lot{editCall.lots > 1 ? "s" : ""}</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.editModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.editModal.subtitle(editCall.lots)}</p>
                 </div>
               </div>
               <button onClick={() => setEditCall(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -1226,12 +1257,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             </div>
             <form onSubmit={handleEditCall} className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Libellé</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.editModal.label}</label>
                 <input type="text" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Catégorie</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.emitModal.categorie}</label>
                   <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20">
                     {effectiveChargeCats.map((cat) => (
                       <option key={cat} value={cat.toLowerCase().replace(/\s+/g, "_")}>{cat}</option>
@@ -1239,12 +1270,12 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Date d&apos;échéance</label>
+                  <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.editModal.dateEcheance}</label>
                   <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} required className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20" />
                 </div>
               </div>
               <button type="submit" disabled={editPending} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
-                {editPending ? "Modification…" : "Enregistrer les modifications"}
+                {editPending ? T.editModal.submitting : T.editModal.submit}
               </button>
             </form>
           </div>
@@ -1260,19 +1291,19 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
                 <Icon name="Trash2" className="h-5 w-5 text-red-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Supprimer l&apos;appel</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{T.deleteModal.title}</h2>
                 <p className="text-[12px] text-ink-soft">{deleteCallTarget.label}</p>
               </div>
             </div>
             <p className="mb-5 rounded-xl bg-red-50 p-3 text-[13px] text-red-800">
-              Cette action supprimera les charges de <strong>{deleteCallTarget.lots} lot{deleteCallTarget.lots > 1 ? "s" : ""}</strong> pour cet appel. Les paiements déjà enregistrés seront également supprimés. Cette action est irréversible.
+              {T.deleteModal.warning(deleteCallTarget.lots)}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteCallTarget(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-                Annuler
+                {C.cancel}
               </button>
               <button onClick={handleDeleteCall} disabled={deletePending} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white hover:bg-red-700 disabled:opacity-50">
-                {deletePending ? "Suppression…" : "Supprimer"}
+                {deletePending ? T.deleteModal.submitting : T.deleteModal.submit}
               </button>
             </div>
           </div>
@@ -1286,11 +1317,11 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
-                  <Icon name="CheckCircle" className="h-5 w-5 text-emerald-600" />
+                  <Icon name="CircleCheck" className="h-5 w-5 text-emerald-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Paiement enregistré</h2>
-                  <p className="text-[12px] text-ink-soft">{receiptInfo.receiptId}</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.receiptModal.title}</h2>
+                  <p dir="ltr" className="text-[12px] text-ink-soft">{receiptInfo.receiptId}</p>
                 </div>
               </div>
               <button onClick={() => setReceiptInfo(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -1298,23 +1329,23 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">Échéance</span><span cl
               </button>
             </div>
             <div className="rounded-xl border border-black/[0.06] bg-white p-4 space-y-2.5">
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Immeuble</span><span className="font-medium text-ink">{receiptInfo.building}</span></div>
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Résident</span><span className="font-medium text-ink">{receiptInfo.residentName}</span></div>
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Lot</span><span className="font-medium text-ink">{receiptInfo.lot}</span></div>
-              {receiptInfo.chargeLabel && <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Objet</span><span className="font-medium text-ink">{receiptInfo.chargeLabel}</span></div>}
-              {receiptInfo.chargeDueDate && <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Échéance</span><span className="font-medium text-ink">{receiptInfo.chargeDueDate}</span></div>}
-              <div className="border-t border-black/[0.06] pt-2.5 flex justify-between text-[13px]"><span className="text-ink-soft">Mode</span><span className="font-medium text-ink">{METHOD_LABELS[receiptInfo.method] ?? receiptInfo.method}</span></div>
-              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">Date</span><span className="font-medium text-ink">{receiptInfo.date}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.building}</span><span className="font-medium text-ink">{receiptInfo.building}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.resident}</span><span className="font-medium text-ink">{receiptInfo.residentName}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.lot}</span><span dir="ltr" className="font-medium text-ink">{receiptInfo.lot}</span></div>
+              {receiptInfo.chargeLabel && <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.objet}</span><span className="font-medium text-ink">{receiptInfo.chargeLabel}</span></div>}
+              {receiptInfo.chargeDueDate && <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.echeance}</span><span className="font-medium text-ink">{receiptInfo.chargeDueDate}</span></div>}
+              <div className="border-t border-black/[0.06] pt-2.5 flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.mode}</span><span className="font-medium text-ink">{METHOD_LABELS[receiptInfo.method] ?? receiptInfo.method}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-ink-soft">{T.receiptModal.date}</span><span className="font-medium text-ink">{receiptInfo.date}</span></div>
               <div className="text-center pt-2">
-                <p className="text-[22px] font-bold text-emerald-600">{mad(receiptInfo.amount, { decimals: false })}</p>
+                <p dir="ltr" className="text-[22px] font-bold text-emerald-600">{mad(receiptInfo.amount, { decimals: false })}</p>
               </div>
             </div>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setReceiptInfo(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-                Fermer
+                {C.close}
               </button>
               <button onClick={() => printReceipt(receiptInfo)} className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 inline-flex items-center justify-center gap-1.5">
-                <Icon name="Printer" className="h-3.5 w-3.5" /> Imprimer le reçu
+                <Icon name="Printer" className="h-3.5 w-3.5" /> {T.receiptModal.printReceipt}
               </button>
             </div>
           </div>

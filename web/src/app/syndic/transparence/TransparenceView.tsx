@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { createLedgerEntry, updateLedgerEntry, deleteLedgerEntry } from "@/lib/actions";
 import { num, shortDate } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 
 interface Entry {
   id: string;
@@ -16,7 +17,6 @@ interface Entry {
 }
 
 const DEFAULT_EXPENSE_CATEGORIES = ["Maintenance", "Personnel", "Fluides", "Fournitures", "Travaux", "Charges", "Assurance", "Autre"];
-const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const PER_PAGE = 15;
 
 export function TransparenceView({
@@ -31,6 +31,10 @@ export function TransparenceView({
   expenseCategories?: string[] | null;
 }) {
   const CATEGORIES = expenseCategories?.length ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES;
+  const { i, lang } = useLang();
+  const T = i.syndic.transparence;
+  const C = i.syndic.common;
+  const MONTHS = i.months;
   const [isPending, startTransition] = useTransition();
 
   // Optimistic local state
@@ -68,8 +72,8 @@ export function TransparenceView({
   }, [localLedger]);
 
   const customLabel = periodFilter === "custom"
-    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || "Période"
-    : "Période";
+    ? [periodMonth ? MONTHS[parseInt(periodMonth)]?.slice(0, 4) + "." : "", periodYear].filter(Boolean).join(" ") || T.periods.custom
+    : T.periods.custom;
 
   // Period-filtered entries (used for KPI cards)
   const periodFiltered = useMemo(() => {
@@ -132,11 +136,11 @@ export function TransparenceView({
     setFormError("");
     if (!form.label.trim() || !form.amount) return;
     const amount = parseFloat(form.amount);
-    if (isNaN(amount) || amount <= 0) { setFormError("Le montant doit être supérieur à 0."); return; }
+    if (isNaN(amount) || amount <= 0) { setFormError(T.errors.amountPositive); return; }
     startTransition(async () => {
       try {
         const res = await createLedgerEntry({ buildingId, type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
-        if (res.error) { setFormError("Erreur lors de l'enregistrement. Réessayez."); return; }
+        if (res.error) { setFormError(T.errors.saveError); return; }
         const newEntry: Entry = {
           id: crypto.randomUUID(),
           type: form.type,
@@ -147,9 +151,9 @@ export function TransparenceView({
           signed: true,
         };
         setLocalLedger((prev) => [newEntry, ...prev]);
-        flash("Opération enregistrée");
+        flash(T.modal.sign);
         setModal(null);
-      } catch { setFormError("Erreur réseau. Réessayez."); }
+      } catch { setFormError(C.networkError); }
     });
   }
 
@@ -172,15 +176,15 @@ export function TransparenceView({
     setFormError("");
     if (!editTarget || !form.label.trim() || !form.amount) return;
     const amount = parseFloat(form.amount);
-    if (isNaN(amount) || amount <= 0) { setFormError("Le montant doit être supérieur à 0."); return; }
+    if (isNaN(amount) || amount <= 0) { setFormError(T.errors.amountPositive); return; }
     startTransition(async () => {
       try {
         const res = await updateLedgerEntry(editTarget.id, { type: form.type, label: form.label.trim(), amount, category: form.category, date: form.date });
-        if (res.error) { setFormError("Erreur lors de la modification. Réessayez."); return; }
+        if (res.error) { setFormError(T.errors.saveError); return; }
         setLocalLedger((prev) => prev.map((l) => l.id === editTarget.id ? { ...l, type: form.type, label: form.label.trim(), amount, category: form.category, entry_date: form.date } : l));
-        flash("Opération modifiée");
+        flash(T.modal.update);
         setModal(null);
-      } catch { setFormError("Erreur réseau. Réessayez."); }
+      } catch { setFormError(C.networkError); }
     });
   }
 
@@ -193,38 +197,38 @@ export function TransparenceView({
       try {
         await deleteLedgerEntry(editTarget.id);
         setLocalLedger((prev) => prev.filter((l) => l.id !== editTarget.id));
-        flash("Opération supprimée");
+        flash(C.delete);
         setModal(null);
-      } catch { flash("Erreur lors de la suppression"); setModal(null); }
+      } catch { flash(T.errors.deleteError); setModal(null); }
     });
   }
 
   // Export CSV
   function exportCSV() {
-    const header = "Date,Type,Libellé,Catégorie,Montant (MAD)";
+    const header = `${T.table.date},Type,${T.table.label},${T.table.category},${T.table.amount} (MAD)`;
     const csvRows = filtered.map((l) =>
-      `${l.entry_date},${l.type === "in" ? "Encaissement" : "Dépense"},"${l.label.replace(/"/g, '""')}",${l.category},${l.type === "in" ? "+" : "-"}${l.amount}`
+      `${l.entry_date},${l.type === "in" ? T.modal.income : T.modal.expense},"${l.label.replace(/"/g, '""')}",${l.category},${l.type === "in" ? "+" : "-"}${l.amount}`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `palier-journal-${new Date().toISOString().split("T")[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
-    flash("Export CSV téléchargé");
+    flash(T.csv.downloaded);
   }
 
   return (
     <div>
       <PageHeader
-        title="Transparence"
-        subtitle="Journal de caisse — visible par les résidents"
+        title={T.title}
+        subtitle={T.subtitle}
         action={
           <div className="flex gap-2">
             <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
-              <Icon name="Download" className="h-3.5 w-3.5" /> Exporter
+              <Icon name="Download" className="h-3.5 w-3.5" /> {C.export}
             </button>
             <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700">
-              <Icon name="Plus" className="h-3.5 w-3.5" /> Enregistrer
+              <Icon name="Plus" className="h-3.5 w-3.5" /> {T.record}
             </button>
           </div>
         }
@@ -233,13 +237,19 @@ export function TransparenceView({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          Le journal de caisse est visible par les résidents dans leur application. Toutes les entrées et sorties enregistrées ici apparaissent dans la section « Mon immeuble » du résident.
+          {T.info}
+        </p>
+      </div>
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
+        <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
+        <p className="text-[12px] text-ink-soft">
+          {T.legalInfo}
         </p>
       </div>
 
       {/* Period filters */}
       <div className="no-scrollbar mb-4 flex items-center gap-3 overflow-x-auto border-b border-black/[0.06]">
-        {([["tout", "Tout"], ["mois", "Ce mois"], ["3mois", "3 mois"], ["6mois", "6 mois"]] as const).map(([key, label]) => (
+        {([["tout", T.periods.all], ["mois", T.periods.month], ["3mois", T.periods.threeMonths], ["6mois", T.periods.sixMonths]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => { setPeriodFilter(key); setPeriodMonth(""); setPeriodYear(""); setPage(0); }}
@@ -266,7 +276,7 @@ export function TransparenceView({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
               <Icon name="ArrowDownLeft" className="h-4 w-4 text-emerald-700" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Total entrées</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.totalIn}</p>
           </div>
           <p className="text-[24px] font-bold leading-none text-ink" dir="ltr">+{num(totalIn, false)}</p>
           <p className="mt-1.5 text-[12px] font-medium text-ink-soft">MAD</p>
@@ -276,7 +286,7 @@ export function TransparenceView({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-100">
               <Icon name="ArrowUpRight" className="h-4 w-4 text-red-600" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Total sorties</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.totalOut}</p>
           </div>
           <p className="text-[24px] font-bold leading-none text-ink" dir="ltr">−{num(totalOut, false)}</p>
           <p className="mt-1.5 text-[12px] font-medium text-ink-soft">MAD</p>
@@ -286,7 +296,7 @@ export function TransparenceView({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-100">
               <Icon name="Wallet" className="h-4 w-4 text-palier-600" />
             </span>
-            <p className="text-[12px] font-semibold text-ink">Solde</p>
+            <p className="text-[12px] font-semibold text-ink">{T.kpi.balance}</p>
           </div>
           <p className="text-[24px] font-bold leading-none text-ink" dir="ltr">
             {periodBalance < 0 && "−"}{num(Math.abs(periodBalance), false)}
@@ -304,7 +314,7 @@ export function TransparenceView({
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Rechercher…"
+            placeholder={C.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -315,7 +325,7 @@ export function TransparenceView({
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-black/[0.08] bg-white p-0.5">
-            {([["all", "Tout"], ["in", "Entrées"], ["out", "Sorties"]] as const).map(([key, label]) => (
+            {([["all", T.filters.all], ["in", T.filters.income], ["out", T.filters.expenses]] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => { setTypeFilter(key); setPage(0); }}
@@ -331,7 +341,7 @@ export function TransparenceView({
               onChange={(e) => { setCatFilter(e.target.value); setPage(0); }}
               className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20 md:flex-none"
             >
-              <option value="all">Toutes catégories</option>
+              <option value="all">{T.filters.allCategories}</option>
               {usedCategories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           )}
@@ -344,9 +354,9 @@ export function TransparenceView({
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="FileText" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">Aucune opération trouvée</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{T.noOperations}</p>
             <button onClick={resetFilters} className="mt-1 text-[13px] font-medium text-palier-600">
-              Réinitialiser les filtres
+              {C.resetFilters}
             </button>
           </div>
         ) : (
@@ -355,17 +365,17 @@ export function TransparenceView({
             <table className="hidden w-full text-left text-[13px] lg:table">
               <thead>
                 <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  <th className="px-4 py-2.5">Date</th>
-                  <th className="px-4 py-2.5">Libellé</th>
-                  <th className="px-4 py-2.5">Catégorie</th>
-                  <th className="px-4 py-2.5 text-right">Montant</th>
-                  <th className="px-4 py-2.5 text-right">Actions</th>
+                  <th className="px-4 py-2.5">{T.table.date}</th>
+                  <th className="px-4 py-2.5">{T.table.label}</th>
+                  <th className="px-4 py-2.5">{T.table.category}</th>
+                  <th className="px-4 py-2.5 text-right">{T.table.amount}</th>
+                  <th className="px-4 py-2.5 text-right">{T.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
                 {rows.map((l) => (
                   <tr key={l.id} className="transition-colors hover:bg-sand/50">
-                    <td className="px-4 py-2.5 text-ink-soft">{shortDate(l.entry_date)}</td>
+                    <td className="px-4 py-2.5 text-ink-soft" dir="ltr">{shortDate(l.entry_date, lang)}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${l.type === "in" ? "bg-emerald-50" : "bg-red-50"}`}>
@@ -384,10 +394,10 @@ export function TransparenceView({
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-0.5">
-                        <button onClick={() => openEdit(l)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title="Modifier">
+                        <button onClick={() => openEdit(l)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-blue-50 hover:text-blue-600" title={C.modify}>
                           <Icon name="Pencil" className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => openDelete(l)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500" title="Supprimer">
+                        <button onClick={() => openDelete(l)} className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500" title={C.delete}>
                           <Icon name="Trash2" className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -407,7 +417,7 @@ export function TransparenceView({
                   <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-medium text-ink">{l.label}</p>
                     <div className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
-                      <span>{shortDate(l.entry_date)}</span>
+                      <span dir="ltr">{shortDate(l.entry_date, lang)}</span>
                       <span className="rounded-md bg-sand/60 px-1.5 py-0.5 text-[10px] font-medium">{l.category}</span>
                     </div>
                   </div>
@@ -426,7 +436,7 @@ export function TransparenceView({
 
             {/* Footer: pagination + totals */}
             <div className="flex items-center justify-between border-t border-black/[0.06] px-4 py-2.5 text-[12px] text-ink-soft">
-              <span>{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
+              <span dir="ltr">{safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} sur {filtered.length}</span>
               {pages > 1 && (
                 <div className="flex gap-1">
                   <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -434,7 +444,7 @@ export function TransparenceView({
                   </button>
                   {Array.from({ length: pages }, (_, i) => (
                     <button key={i} onClick={() => setPage(i)} className={`rounded-md px-2 py-1 font-medium ${i === safePage ? "bg-palier-50 text-palier-700" : "text-ink-soft hover:bg-palier-50"}`}>
-                      {i + 1}
+                      <span dir="ltr">{i + 1}</span>
                     </button>
                   ))}
                   <button onClick={() => setPage(Math.min(pages - 1, safePage + 1))} disabled={safePage >= pages - 1} className="rounded-md px-2 py-1 hover:bg-palier-50 disabled:opacity-30">
@@ -457,8 +467,8 @@ export function TransparenceView({
                 <Icon name={modal === "add" ? "Plus" : "Pencil"} className={`h-5 w-5 ${modal === "add" ? "text-palier-600" : "text-blue-600"}`} />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">{modal === "add" ? "Nouvelle opération" : "Modifier l'opération"}</h2>
-                <p className="text-[12px] text-ink-soft">{modal === "add" ? "Enregistrer une entrée ou sortie de caisse" : "Modifier les détails de cette opération"}</p>
+                <h2 className="text-[16px] font-semibold text-ink">{modal === "add" ? T.modal.newTitle : T.modal.editTitle}</h2>
+                <p className="text-[12px] text-ink-soft">{modal === "add" ? T.modal.newDesc : T.modal.editDesc}</p>
               </div>
             </div>
             <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -469,31 +479,31 @@ export function TransparenceView({
           <form onSubmit={modal === "add" ? handleAdd : handleEdit} className="space-y-4">
             {formError && (
               <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
-                <Icon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                <Icon name="TriangleAlert" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                 <p className="text-[12px] font-medium text-red-800">{formError}</p>
               </div>
             )}
 
             {/* Type toggle */}
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink">Type d&apos;opération</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.modal.type}</label>
               <div className="flex gap-1 rounded-lg border border-black/[0.08] p-0.5">
                 <button type="button" onClick={() => setForm({ ...form, type: "out" })} className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium transition-colors ${form.type === "out" ? "bg-red-50 text-red-700" : "text-ink"}`}>
-                  <Icon name="ArrowUpRight" className="h-3.5 w-3.5" /> Dépense
+                  <Icon name="ArrowUpRight" className="h-3.5 w-3.5" /> {T.modal.expense}
                 </button>
                 <button type="button" onClick={() => setForm({ ...form, type: "in" })} className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium transition-colors ${form.type === "in" ? "bg-emerald-50 text-emerald-700" : "text-ink"}`}>
-                  <Icon name="ArrowDownLeft" className="h-3.5 w-3.5" /> Encaissement
+                  <Icon name="ArrowDownLeft" className="h-3.5 w-3.5" /> {T.modal.income}
                 </button>
               </div>
             </div>
 
             {/* Libellé */}
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink">Libellé</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.modal.label}</label>
               <input
                 value={form.label}
                 onChange={(e) => { setForm({ ...form, label: e.target.value }); setFormError(""); }}
-                placeholder="Ex: Nettoyage parties communes, Cotisations mars…"
+                placeholder={T.modal.labelPlaceholder}
                 required
                 className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
               />
@@ -502,18 +512,18 @@ export function TransparenceView({
             {/* Montant + Catégorie */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink">Montant (MAD)</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.modal.amount}</label>
                 <input
                   value={form.amount}
                   onChange={(e) => { setForm({ ...form, amount: e.target.value.replace(/[^0-9.]/g, "") }); setFormError(""); }}
-                  placeholder="1 500"
+                  placeholder={T.modal.amountPlaceholder}
                   inputMode="decimal"
                   required
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink">Catégorie</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.modal.category}</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -526,7 +536,7 @@ export function TransparenceView({
 
             {/* Date */}
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold text-ink">Date</label>
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.modal.date}</label>
               <input
                 type="date"
                 value={form.date}
@@ -536,7 +546,7 @@ export function TransparenceView({
             </div>
 
             <button type="submit" disabled={isPending} className="w-full rounded-xl bg-palier-600 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-palier-700 disabled:opacity-50">
-              {isPending ? "Enregistrement…" : modal === "add" ? "Signer et enregistrer" : "Enregistrer les modifications"}
+              {isPending ? C.uploading : modal === "add" ? T.modal.sign : T.modal.update}
             </button>
           </form>
         </Overlay>
@@ -551,8 +561,8 @@ export function TransparenceView({
                 <Icon name="Trash2" className="h-5 w-5 text-red-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Supprimer cette opération</h2>
-                <p className="text-[12px] text-ink-soft">Cette action est irréversible</p>
+                <h2 className="text-[16px] font-semibold text-ink">{T.deleteTitle}</h2>
+                <p className="text-[12px] text-ink-soft">{C.irreversible}</p>
               </div>
             </div>
             <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -566,7 +576,7 @@ export function TransparenceView({
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold text-ink">{editTarget.label}</p>
-              <p className="text-[12px] text-ink-soft">{shortDate(editTarget.entry_date)} · {editTarget.category}</p>
+              <p className="text-[12px] text-ink-soft"><span dir="ltr">{shortDate(editTarget.entry_date, lang)}</span> · {editTarget.category}</p>
             </div>
             <p className={`text-[14px] font-bold ${editTarget.type === "in" ? "text-emerald-600" : "text-ink"}`} dir="ltr">
               {editTarget.type === "in" ? "+" : "−"}{num(Number(editTarget.amount), false)} MAD
@@ -574,18 +584,18 @@ export function TransparenceView({
           </div>
 
           <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
-            <Icon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+            <Icon name="TriangleAlert" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
             <p className="text-[12px] text-ink">
-              Cette opération sera définitivement supprimée du journal. Les résidents ne la verront plus dans la transparence.
+              {T.deleteMsg}
             </p>
           </div>
 
           <div className="mt-5 flex gap-2">
             <button onClick={() => setModal(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
-              Annuler
+              {C.cancel}
             </button>
             <button onClick={handleDelete} disabled={isPending} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white hover:bg-red-700 disabled:opacity-50">
-              {isPending ? "Suppression…" : "Supprimer définitivement"}
+              {isPending ? C.loading : C.delete}
             </button>
           </div>
         </Overlay>
@@ -600,8 +610,8 @@ export function TransparenceView({
                 <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
               </span>
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Filtrer par période</h2>
-                <p className="text-[12px] text-ink-soft">Sélectionnez un mois et/ou une année</p>
+                <h2 className="text-[16px] font-semibold text-ink">{T.customPeriod.title}</h2>
+                <p className="text-[12px] text-ink-soft">{T.customPeriod.month} / {T.customPeriod.year}</p>
               </div>
             </div>
             <button onClick={() => setPeriodOpen(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -612,7 +622,7 @@ export function TransparenceView({
           <div className="space-y-4">
             {/* Mois */}
             <div>
-              <p className="mb-2 text-[12px] font-semibold text-ink">Mois</p>
+              <p className="mb-2 text-[12px] font-semibold text-ink">{T.customPeriod.month}</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {MONTHS.map((m, idx) => (
                   <button
@@ -629,7 +639,7 @@ export function TransparenceView({
             {/* Année */}
             {years.length > 0 && (
               <div>
-                <p className="mb-2 text-[12px] font-semibold text-ink">Année</p>
+                <p className="mb-2 text-[12px] font-semibold text-ink">{T.customPeriod.year}</p>
                 <div className="flex flex-wrap gap-2">
                   {years.map((y) => (
                     <button
@@ -650,13 +660,13 @@ export function TransparenceView({
                 onClick={() => { setPeriodMonth(""); setPeriodYear(""); setPeriodFilter("tout"); setPeriodOpen(false); setPage(0); }}
                 className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50"
               >
-                Réinitialiser
+                {T.customPeriod.reset}
               </button>
               <button
                 onClick={() => { setPeriodFilter("custom"); setPeriodOpen(false); setPage(0); }}
                 className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"
               >
-                Appliquer
+                {T.customPeriod.apply}
               </button>
             </div>
           </div>

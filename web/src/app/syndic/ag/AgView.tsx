@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, shortDate, mad } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import { createAssembly, updateAssembly, deleteAssembly, notifyAssembly, createResolution, updateResolutionResult, deleteResolution, fetchVoteTallies, updateBudgetStatus, createPostSyndic } from "@/lib/actions";
 import { uploadFileAction } from "@/lib/actions";
 import { upsertDocument } from "@/lib/actions";
@@ -12,22 +13,10 @@ import type { Resolution, MajorityType } from "@/lib/types";
 
 /* ═══ Constants ═══ */
 
-const statusTabs: { key: "all" | "upcoming" | "past"; label: string }[] = [
-  { key: "all", label: "Tout" },
-  { key: "upcoming", label: "À venir" },
-  { key: "past", label: "Passées" },
-];
-
-const MAJORITY_LABELS: Record<MajorityType, string> = {
-  simple: "Majorité simple (art. 20)",
-  trois_quarts: "Majorité 3/4 (art. 21)",
-  unanimite: "Unanimité (art. 22)",
-};
-
-const RESULT_LABELS: Record<string, { label: string; color: string }> = {
-  adoptee: { label: "Adoptée", color: "text-emerald-600" },
-  rejetee: { label: "Rejetée", color: "text-red-600" },
-  reportee: { label: "Reportée", color: "text-amber-600" },
+const RESULT_COLORS: Record<string, string> = {
+  adoptee: "text-emerald-600",
+  rejetee: "text-red-600",
+  reportee: "text-amber-600",
 };
 
 const MIN_NOTICE_DAYS = 15;
@@ -59,6 +48,28 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   totalTantiemes: number;
   budgets?: BudgetOption[];
 }) {
+  const { i, lang } = useLang();
+  const T = i.syndic.ag;
+  const C = i.syndic.common;
+
+  const statusTabs: { key: "all" | "upcoming" | "past"; label: string }[] = [
+    { key: "all", label: T.tabs.all },
+    { key: "upcoming", label: T.tabs.upcoming },
+    { key: "past", label: T.tabs.past },
+  ];
+
+  const MAJORITY_LABELS: Record<MajorityType, string> = {
+    simple: T.majority.simple,
+    trois_quarts: T.majority.threeQuarters,
+    unanimite: T.majority.unanimity,
+  };
+
+  const RESULT_LABELS: Record<string, string> = {
+    adoptee: T.results.adopted,
+    rejetee: T.results.rejected,
+    reportee: T.results.postponed,
+  };
+
   const [localAssemblies, setLocalAssemblies] = useState<AssemblyRow[]>(assemblies);
   useEffect(() => { setLocalAssemblies(assemblies); }, [assemblies]);
 
@@ -180,7 +191,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
     min.setDate(min.getDate() + MIN_NOTICE_DAYS);
     min.setHours(0, 0, 0, 0);
     if (selected < min) {
-      setDateError(`La date doit être au moins ${MIN_NOTICE_DAYS} jours après aujourd'hui (Loi 18-00)`);
+      setDateError(T.create.dateError(MIN_NOTICE_DAYS));
       return false;
     }
     setDateError("");
@@ -214,9 +225,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       setLocalAssemblies((prev) => [optimistic, ...prev]);
       setShowCreate(false);
       resetCreate();
-      flash("Assemblée convoquée");
+      flash(T.flash.convoked);
     } catch {
-      flash("Erreur lors de la création");
+      flash(T.flash.createError);
     } finally {
       setSaving(false);
     }
@@ -292,9 +303,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       );
       setNewResTitle(""); setNewResDesc(""); setNewResMajority("simple");
       setShowAddResolution(false);
-      flash("Résolution ajoutée");
+      flash(T.flash.resolutionAdded);
     } catch {
-      flash("Erreur lors de l'ajout de la résolution");
+      flash(T.flash.resolutionAddError);
     }
   }
 
@@ -310,9 +321,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           prev.map((a) => a.id === showResults.id ? { ...a, resolutions: updatedResolutions } : a)
         );
       }
-      flash("Résolution supprimée");
+      flash(T.flash.resolutionDeleted);
     } catch {
-      flash("Erreur lors de la suppression");
+      flash(T.flash.resolutionDeleteError);
     }
   }
 
@@ -333,7 +344,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
         const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
         await upsertDocument({
           buildingId,
-          title: `PV Assemblée du ${longDate(showResults.date)}`,
+          title: T.pvDocTitle(longDate(showResults.date, lang)),
           docType: "pv",
           docDate: showResults.date,
           size: sizeLabel,
@@ -396,9 +407,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
 
       setShowResults(null);
       setSelectedBudgetId("");
-      flash("Résultats enregistrés" + (selectedBudgetId ? " · Budget approuvé" : ""));
+      flash(selectedBudgetId ? T.flash.resultsBudgetSaved : T.flash.resultsSaved);
     } catch {
-      flash("Erreur lors de l'enregistrement");
+      flash(T.flash.resultsError);
     } finally {
       setResSaving(false);
     }
@@ -406,18 +417,19 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
 
   // ───── Notify ─────
   async function handleNotify(ag: AssemblyRow) {
-    if (residentProfileIds.length === 0) { flash("Aucun résident à notifier"); return; }
+    if (residentProfileIds.length === 0) { flash(T.flash.notifyNoResident); return; }
     try {
-      await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date), place: ag.place });
+      await notifyAssembly({ profileIds: residentProfileIds, date: longDate(ag.date, lang), place: ag.place });
 
       // Create pinned post in voisinage
+      const typeLabel = ag.type === "extraordinaire" ? T.type.extraordinary.toLowerCase() : T.type.ordinary.toLowerCase();
       const agendaText = ag.agenda.map((a) => `${a.n}. ${a.t}${a.d ? ` — ${a.d}` : ""}`).join("\n");
-      const body = `Assemblée générale ${ag.type === "extraordinaire" ? "extraordinaire" : "ordinaire"} prévue le ${longDate(ag.date)} à ${ag.time}.\n\nLieu : ${ag.place}\n\nOrdre du jour :\n${agendaText}`;
-      await createPostSyndic({ buildingId, body, type: "announcement", title: `Convocation AG — ${longDate(ag.date)}`, pinned: true });
+      const body = `${T.notifyBody.intro(typeLabel, longDate(ag.date, lang), ag.time)}\n\n${T.notifyBody.location} : ${ag.place}\n\n${T.notifyBody.agendaTitle} :\n${agendaText}`;
+      await createPostSyndic({ buildingId, body, type: "announcement", title: T.notifyBody.convocationTitle(longDate(ag.date, lang)), pinned: true });
 
-      flash(`${residentProfileIds.length} résidents notifiés · Publication épinglée`);
+      flash(T.flash.notified(residentProfileIds.length));
     } catch {
-      flash("Erreur lors de la notification");
+      flash(T.flash.notifyError);
     }
   }
 
@@ -430,7 +442,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       setVoteTallies(data);
       setTalliesAssemblyId(assemblyId);
     } catch {
-      flash("Erreur lors du chargement des votes");
+      flash(T.flash.votesError);
     } finally {
       setTalliesLoading(false);
     }
@@ -444,9 +456,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       await deleteAssembly(deleteId);
       setLocalAssemblies((prev) => prev.filter((a) => a.id !== deleteId));
       setShowDelete(null);
-      flash("Assemblée annulée");
+      flash(T.flash.deleted);
     } catch {
-      flash("Erreur lors de la suppression");
+      flash(T.flash.deleteError);
     }
   }
 
@@ -455,11 +467,11 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
   return (
     <div>
       <PageHeader
-        title="Assemblées générales"
-        subtitle={`${totalAgs} assemblée${totalAgs > 1 ? "s" : ""}${nextAg ? ` · Prochaine le ${shortDate(nextAg.date)}` : ""}`}
+        title={T.titlePlural}
+        subtitle={T.subtitle(totalAgs, nextAg ? shortDate(nextAg.date, lang) : "")}
         action={
           <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-palier-700">
-            <Icon name="Plus" className="h-3.5 w-3.5" /> Convoquer une assemblée
+            <Icon name="Plus" className="h-3.5 w-3.5" /> {T.convokeBtn}
           </button>
         }
       />
@@ -468,23 +480,23 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50/50 px-4 py-3">
         <Icon name="Scale" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-palier-700" />
         <p className="text-[12px] text-palier-700">
-          Convocation minimum {MIN_NOTICE_DAYS} jours avant. Quorum requis : ≥ 1/4 des tantièmes présents ou représentés. Trois types de majorité : simple (art. 20), 3/4 (art. 21), unanimité (art. 22).
+          {T.legalInfo(MIN_NOTICE_DAYS)}
         </p>
       </div>
 
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Total assemblées</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{totalAgs}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.totalAssemblies}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{totalAgs}</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Quorum moyen</p>
-          <p className="text-[28px] font-bold leading-none text-ink">{avgQuorum}%</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.avgQuorum}</p>
+          <p className="text-[28px] font-bold leading-none text-ink" dir="ltr">{avgQuorum}%</p>
         </div>
         <div className="rounded-2xl border border-black/[0.06] bg-cream-card p-4 shadow-card">
-          <p className="mb-2 text-[12px] font-semibold text-ink-soft">Prochaine assemblée</p>
-          <p className="text-[16px] font-bold leading-none text-ink">{nextAg ? longDate(nextAg.date) : "—"}</p>
+          <p className="mb-2 text-[12px] font-semibold text-ink-soft">{T.kpi.nextAssembly}</p>
+          <p className="text-[16px] font-bold leading-none text-ink">{nextAg ? longDate(nextAg.date, lang) : "—"}</p>
         </div>
       </div>
 
@@ -497,7 +509,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
             className={`relative whitespace-nowrap pb-2.5 text-[13px] font-semibold transition-colors ${statusFilter === tab.key ? "text-palier-700" : "text-ink-soft hover:text-ink"}`}
           >
             {tab.label}
-            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`}>{counts[tab.key]}</span>
+            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${statusFilter === tab.key ? "bg-palier-50 text-palier-700" : "text-ink-faint"}`} dir="ltr">{counts[tab.key]}</span>
             {statusFilter === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-palier-600" />}
           </button>
         ))}
@@ -510,7 +522,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={C.search}
             className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-soft focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
           />
           {search && (
@@ -526,11 +538,11 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Icon name="CalendarDays" className="mx-auto h-8 w-8 text-ink-faint" />
-            <p className="mt-2 text-[13px] text-ink-soft">{localAssemblies.length === 0 ? "Aucune assemblée programmée" : "Aucun résultat"}</p>
+            <p className="mt-2 text-[13px] text-ink-soft">{localAssemblies.length === 0 ? T.noAssemblies : C.noResults}</p>
             {localAssemblies.length === 0 ? (
-              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">Convoquer une assemblée</button>
+              <button onClick={() => setShowCreate(true)} className="mt-1 text-[13px] font-medium text-palier-600">{T.convokeBtn}</button>
             ) : (
-              <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">Réinitialiser les filtres</button>
+              <button onClick={() => { setStatusFilter("all"); setSearch(""); }} className="mt-1 text-[13px] font-medium text-palier-600">{C.resetFilters}</button>
             )}
           </div>
         ) : (
@@ -539,13 +551,13 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           <table className="hidden w-full table-fixed text-left text-[13px] lg:table">
             <thead>
               <tr className="border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                <th className="w-[20%] px-4 py-2.5">Date</th>
-                <th className="w-[15%] px-4 py-2.5">Type</th>
-                <th className="w-[15%] px-4 py-2.5">Lieu</th>
-                <th className="w-[10%] px-4 py-2.5">Agenda</th>
-                <th className="w-[10%] px-4 py-2.5">Résolutions</th>
-                <th className="w-[10%] px-4 py-2.5">Quorum</th>
-                <th className="w-[20%] px-4 py-2.5 text-right">Actions</th>
+                <th className="w-[20%] px-4 py-2.5">{T.table.date}</th>
+                <th className="w-[15%] px-4 py-2.5">{T.table.type}</th>
+                <th className="w-[15%] px-4 py-2.5">{T.table.place}</th>
+                <th className="w-[10%] px-4 py-2.5">{T.table.agenda}</th>
+                <th className="w-[10%] px-4 py-2.5">{T.table.resolutions}</th>
+                <th className="w-[10%] px-4 py-2.5">{T.table.quorum}</th>
+                <th className="w-[20%] px-4 py-2.5 text-right">{T.table.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[0.04]">
@@ -555,43 +567,43 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 return (
                   <tr key={ag.id} className={`transition-colors hover:bg-sand/50 ${isPast(ag) && !hasResults ? "opacity-60" : ""}`}>
                     <td className="px-4 py-2.5">
-                      <p className="font-medium text-ink">{longDate(ag.date)}</p>
+                      <p className="font-medium text-ink">{longDate(ag.date, lang)}</p>
                       <span className={`mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${upcoming ? "bg-palier-50 text-palier-700" : "bg-sand/80 text-ink-soft"}`}>
-                        {upcoming ? "À venir" : "Passée"}
+                        {upcoming ? T.status.upcoming : T.status.past}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${ag.type === "extraordinaire" ? "bg-amber-50 text-amber-700" : "bg-palier-50 text-palier-700"}`}>
-                        {ag.type === "extraordinaire" ? "Extraordinaire" : "Ordinaire"}
+                        {ag.type === "extraordinaire" ? T.type.extraordinary : T.type.ordinary}
                       </span>
                     </td>
                     <td className="overflow-hidden px-4 py-2.5">
                       <p className="truncate text-ink-soft">{ag.place || "—"}</p>
                       <p className="text-[11px] text-ink-faint">{ag.time}</p>
                     </td>
-                    <td className="px-4 py-2.5 text-ink-soft">{ag.agenda.length} pt{ag.agenda.length > 1 ? "s" : ""}</td>
-                    <td className="px-4 py-2.5 text-ink-soft">{ag.resolutions.length > 0 ? `${ag.resolutions.length} résol.` : "—"}</td>
+                    <td className="px-4 py-2.5 text-ink-soft">{T.agendaPoints(ag.agenda.length)}</td>
+                    <td className="px-4 py-2.5 text-ink-soft">{T.resolutionCount(ag.resolutions.length)}</td>
                     <td className="px-4 py-2.5">
                       {ag.quorum > 0 ? (
-                        <span className="font-medium text-ink">{ag.quorum}%</span>
+                        <span className="font-medium text-ink" dir="ltr">{ag.quorum}%</span>
                       ) : (
                         <span className="text-ink-faint">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setSelected(ag)} className="text-[11px] font-semibold text-palier-600 hover:underline">Détails</button>
+                        <button onClick={() => setSelected(ag)} className="text-[11px] font-semibold text-palier-600 hover:underline">{T.details}</button>
                         {upcoming && (
                           <>
-                            <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-palier-700">Notifier</button>
-                            <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600 hover:underline">Annuler</button>
+                            <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-palier-700">{T.notify}</button>
+                            <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600 hover:underline">{T.cancelAssembly}</button>
                           </>
                         )}
                         {!upcoming && !hasResults && (
-                          <button onClick={() => openResults(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-palier-700">Saisir résultats</button>
+                          <button onClick={() => openResults(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-palier-700">{T.enterResults}</button>
                         )}
                         {!upcoming && hasResults && (
-                          <button onClick={() => openResults(ag)} className="text-[11px] font-semibold text-ink-soft hover:underline">Modifier</button>
+                          <button onClick={() => openResults(ag)} className="text-[11px] font-semibold text-ink-soft hover:underline">{C.modify}</button>
                         )}
                       </div>
                     </td>
@@ -610,36 +622,36 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 <div key={ag.id} className={`p-4 ${isPast(ag) && !hasResults ? "opacity-60" : ""}`}>
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-[14px] font-medium text-ink">{longDate(ag.date)}</p>
+                      <p className="text-[14px] font-medium text-ink">{longDate(ag.date, lang)}</p>
                       <p className="mt-0.5 text-[12px] text-ink-soft">{ag.time} · {ag.place || "—"}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${upcoming ? "bg-palier-50 text-palier-700" : "bg-sand/80 text-ink-soft"}`}>
-                        {upcoming ? "À venir" : "Passée"}
+                        {upcoming ? T.status.upcoming : T.status.past}
                       </span>
                       <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${ag.type === "extraordinaire" ? "bg-amber-50 text-amber-700" : "bg-palier-50/50 text-palier-600"}`}>
-                        {ag.type === "extraordinaire" ? "Extra." : "Ord."}
+                        {ag.type === "extraordinaire" ? T.type.extraordinaryShort : T.type.ordinaryShort}
                       </span>
                     </div>
                   </div>
                   <div className="mb-2.5 flex items-center gap-3 text-[12px] text-ink-soft">
-                    <span>{ag.agenda.length} point{ag.agenda.length > 1 ? "s" : ""}</span>
-                    {ag.resolutions.length > 0 && <span>{ag.resolutions.length} résol.</span>}
-                    {ag.quorum > 0 && <span>Quorum {ag.quorum}%</span>}
+                    <span>{T.agendaPointsFull(ag.agenda.length)}</span>
+                    {ag.resolutions.length > 0 && <span>{T.resolutionCount(ag.resolutions.length)}</span>}
+                    {ag.quorum > 0 && <span>{T.table.quorum} <span dir="ltr">{ag.quorum}%</span></span>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setSelected(ag)} className="text-[12px] font-semibold text-palier-600">Détails</button>
+                    <button onClick={() => setSelected(ag)} className="text-[12px] font-semibold text-palier-600">{T.details}</button>
                     {upcoming && (
                       <>
-                        <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">Notifier</button>
-                        <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600">Annuler</button>
+                        <button onClick={() => handleNotify(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">{T.notify}</button>
+                        <button onClick={() => setShowDelete(ag)} className="text-[11px] font-semibold text-red-600">{T.cancelAssembly}</button>
                       </>
                     )}
                     {!upcoming && !hasResults && (
-                      <button onClick={() => openResults(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">Saisir résultats</button>
+                      <button onClick={() => openResults(ag)} className="rounded-md bg-palier-600 px-2.5 py-1 text-[11px] font-semibold text-white">{T.enterResults}</button>
                     )}
                     {!upcoming && hasResults && (
-                      <button onClick={() => openResults(ag)} className="text-[11px] font-semibold text-ink-soft">Modifier</button>
+                      <button onClick={() => openResults(ag)} className="text-[11px] font-semibold text-ink-soft">{C.modify}</button>
                     )}
                   </div>
                 </div>
@@ -658,7 +670,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between">
               <div>
-                <h2 className="text-[16px] font-semibold text-ink">Assemblée du {longDate(selected.date)}</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{T.assemblyOf} {longDate(selected.date, lang)}</h2>
                 <p className="mt-0.5 text-[12px] text-ink-soft">{selected.time} · {selected.place}</p>
                 <div className="mt-1.5 flex items-center gap-2">
                   <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${isUpcoming(selected) ? "bg-palier-50 text-palier-700" : "bg-sand/80 text-ink-soft"}`}>
@@ -667,7 +679,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                   <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${selected.type === "extraordinaire" ? "bg-amber-50 text-amber-700" : "bg-palier-50 text-palier-700"}`}>
                     {selected.type === "extraordinaire" ? "Extraordinaire" : "Ordinaire"}
                   </span>
-                  {selected.quorum > 0 && <span className="text-[11px] font-medium text-ink-soft">Quorum {selected.quorum}%</span>}
+                  {selected.quorum > 0 && <span className="text-[11px] font-medium text-ink-soft">Quorum <span dir="ltr">{selected.quorum}%</span></span>}
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -678,11 +690,11 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
             {/* Agenda */}
             {selected.agenda.length > 0 && (
               <div className="mb-4">
-                <h3 className="mb-2 text-[13px] font-semibold text-ink">Ordre du jour</h3>
+                <h3 className="mb-2 text-[13px] font-semibold text-ink">{T.agenda}</h3>
                 <ol className="space-y-2">
                   {selected.agenda.map((a, i) => (
                     <li key={i} className="flex gap-2.5">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-palier-50 text-[11px] font-medium text-ink-soft">{a.n || i + 1}</span>
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-palier-50 text-[11px] font-medium text-ink-soft" dir="ltr">{a.n || i + 1}</span>
                       <div>
                         <p className="text-[13px] text-ink">{a.t}</p>
                         {a.d && <p className="text-[12px] text-ink-soft">{a.d}</p>}
@@ -703,14 +715,14 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-[13px] font-medium text-ink">
-                            <span className="mr-1.5 text-[11px] text-ink-soft">n°{r.number}</span>
+                            <span className="mr-1.5 text-[11px] text-ink-soft" dir="ltr">n°{r.number}</span>
                             {r.title}
                           </p>
                           <p className="mt-0.5 text-[11px] text-ink-faint">{MAJORITY_LABELS[r.majorityType]}</p>
                         </div>
                         {r.result && (
-                          <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${RESULT_LABELS[r.result].color} ${r.result === "adoptee" ? "bg-emerald-50" : r.result === "rejetee" ? "bg-red-50" : "bg-amber-50"}`}>
-                            {RESULT_LABELS[r.result].label}
+                          <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${r.result === "adoptee" ? "text-emerald-700 bg-emerald-50" : r.result === "rejetee" ? "text-red-700 bg-red-50" : "text-amber-700 bg-amber-50"}`}>
+                            {RESULT_LABELS[r.result]}
                           </span>
                         )}
                       </div>
@@ -722,9 +734,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                             <div style={{ width: `${Math.round((r.abstentionTantiemes / (r.pourTantiemes + r.contreTantiemes + r.abstentionTantiemes)) * 100)}%` }} className="bg-gray-300" />
                           </div>
                           <div className="mt-1 flex gap-3 text-[11px] text-ink-soft">
-                            <span className="text-emerald-600">Pour {r.pourTantiemes}t</span>
-                            <span className="text-red-600">Contre {r.contreTantiemes}t</span>
-                            <span>Abst. {r.abstentionTantiemes}t</span>
+                            <span className="text-emerald-600">Pour <span dir="ltr">{r.pourTantiemes}t</span></span>
+                            <span className="text-red-600">Contre <span dir="ltr">{r.contreTantiemes}t</span></span>
+                            <span>Abst. <span dir="ltr">{r.abstentionTantiemes}t</span></span>
                           </div>
                         </div>
                       )}
@@ -738,7 +750,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
             {selected.votes.length > 0 && selected.votes.some((v) => v.id) && (
               <div className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-ink">Votes des résidents</h3>
+                  <h3 className="text-[13px] font-semibold text-ink">{T.votes.title}</h3>
                   {talliesAssemblyId !== selected.id && (
                     <button
                       type="button"
@@ -747,7 +759,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                       className="inline-flex items-center gap-1 text-[12px] font-medium text-palier-600 hover:underline disabled:opacity-50"
                     >
                       <Icon name="BarChart3" className="h-3.5 w-3.5" />
-                      {talliesLoading ? "Chargement…" : "Voir les votes"}
+                      {talliesLoading ? C.loading : T.votes.seeVotes}
                     </button>
                   )}
                 </div>
@@ -759,10 +771,10 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                         <div key={v.id} className="rounded-lg border border-black/[0.06] bg-white p-3">
                           <p className="text-[13px] font-medium text-ink">{v.q}</p>
                           {!tally || tally.total === 0 ? (
-                            <p className="mt-1.5 text-[12px] text-ink-faint">Aucun vote enregistré</p>
+                            <p className="mt-1.5 text-[12px] text-ink-faint">{T.votes.noVote}</p>
                           ) : (
                             <div className="mt-2 space-y-1.5">
-                              <p className="text-[11px] font-semibold text-ink-soft">{tally.total} vote{tally.total > 1 ? "s" : ""}</p>
+                              <p className="text-[11px] font-semibold text-ink-soft"><span dir="ltr">{tally.total}</span> vote{tally.total > 1 ? "s" : ""}</p>
                               {(v.options ?? Object.keys(tally.choices)).map((option) => {
                                 const count = tally.choices[option] ?? 0;
                                 const pct = tally.total > 0 ? Math.round((count / tally.total) * 100) : 0;
@@ -770,7 +782,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                                   <div key={option}>
                                     <div className="flex items-center justify-between text-[12px]">
                                       <span className="text-ink">{option}</span>
-                                      <span className="font-semibold text-ink-soft">{count} ({pct}%)</span>
+                                      <span className="font-semibold text-ink-soft" dir="ltr">{count} ({pct}%)</span>
                                     </div>
                                     <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-sand/50">
                                       <div style={{ width: `${pct}%` }} className="h-full rounded-full bg-palier-500 transition-all" />
@@ -800,7 +812,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
             {selected.pvUrl && (
               <div className="mb-4">
                 <h3 className="mb-2 text-[13px] font-semibold text-ink">Procès-verbal</h3>
-                <a href={selected.pvUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[12px] font-medium text-palier-600 hover:bg-sand/50">
+                <a href={selected.pvUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[12px] font-medium text-palier-600 hover:bg-sand/50">
                   <Icon name="FileText" className="h-4 w-4" />
                   Voir le PV
                   <Icon name="ExternalLink" className="h-3 w-3" />
@@ -816,7 +828,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               )}
               {isPast(selected) && (
                 <button onClick={() => { setSelected(null); openResults(selected); }} className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700">
-                  {selected.quorum > 0 ? "Modifier les résultats" : "Saisir les résultats"}
+                  {selected.quorum > 0 ? T.modifyResults : T.enterResults}
                 </button>
               )}
             </div>
@@ -836,8 +848,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                   <Icon name="ClipboardCheck" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Résultats de l&apos;assemblée</h2>
-                  <p className="text-[12px] text-ink-soft">{longDate(showResults.date)}</p>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.resultsModal.title}</h2>
+                  <p className="text-[12px] text-ink-soft">{longDate(showResults.date, lang)}</p>
                 </div>
               </div>
               <button onClick={() => setShowResults(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
@@ -850,9 +862,9 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               {/* ─── SECTION 1: Feuille de présence ─── */}
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-[13px] font-semibold text-ink">Feuille de présence</h3>
+                  <h3 className="text-[13px] font-semibold text-ink">{T.resultsModal.attendance}</h3>
                   <div className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold ${quorumMet ? "bg-emerald-50 text-emerald-700" : presentIds.size > 0 ? "bg-red-50 text-red-600" : "bg-sand/50 text-ink-faint"}`}>
-                    {presentTantiemes}/{totalTantiemes} tantièmes ({quorumPct}%)
+                    <span dir="ltr">{presentTantiemes}/{totalTantiemes}</span> tantièmes (<span dir="ltr">{quorumPct}%</span>)
                     {presentIds.size > 0 && (quorumMet ? " — Quorum atteint" : " — Quorum non atteint")}
                   </div>
                 </div>
@@ -860,7 +872,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 {/* Legal minimum */}
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-faint">
                   <Icon name="Info" className="h-3 w-3" />
-                  Minimum requis : {Math.ceil(totalTantiemes / 4)} tantièmes (1/4 du total)
+                  Minimum requis : <span dir="ltr">{Math.ceil(totalTantiemes / 4)}</span> tantièmes (1/4 du total)
                 </div>
 
                 <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-black/[0.06] bg-white p-2">
@@ -886,7 +898,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                           </button>
                           <div className="min-w-0">
                             <p className={`truncate text-[12px] font-medium ${isPresent ? "text-ink" : isProxy ? "text-ink-soft" : "text-ink-faint"}`}>{r.name}</p>
-                            <p className="text-[10px] text-ink-faint">{r.unit} · {r.tantiemes}t</p>
+                            <p className="text-[10px] text-ink-faint"><span dir="ltr">{r.unit}</span> · <span dir="ltr">{r.tantiemes}t</span></p>
                           </div>
                         </div>
                         {!isPresent && !isProxy && (
@@ -932,16 +944,16 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 {/* Add resolution inline */}
                 {showAddResolution && (
                   <div className="mb-3 rounded-lg border border-palier-200 bg-palier-50/30 p-3 space-y-2">
-                    <input type="text" value={newResTitle} onChange={(e) => setNewResTitle(e.target.value)} placeholder="Titre de la résolution" className={inputCls} />
-                    <input type="text" value={newResDesc} onChange={(e) => setNewResDesc(e.target.value)} placeholder="Description (optionnel)" className={inputCls} />
+                    <input type="text" value={newResTitle} onChange={(e) => setNewResTitle(e.target.value)} placeholder={T.resultsModal.resolutionTitle} className={inputCls} />
+                    <input type="text" value={newResDesc} onChange={(e) => setNewResDesc(e.target.value)} placeholder={T.resultsModal.resolutionDesc} className={inputCls} />
                     <select value={newResMajority} onChange={(e) => setNewResMajority(e.target.value as MajorityType)} className={inputCls}>
-                      <option value="simple">Majorité simple (art. 20)</option>
-                      <option value="trois_quarts">Majorité 3/4 (art. 21)</option>
-                      <option value="unanimite">Unanimité (art. 22)</option>
+                      <option value="simple">{T.majority.simple}</option>
+                      <option value="trois_quarts">{T.majority.threeQuarters}</option>
+                      <option value="unanimite">{T.majority.unanimity}</option>
                     </select>
                     <div className="flex gap-2">
-                      <button type="button" onClick={handleAddResolution} disabled={!newResTitle.trim()} className="rounded-lg bg-palier-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">Ajouter</button>
-                      <button type="button" onClick={() => { setShowAddResolution(false); setNewResTitle(""); setNewResDesc(""); }} className="text-[12px] text-ink-soft hover:underline">Annuler</button>
+                      <button type="button" onClick={handleAddResolution} disabled={!newResTitle.trim()} className="rounded-lg bg-palier-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">{C.add}</button>
+                      <button type="button" onClick={() => { setShowAddResolution(false); setNewResTitle(""); setNewResDesc(""); }} className="text-[12px] text-ink-soft hover:underline">{C.cancel}</button>
                     </div>
                   </div>
                 )}
@@ -954,7 +966,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                       <div key={r.id} className="rounded-lg border border-black/[0.06] p-3">
                         <div className="mb-2 flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-[12px] font-medium text-ink"><span className="mr-1 text-ink-soft">n°{r.number}</span>{r.title}</p>
+                            <p className="text-[12px] font-medium text-ink"><span className="mr-1 text-ink-soft" dir="ltr">n°{r.number}</span>{r.title}</p>
                             <p className="text-[10px] text-ink-faint">{MAJORITY_LABELS[r.majorityType]}</p>
                           </div>
                           <button type="button" onClick={() => handleDeleteResolution(r.id)} className="text-ink-faint hover:text-red-500">
@@ -1006,7 +1018,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                                 : "border border-black/[0.08] bg-white text-ink-soft hover:bg-sand/50"
                               }`}
                             >
-                              {RESULT_LABELS[opt].label}
+                              {RESULT_LABELS[opt]}
                             </button>
                           ))}
                         </div>
@@ -1016,7 +1028,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 </div>
 
                 {showResults.resolutions.length === 0 && !showAddResolution && (
-                  <p className="text-[12px] text-ink-faint">Aucune résolution. Cliquez « + Ajouter » pour en créer.</p>
+                  <p className="text-[12px] text-ink-faint">{T.resultsModal.noResolutions}</p>
                 )}
               </div>
 
@@ -1024,7 +1036,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               {showResults.votes.length > 0 && showResults.votes.some((v) => v.id) && (
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-[13px] font-semibold text-ink">Votes des résidents (via l&apos;app)</h3>
+                    <h3 className="text-[13px] font-semibold text-ink">{T.votes.titleViaApp}</h3>
                     {talliesAssemblyId !== showResults.id && (
                       <button
                         type="button"
@@ -1033,7 +1045,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                         className="inline-flex items-center gap-1 text-[12px] font-medium text-palier-600 hover:underline disabled:opacity-50"
                       >
                         <Icon name="BarChart3" className="h-3.5 w-3.5" />
-                        {talliesLoading ? "Chargement…" : "Voir les votes"}
+                        {talliesLoading ? C.loading : T.votes.seeVotes}
                       </button>
                     )}
                     {talliesAssemblyId === showResults.id && (
@@ -1056,10 +1068,10 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                           <div key={v.id} className="rounded-lg bg-white p-3 border border-black/[0.06]">
                             <p className="text-[12px] font-medium text-ink">{v.q}</p>
                             {!tally || tally.total === 0 ? (
-                              <p className="mt-1 text-[11px] text-ink-faint">Aucun vote enregistré</p>
+                              <p className="mt-1 text-[11px] text-ink-faint">{T.votes.noVote}</p>
                             ) : (
                               <div className="mt-2 space-y-1">
-                                <p className="text-[10px] font-semibold text-ink-soft">{tally.total} vote{tally.total > 1 ? "s" : ""} enregistré{tally.total > 1 ? "s" : ""}</p>
+                                <p className="text-[10px] font-semibold text-ink-soft"><span dir="ltr">{tally.total}</span> vote{tally.total > 1 ? "s" : ""} enregistré{tally.total > 1 ? "s" : ""}</p>
                                 {(v.options ?? Object.keys(tally.choices)).map((option) => {
                                   const count = tally.choices[option] ?? 0;
                                   const pct = tally.total > 0 ? Math.round((count / tally.total) * 100) : 0;
@@ -1067,7 +1079,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                                     <div key={option}>
                                       <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-ink">{option}</span>
-                                        <span className="font-semibold text-ink-soft">{count} ({pct}%)</span>
+                                        <span className="font-semibold text-ink-soft" dir="ltr">{count} ({pct}%)</span>
                                       </div>
                                       <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-sand/50">
                                         <div style={{ width: `${pct}%` }} className="h-full rounded-full bg-palier-500 transition-all" />
@@ -1103,29 +1115,29 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                 {resPvUrl && !resPvFile && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2">
                     <Icon name="FileText" className="h-4 w-4 text-palier-600" />
-                    <a href={resPvUrl} target="_blank" rel="noopener" className="flex-1 truncate text-[12px] font-medium text-palier-600 hover:underline">Voir le PV actuel</a>
+                    <a href={resPvUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[12px] font-medium text-palier-600 hover:underline">{T.resultsModal.viewCurrentPv}</a>
                     <button type="button" onClick={() => setResPvUrl("")} className="text-ink-faint hover:text-red-500"><Icon name="X" className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] font-medium text-ink transition-colors hover:bg-sand/50">
                   <Icon name="Upload" className="h-3.5 w-3.5" />
-                  {resPvFile ? resPvFile.name : "Importer un fichier"}
+                  {resPvFile ? resPvFile.name : T.resultsModal.importFile}
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setResPvFile(e.target.files?.[0] ?? null)} className="hidden" />
                 </label>
-                {pvUploading && <p className="mt-1 text-[11px] text-ink-soft">Téléversement en cours…</p>}
+                {pvUploading && <p className="mt-1 text-[11px] text-ink-soft">{T.resultsModal.uploading}</p>}
               </div>
 
               {/* Budget à approuver */}
               {budgets.filter((b) => b.status === "draft" || b.status === "vote").length > 0 && (
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-semibold text-ink">Budget à approuver (optionnel)</label>
-                  <p className="mb-2 text-[11px] text-ink-faint">Si un budget a été voté lors de cette AG, sélectionnez-le pour le lier et l&apos;approuver automatiquement.</p>
+                  <label className="mb-1.5 block text-[13px] font-semibold text-ink">{T.resultsModal.budgetApproval}</label>
+                  <p className="mb-2 text-[11px] text-ink-faint">{T.resultsModal.budgetApprovalHint}</p>
                   <select
                     value={selectedBudgetId}
                     onChange={(e) => setSelectedBudgetId(e.target.value)}
                     className="h-9 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none focus:border-palier-600/30 focus:ring-1 focus:ring-palier-600/20"
                   >
-                    <option value="">Aucun budget</option>
+                    <option value="">{T.resultsModal.noBudget}</option>
                     {budgets.filter((b) => b.status === "draft" || b.status === "vote").map((b) => (
                       <option key={b.id} value={b.id}>Budget {b.fiscalYear} — {mad(b.totalAmount, { decimals: false })}</option>
                     ))}
@@ -1134,7 +1146,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               )}
 
               <button type="submit" disabled={resSaving} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
-                {resSaving ? "Enregistrement…" : "Enregistrer les résultats"}
+                {resSaving ? T.resultsModal.saving : T.resultsModal.saveResults}
               </button>
             </form>
           </div>
@@ -1153,7 +1165,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
                   <Icon name="CalendarDays" className="h-5 w-5 text-palier-600" />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-semibold text-ink">Convoquer une assemblée</h2>
+                  <h2 className="text-[16px] font-semibold text-ink">{T.create.title}</h2>
                   <p className="text-[12px] text-ink-soft">Minimum {MIN_NOTICE_DAYS} jours de préavis (Loi 18-00)</p>
                 </div>
               </div>
@@ -1164,7 +1176,7 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
             <form onSubmit={handleCreate} className="space-y-3">
               {/* Type selection */}
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Type d&apos;assemblée</label>
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.create.typeLabel}</label>
                 <div className="flex gap-2">
                   {(["ordinaire", "extraordinaire"] as const).map((t) => (
                     <button
@@ -1199,31 +1211,31 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">Lieu</label>
-                <input type="text" required placeholder="Hall de l'immeuble" value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} />
+                <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.create.place}</label>
+                <input type="text" required placeholder={T.create.placePlaceholder} value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} />
               </div>
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-ink-soft">Ordre du jour</span>
-                  <button type="button" onClick={addItem} className="text-[12px] font-medium text-palier-600">+ Ajouter</button>
+                  <span className="text-[12px] font-semibold text-ink-soft">{T.create.agendaLabel}</span>
+                  <button type="button" onClick={addItem} className="text-[12px] font-medium text-palier-600">{T.create.addItem}</button>
                 </div>
                 <div className="max-h-48 space-y-2 overflow-y-auto">
                   {agendaItems.map((item, i) => (
                     <div key={i} className="rounded-lg border border-black/[0.06] p-2.5">
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-ink-soft">Point {item.n}</span>
+                        <span className="text-[11px] font-medium text-ink-soft">{T.create.itemPoint} {item.n}</span>
                         {agendaItems.length > 1 && <button type="button" onClick={() => removeItem(i)} className="text-ink-faint hover:text-red-500"><Icon name="Trash2" className="h-3 w-3" /></button>}
                       </div>
-                      <input type="text" required placeholder="Titre" value={item.t} onChange={(e) => updateItem(i, "t", e.target.value)} className={`mb-1 ${inputCls}`} />
-                      <input type="text" placeholder="Description (optionnel)" value={item.d} onChange={(e) => updateItem(i, "d", e.target.value)} className={inputCls} />
+                      <input type="text" required placeholder={T.create.itemTitle} value={item.t} onChange={(e) => updateItem(i, "t", e.target.value)} className={`mb-1 ${inputCls}`} />
+                      <input type="text" placeholder={T.resultsModal.resolutionDesc} value={item.d} onChange={(e) => updateItem(i, "d", e.target.value)} className={inputCls} />
                     </div>
                   ))}
                 </div>
               </div>
 
               <button type="submit" disabled={saving || !!dateError} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
-                {saving ? "Envoi…" : "Convoquer l'assemblée"}
+                {saving ? T.create.submitting : T.create.submit}
               </button>
             </form>
           </div>
@@ -1234,8 +1246,8 @@ export function AgView({ assemblies, buildingId, residentProfileIds, residents, 
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => setShowDelete(null)}>
           <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-[16px] font-semibold text-ink">Annuler cette assemblée ?</h2>
-            <p className="mt-1 text-[13px] text-ink-soft">L&apos;assemblée du {longDate(showDelete.date)} à {showDelete.place} sera définitivement supprimée.</p>
+            <h2 className="text-[16px] font-semibold text-ink">{T.deleteConfirm.title}</h2>
+            <p className="mt-1 text-[13px] text-ink-soft">{T.deleteConfirm.msg(longDate(showDelete.date, lang), showDelete.place)}</p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setShowDelete(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">Non, garder</button>
               <button onClick={handleDelete} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-semibold text-white hover:bg-red-700">Oui, annuler</button>

@@ -20,7 +20,7 @@ const urgencyColors: Record<string, { bg: string; text: string; border: string }
 };
 
 export default function SignalerScreen() {
-  const { incidents, currentUser, buildingId, unitId, profileId } = useData();
+  const { incidents, currentUser, buildingId, unitId, profileId, incidentCategories } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.signaler;
   const router = useRouter();
@@ -44,7 +44,9 @@ export default function SignalerScreen() {
 
   const isInactive = currentUser.membershipStatus === "inactive";
 
-  const catSlugs = Object.keys(T.cats) as (keyof typeof T.cats)[];
+  // Use syndic-configured categories if available, otherwise i18n defaults
+  const configuredCats = incidentCategories ?? Object.values(T.cats);
+  const categories: string[] = configuredCats.includes(T.cats.autre) ? configuredCats : [...configuredCats, T.cats.autre];
   const urgKeys = Object.keys(T.urgencies) as (keyof typeof T.urgencies)[];
 
   const statusLabels: Record<string, string> = {
@@ -58,16 +60,20 @@ export default function SignalerScreen() {
     status: s, items: incidents.filter((inc) => inc.status === s),
   }));
 
-  const finalCat = cat === "autre" && customCat.trim() ? customCat.trim() : cat;
-  const canSubmit = finalCat && finalCat !== "autre" && title;
+  const isAutre = cat === T.cats.autre;
+  const finalCat = isAutre && customCat.trim() ? customCat.trim() : cat;
+  const canSubmit = cat && (!isAutre || customCat.trim()) && title;
 
   async function submit() {
     setSubmitting(true);
     const reporter = currentUser.name.split(" ")[0] + " " + (currentUser.name.split(" ")[1]?.[0] ?? "") + ".";
     let imageUrl: string | undefined;
     if (photo) {
-      const { uploadIncidentPhoto } = await import("@/lib/storage");
-      imageUrl = await uploadIncidentPhoto(photo);
+      const fd = new FormData();
+      fd.append("file", photo);
+      const { uploadFileAction } = await import("@/lib/actions");
+      const result = await uploadFileAction(fd);
+      if (result.url) imageUrl = result.url;
     }
     await createIncident({ buildingId: buildingId!, unitId: unitId!, category: finalCat, title, details, urgency: urg as Urgency, reporter, imageUrl });
     setToast(true);
@@ -132,7 +138,7 @@ export default function SignalerScreen() {
         <div className="space-y-5 px-4 pt-4">
           {isInactive && (
             <div className="flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-              <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+              <Icon name="TriangleAlert" className="h-4 w-4 shrink-0 text-amber-600" />
               <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
             </div>
           )}
@@ -144,14 +150,14 @@ export default function SignalerScreen() {
           <div>
             <h3 className="mb-2.5 px-1 text-[15px] font-bold text-ink">{T.deQuoi}</h3>
             <div className="flex flex-wrap gap-2">
-              {catSlugs.map((slug) => (
-                <button key={slug} onClick={() => { setCat(slug); if (slug !== "autre") setCustomCat(""); }}
-                  className={`tap rounded-full border px-4 py-2 text-[13px] font-semibold ${cat === slug ? "border-palier-500 bg-palier-50 text-palier-700" : "border-black/5 bg-cream-card text-ink-soft"}`}>
-                  {T.cats[slug]}
+              {categories.map((c) => (
+                <button key={c} onClick={() => { setCat(c); if (c !== T.cats.autre) setCustomCat(""); }}
+                  className={`tap rounded-full border px-4 py-2 text-[13px] font-semibold ${cat === c ? "border-palier-500 bg-palier-50 text-palier-700" : "border-black/5 bg-cream-card text-ink-soft"}`}>
+                  {c}
                 </button>
               ))}
             </div>
-            {cat === "autre" && (
+            {cat === T.cats.autre && (
               <input value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder={T.autrePreciser}
                 className="mt-2 w-full rounded-2xl border border-black/5 bg-cream-card px-4 py-3 text-[14px] text-ink shadow-card outline-none placeholder:text-ink-faint focus:border-palier-300" />
             )}
@@ -213,6 +219,7 @@ export default function SignalerScreen() {
           </div>
 
           {photoError && <p className="px-1 text-[12px] font-medium text-red-600">{photoError}</p>}
+          {!cat && <p className="px-1 text-center text-[12px] text-ink-faint">{T.selectCategorie}</p>}
           <Button full disabled={!canSubmit || submitting || isInactive} onClick={submit} className={!canSubmit || submitting || isInactive ? "opacity-50" : ""} icon="Send">
             {submitting ? T.envoi : T.envoyerSignalement}
           </Button>

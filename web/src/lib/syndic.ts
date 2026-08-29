@@ -22,6 +22,8 @@ export interface RecouvrementRow {
   chargeId: string | null;
   /** Jours depuis l'échéance (pour alerte prescription 5 ans) */
   daysSinceDue: number | null;
+  /** Solde d'ouverture = impayés des exercices antérieurs */
+  priorBalance: number;
 }
 
 export interface ChargeCall {
@@ -60,6 +62,7 @@ export interface BuildingSettings {
   expense_categories?: string[] | null;
   charge_categories?: string[] | null;
   voisinage_categories?: string[] | null;
+  budget_categories?: string[] | null;
   relance_message?: string | null;
 }
 
@@ -132,6 +135,16 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
 
   const now = new Date();
   const PRESCRIPTION_DAYS = 5 * 365; // 5 ans
+  const fiscalYearStart = `${now.getFullYear()}-01-01`;
+
+  // Compute prior balance (impayés des exercices antérieurs) per unit
+  const priorBalanceByUnit = new Map<string, number>();
+  for (const c of charges) {
+    if (c.due_date && c.due_date < fiscalYearStart) {
+      const prev = priorBalanceByUnit.get(c.unit_id) ?? 0;
+      priorBalanceByUnit.set(c.unit_id, prev + (Number(c.amount) - Number(c.paid)));
+    }
+  }
 
   const recouvrement: RecouvrementRow[] = units
     .map((u: any) => {
@@ -150,10 +163,21 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
         chargeId: ch?.id ?? null,
         amount: ch ? Number(ch.amount) : 0,
         paid: ch ? Number(ch.paid) : 0,
-        status: (ch?.status ?? "due") as RecouvrementRow["status"],
+        status: (() => {
+          const dbStatus = ch?.status ?? "due";
+          if (dbStatus === "paid") return "paid";
+          if (dbStatus === "partial") {
+            // Partial but past due → still partial
+            return "partial";
+          }
+          // If due date passed and not paid → late
+          if (dueDate && new Date(dueDate) < now && dbStatus === "due") return "late";
+          return dbStatus;
+        })() as RecouvrementRow["status"],
         lastDunnedAt: lastDunnedByUnit.get(u.id) ?? null,
         dueDate,
         daysSinceDue,
+        priorBalance: priorBalanceByUnit.get(u.id) ?? 0,
       };
     })
     .sort((a, b) => {
@@ -246,7 +270,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
   return {
     building: {
       id: b?.id, name: b?.name ?? "", address: b?.address ?? "", city: b?.city ?? "",
-      lots: Number(b?.lots_count ?? 0) || units.length, balance: Number(b?.balance ?? 0), syndic: b?.syndic_name ?? "",
+      lots: Number(b?.lots_count ?? 0) || units.length, balance: (ledRes.data ?? []).reduce((s: number, l: any) => s + (l.type === "in" ? Number(l.amount) : -Number(l.amount)), 0), syndic: b?.syndic_name ?? "",
       annualBudget: Number(b?.annual_budget ?? 0),
       accountingTier: b?.accounting_tier ?? "tier1",
     },
@@ -256,7 +280,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       collected, expected,
       rate: expected ? Math.round((collected / expected) * 100) : 0,
       outstanding: expected - collected,
-      balance: Number(b?.balance ?? 0),
+      balance: (ledRes.data ?? []).reduce((s: number, l: any) => s + (l.type === "in" ? Number(l.amount) : -Number(l.amount)), 0),
       openIncidents: incidents.filter((i: any) => i.status !== "resolved").length,
       unpaidCount: charges.filter((c: any) => c.status !== "paid").length,
       lateCount: charges.filter((c: any) => c.status === "late").length,
@@ -327,6 +351,8 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       incident_categories: setRes.data.incident_categories ?? null,
       expense_categories: setRes.data.expense_categories ?? null,
       charge_categories: setRes.data.charge_categories ?? null,
+      voisinage_categories: setRes.data.voisinage_categories ?? null,
+      budget_categories: setRes.data.budget_categories ?? null,
       relance_message: setRes.data.relance_message ?? null,
     } : null,
   };

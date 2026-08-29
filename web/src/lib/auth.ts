@@ -17,10 +17,10 @@ import { sendSMS } from "./sms";
 
 function timingSafeEqual(a: string, b: string): boolean {
   const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-  if (bufA.length !== bufB.length) return false;
-  let result = 0;
+  const maxLen = Math.max(a.length, b.length);
+  const bufA = encoder.encode(a.padEnd(maxLen, "\0"));
+  const bufB = encoder.encode(b.padEnd(maxLen, "\0"));
+  let result = a.length ^ b.length;
   for (let i = 0; i < bufA.length; i++) {
     result |= bufA[i] ^ bufB[i];
   }
@@ -188,7 +188,10 @@ export async function requestSyndicRegistrationOtp(input: {
     }
   }
 
-  // Generate OTP (fixed in test mode)
+  // Generate OTP (fixed in test mode — NEVER in production)
+  if (process.env.SKIP_SMS === "1" && process.env.NODE_ENV === "production") {
+    throw new Error("SKIP_SMS must not be set in production");
+  }
   const otp = process.env.SKIP_SMS === "1" ? "123456" : generateOtp();
 
   // Clean old OTPs for this phone
@@ -453,7 +456,10 @@ export async function requestRecoveryOtp(
     .single();
   if (!membership) return { ok: false, error: "invalid_request" };
 
-  // Generate 6-digit OTP (fixed in test mode)
+  // Generate 6-digit OTP (fixed in test mode — NEVER in production)
+  if (process.env.SKIP_SMS === "1" && process.env.NODE_ENV === "production") {
+    throw new Error("SKIP_SMS must not be set in production");
+  }
   const otp = process.env.SKIP_SMS === "1" ? "123456" : generateOtp();
 
   // Clean old OTPs for this phone
@@ -659,6 +665,8 @@ export async function validateBetaCode(
 export async function generateBetaInvites(
   count: number,
 ): Promise<{ codes: string[] }> {
+  const { requireAdminSession } = await import("./admin-auth");
+  await requireAdminSession();
   const generated: string[] = [];
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -681,6 +689,8 @@ export async function generateBetaInvites(
 export async function listBetaInvites(): Promise<
   { id: string; code: string; usedAt: string | null; createdAt: string }[]
 > {
+  const { requireAdminSession } = await import("./admin-auth");
+  await requireAdminSession();
   const { data } = await supabaseAdmin
     .from("beta_invites")
     .select("id, code, used_at, created_at")

@@ -9,7 +9,7 @@ export default function SyndicError({ error, reset }: { error: Error; reset: () 
         <Icon name="TriangleAlert" className="h-8 w-8 text-red-600" />
       </div>
       <h2 className="text-[18px] font-bold text-ink">Erreur</h2>
-      <p className="mt-2 max-w-md text-[13px] text-ink-soft">{error.message || "Une erreur est survenue. Veuillez réessayer."}</p>
+      <p className="mt-2 max-w-md text-[13px] text-ink-soft">Une erreur est survenue. Veuillez réessayer.</p>
       <button
         onClick={reset}
         className="mt-5 rounded-xl bg-palier-600 px-6 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700"

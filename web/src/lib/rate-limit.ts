@@ -41,36 +41,65 @@ export async function checkRateLimit(
   const now = new Date();
   const resetAt = new Date(now.getTime() + config.windowSec * 1000);
 
-  // Try to fetch the existing entry
-  const { data: existing } = await supabaseAdmin
+  // Upsert a new window if none exists or expired, starting at count = 1
+  await supabaseAdmin
+    .from("rate_limits")
+    .upsert(
+      { key, count: 1, reset_at: resetAt.toISOString() },
+      { onConflict: "key", ignoreDuplicates: true },
+    );
+
+  // Atomically increment and return the new count in one operation.
+  // The `.lt("reset_at", ...)` guard is omitted — instead we reset expired
+  // entries above. The update uses .eq("key") which is indexed.
+  // Fetch current state, then do conditional increment.
+  const { data: current } = await supabaseAdmin
     .from("rate_limits")
     .select("count, reset_at")
     .eq("key", key)
-    .maybeSingle();
+    .single();
 
-  // No entry or expired — start a new window with count = 1
-  if (!existing || new Date(existing.reset_at) < now) {
+  if (!current) return { ok: true };
+
+  // Expired — reset the window
+  if (new Date(current.reset_at) < now) {
     await supabaseAdmin
       .from("rate_limits")
-      .upsert(
-        { key, count: 1, reset_at: resetAt.toISOString() },
-        { onConflict: "key" },
-      );
+      .update({ count: 1, reset_at: resetAt.toISOString() })
+      .eq("key", key)
+      .lt("reset_at", now.toISOString()); // only reset if still expired (avoids race)
     return { ok: true };
   }
 
-  // Entry exists and still within window — check the count
-  if (existing.count >= config.max) {
-    const expiresAt = new Date(existing.reset_at).getTime();
+  // Already at or over the limit
+  if (current.count >= config.max) {
+    const expiresAt = new Date(current.reset_at).getTime();
     const retryAfterSec = Math.ceil((expiresAt - now.getTime()) / 1000);
     return { ok: false, retryAfterSec: Math.max(retryAfterSec, 1) };
   }
 
-  // Under the limit — increment
-  await supabaseAdmin
+  // Under the limit — increment only if count hasn't changed (optimistic lock)
+  const { data: updated } = await supabaseAdmin
     .from("rate_limits")
-    .update({ count: existing.count + 1 })
-    .eq("key", key);
+    .update({ count: current.count + 1 })
+    .eq("key", key)
+    .eq("count", current.count) // optimistic concurrency: only if unchanged
+    .select("count")
+    .single();
+
+  // If the update didn't match (concurrent increment), re-check
+  if (!updated) {
+    const { data: recheck } = await supabaseAdmin
+      .from("rate_limits")
+      .select("count, reset_at")
+      .eq("key", key)
+      .single();
+    if (recheck && recheck.count >= config.max) {
+      const expiresAt = new Date(recheck.reset_at).getTime();
+      const retryAfterSec = Math.ceil((expiresAt - now.getTime()) / 1000);
+      return { ok: false, retryAfterSec: Math.max(retryAfterSec, 1) };
+    }
+  }
 
   return { ok: true };
 }

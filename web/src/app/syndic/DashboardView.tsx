@@ -5,20 +5,13 @@ import Link from "next/link";
 import { KpiCard, Card, StatusPill } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { num, mad, timeAgo, shortDate, shortName, shortBuilding } from "@/lib/format";
+import { useLang } from "@/lib/LangProvider";
 import type { SyndicData } from "@/lib/syndic";
 import type { InsurancePolicy, SyndicMandate, Budget } from "@/lib/types";
 
 /* ═══ Period filter ═══ */
 
 type Period = "month" | "quarter" | "year" | "all" | "custom";
-
-const PERIOD_TABS: { key: Period; label: string; short: string }[] = [
-  { key: "month", label: "Ce mois", short: "Mois" },
-  { key: "quarter", label: "Ce trimestre", short: "Trim." },
-  { key: "year", label: "Cette année", short: "Année" },
-  { key: "all", label: "Tout", short: "Tout" },
-  { key: "custom", label: "Personnalisé", short: "Custom" },
-];
 
 function defaultPeriodRange(period: Exclude<Period, "custom">): { from: string; to: string } {
   const now = new Date();
@@ -39,9 +32,8 @@ function defaultPeriodRange(period: Exclude<Period, "custom">): { from: string; 
   }
 }
 
-function periodLabel(period: Period, customFrom?: string, customTo?: string): string {
+function periodLabel(period: Period, months: readonly string[], allPeriods: string, customPeriod: string, customFrom?: string, customTo?: string): string {
   const now = new Date();
-  const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
   switch (period) {
     case "month":
       return `${months[now.getMonth()]} ${now.getFullYear()}`;
@@ -52,7 +44,7 @@ function periodLabel(period: Period, customFrom?: string, customTo?: string): st
     case "year":
       return `${now.getFullYear()}`;
     case "all":
-      return "Toutes périodes";
+      return allPeriods;
     case "custom": {
       if (customFrom && customTo) {
         const f = new Date(customFrom);
@@ -60,7 +52,7 @@ function periodLabel(period: Period, customFrom?: string, customTo?: string): st
         const fmt = (d: Date) => `${d.getDate()} ${months[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
         return `${fmt(f)} → ${fmt(t)}`;
       }
-      return "Période personnalisée";
+      return customPeriod;
     }
   }
 }
@@ -74,6 +66,17 @@ interface DashboardProps {
 /* ═══ Component ═══ */
 
 export function DashboardView({ data: d }: DashboardProps) {
+  const { i, lang } = useLang();
+  const T = i.syndic.dashboard;
+
+  const PERIOD_TABS: { key: Period; label: string; short: string }[] = [
+    { key: "month", label: T.periods.month, short: T.periods.month },
+    { key: "quarter", label: T.periods.quarter, short: T.periods.quarter },
+    { key: "year", label: T.periods.year, short: T.periods.year },
+    { key: "all", label: T.periods.all, short: T.periods.all },
+    { key: "custom", label: T.periods.custom, short: T.periods.custom },
+  ];
+
   const [period, setPeriod] = useState<Period>("month");
   const today = new Date().toISOString().slice(0, 10);
   const [customFrom, setCustomFrom] = useState(() => {
@@ -125,10 +128,10 @@ export function DashboardView({ data: d }: DashboardProps) {
   }), [d.recouvrement]);
 
   const seg = [
-    { key: "paid", label: "Payé", n: counts.paid, color: "#059669" },
-    { key: "partial", label: "Partiel", n: counts.partial, color: "#2563eb" },
-    { key: "due", label: "À payer", n: counts.due, color: "#d97706" },
-    { key: "late", label: "En retard", n: counts.late, color: "#dc2626" },
+    { key: "paid", label: T.statuses.paid, n: counts.paid, color: "#059669" },
+    { key: "partial", label: T.statuses.partial, n: counts.partial, color: "#2563eb" },
+    { key: "due", label: T.statuses.due, n: counts.due, color: "#d97706" },
+    { key: "late", label: T.statuses.late, n: counts.late, color: "#dc2626" },
   ];
   const total = d.recouvrement.length || 1;
 
@@ -185,9 +188,9 @@ export function DashboardView({ data: d }: DashboardProps) {
   const monthlyTrend = useMemo(() => {
     const now = new Date();
     const months: { label: string; inAmt: number; outAmt: number }[] = [];
-    const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
-    for (let i = 11; i >= 0; i--) {
-      const d2 = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthNames = i.months.map((m: string) => m.slice(0, 3));
+    for (let idx = 11; idx >= 0; idx--) {
+      const d2 = new Date(now.getFullYear(), now.getMonth() - idx, 1);
       const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}`;
       const label = monthNames[d2.getMonth()];
       const inAmt = d.ledger
@@ -199,7 +202,7 @@ export function DashboardView({ data: d }: DashboardProps) {
       months.push({ label, inAmt, outAmt });
     }
     return months;
-  }, [d.ledger]);
+  }, [d.ledger, i.months]);
 
   const maxTrend = Math.max(...monthlyTrend.map((m) => Math.max(m.inAmt, m.outAmt)), 1);
 
@@ -210,24 +213,24 @@ export function DashboardView({ data: d }: DashboardProps) {
       const daysLeft = Math.ceil((new Date(p.endDate).getTime() - Date.now()) / 86400000);
       return daysLeft <= p.renewalAlertDays;
     });
-    if (expiringPolicies.length > 0) list.push({ icon: "Shield", label: `Assurance: ${expiringPolicies.length} police${expiringPolicies.length > 1 ? "s" : ""} à renouveler`, href: "/syndic/assurance", tone: "amber" });
+    if (expiringPolicies.length > 0) list.push({ icon: "Shield", label: `${T.alerts.insurance} ${T.alerts.policiesToRenew(expiringPolicies.length)}`, href: "/syndic/assurance", tone: "amber" });
 
     if (d.mandate) {
       const daysLeft = Math.ceil((new Date((d.mandate as SyndicMandate).mandateEnd).getTime() - Date.now()) / 86400000);
-      if (daysLeft <= 0) list.push({ icon: "Award", label: "Mandat syndic expiré", href: "/syndic/mandat", tone: "red" });
-      else if (daysLeft <= 90) list.push({ icon: "Award", label: `Mandat syndic expire dans ${daysLeft}j`, href: "/syndic/mandat", tone: "amber" });
+      if (daysLeft <= 0) list.push({ icon: "Award", label: T.alerts.mandateExpired, href: "/syndic/mandat", tone: "red" });
+      else if (daysLeft <= 90) list.push({ icon: "Award", label: T.alerts.mandateExpiresIn(daysLeft), href: "/syndic/mandat", tone: "amber" });
     } else {
-      list.push({ icon: "Award", label: "Aucun mandat syndic enregistré", href: "/syndic/mandat", tone: "amber" });
+      list.push({ icon: "Award", label: T.alerts.noMandate, href: "/syndic/mandat", tone: "amber" });
     }
 
-    if (k.prescriptionAlerts > 0) list.push({ icon: "Clock", label: `${k.prescriptionAlerts} créance${k.prescriptionAlerts > 1 ? "s" : ""} proche${k.prescriptionAlerts > 1 ? "s" : ""} de la prescription (5 ans)`, href: "/syndic/recouvrement", tone: "red" });
-    if (!d.coproprieteRule) list.push({ icon: "Scale", label: "Règlement de copropriété non enregistré", href: "/syndic/reglement", tone: "amber" });
+    if (k.prescriptionAlerts > 0) list.push({ icon: "Clock", label: T.alerts.prescription(k.prescriptionAlerts), href: "/syndic/recouvrement", tone: "red" });
+    if (!d.coproprieteRule) list.push({ icon: "Scale", label: T.alerts.noRule, href: "/syndic/reglement", tone: "amber" });
 
     const pendingWorks = d.urgentWorks.filter((w) => w.status !== "completed").length;
-    if (pendingWorks > 0) list.push({ icon: "Hammer", label: `${pendingWorks} travaux urgent${pendingWorks > 1 ? "s" : ""} en cours`, href: "/syndic/travaux-urgents", tone: "amber" });
+    if (pendingWorks > 0) list.push({ icon: "Hammer", label: T.alerts.urgentWorks(pendingWorks), href: "/syndic/travaux-urgents", tone: "amber" });
 
     return list;
-  }, [d.insurancePolicies, d.mandate, d.coproprieteRule, d.urgentWorks, k.prescriptionAlerts]);
+  }, [d.insurancePolicies, d.mandate, d.coproprieteRule, d.urgentWorks, k.prescriptionAlerts, T]);
 
   /* ── Active residents ── */
   const activeResidents = d.residents.filter((r) => r.status === "active").length;
@@ -243,8 +246,8 @@ export function DashboardView({ data: d }: DashboardProps) {
       <div className="mb-4 flex flex-col gap-3 md:mb-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[18px] font-bold tracking-tight text-ink md:text-[22px]">Tableau de bord</h1>
-            <p className="mt-0.5 text-[13px] text-ink-soft">{shortBuilding(d.building.name)} · {periodLabel(period, customFrom, customTo)}</p>
+            <h1 className="text-[18px] font-bold tracking-tight text-ink md:text-[22px]">{T.title}</h1>
+            <p className="mt-0.5 text-[13px] text-ink-soft">{shortBuilding(d.building.name)} · {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}</p>
           </div>
         </div>
         {/* Period filter */}
@@ -300,16 +303,16 @@ export function DashboardView({ data: d }: DashboardProps) {
 
       {/* ═══ KPIs ═══ */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        <KpiCard label="Taux de recouvrement" value={`${k.rate}%`} hint={`${counts.paid} lots à jour sur ${k.lots}`} />
-        <KpiCard label="Encaissé" value={num(k.collected, false)} unit="MAD" hint={`sur ${num(k.expected, false)} appelés`} />
-        <KpiCard label="Restant dû" value={num(k.outstanding, false)} unit="MAD" hint={`${k.lateCount} en retard`} />
-        <KpiCard label="Solde de caisse" value={num(k.balance, false)} unit="MAD" />
+        <KpiCard label={T.kpi.collectionRate} value={`${k.rate}%`} hint={`${num(k.collected, false)} / ${num(k.expected, false)} MAD`} />
+        <KpiCard label={T.kpi.collected} value={num(k.collected, false)} unit="MAD" hint={`/ ${num(k.expected, false)} MAD`} />
+        <KpiCard label={T.kpi.outstanding} value={num(k.outstanding, false)} unit="MAD" hint={T.unpaid(k.unpaidCount)} />
+        <KpiCard label={T.kpi.cashBalance} value={num(k.balance, false)} unit="MAD" />
         <KpiCard
-          label="Budget dépensé"
+          label={T.kpi.budgetSpent}
           value={budgetTotal > 0 ? `${budgetPct}%` : "—"}
-          hint={budgetTotal > 0 ? `${num(budgetSpent, false)} / ${num(budgetTotal, false)} MAD` : "Aucun budget"}
+          hint={budgetTotal > 0 ? `${num(budgetSpent, false)} / ${num(budgetTotal, false)} MAD` : T.noBudget}
         />
-        <KpiCard label="Incidents ouverts" value={`${k.openIncidents}`} hint={resolvedInPeriod > 0 ? `${resolvedInPeriod} résolu${resolvedInPeriod > 1 ? "s" : ""} sur la période` : "à traiter"} />
+        <KpiCard label={T.kpi.openIncidents} value={`${k.openIncidents}`} hint={resolvedInPeriod > 0 ? T.resolved(resolvedInPeriod) : T.toResolve} />
       </div>
 
       {/* ═══ Row 2: Flux financier + Recouvrement ═══ */}
@@ -318,30 +321,30 @@ export function DashboardView({ data: d }: DashboardProps) {
         {/* Flux financier (revenus vs dépenses) */}
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-ink">Journal de caisse — {periodLabel(period, customFrom, customTo)}</h2>
-            <Link href="/syndic/transparence" className="text-[13px] font-medium text-palier-600 hover:underline">Journal</Link>
+            <h2 className="text-[14px] font-semibold text-ink">{T.cashJournal} — {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}</h2>
+            <Link href="/syndic/transparence" className="text-[13px] font-medium text-palier-600 hover:underline">{T.journal}</Link>
           </div>
 
           {/* Summary */}
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-emerald-50 p-3">
-              <p className="text-[11px] font-medium text-emerald-700">Encaissements</p>
-              <p className="mt-1 text-[16px] font-bold text-emerald-700">{num(totalIn, false)}</p>
+              <p className="text-[11px] font-medium text-emerald-700">{T.receipts}</p>
+              <p dir="ltr" className="mt-1 text-[16px] font-bold text-emerald-700">{num(totalIn, false)}</p>
             </div>
             <div className="rounded-xl bg-red-50 p-3">
-              <p className="text-[11px] font-medium text-red-700">Dépenses</p>
-              <p className="mt-1 text-[16px] font-bold text-red-700">{num(totalOut, false)}</p>
+              <p className="text-[11px] font-medium text-red-700">{T.expenses}</p>
+              <p dir="ltr" className="mt-1 text-[16px] font-bold text-red-700">{num(totalOut, false)}</p>
             </div>
             <div className={`rounded-xl p-3 ${totalIn - totalOut >= 0 ? "bg-blue-50" : "bg-amber-50"}`}>
-              <p className={`text-[11px] font-medium ${totalIn - totalOut >= 0 ? "text-blue-700" : "text-amber-700"}`}>Solde période</p>
-              <p className={`mt-1 text-[16px] font-bold ${totalIn - totalOut >= 0 ? "text-blue-700" : "text-amber-700"}`}>
+              <p className={`text-[11px] font-medium ${totalIn - totalOut >= 0 ? "text-blue-700" : "text-amber-700"}`}>{T.periodBalance}</p>
+              <p dir="ltr" className={`mt-1 text-[16px] font-bold ${totalIn - totalOut >= 0 ? "text-blue-700" : "text-amber-700"}`}>
                 {totalIn - totalOut >= 0 ? "+" : ""}{num(totalIn - totalOut, false)}
               </p>
             </div>
           </div>
 
           {/* 12-month trend bars */}
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Tendance 12 mois</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.trend12m}</p>
           <div className="flex items-end gap-1">
             {monthlyTrend.map((m, i) => (
               <div key={i} className="flex flex-1 min-w-0 flex-col items-center gap-1">
@@ -360,16 +363,16 @@ export function DashboardView({ data: d }: DashboardProps) {
             ))}
           </div>
           <div className="mt-2 flex items-center gap-4">
-            <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /><span className="text-[11px] text-ink-soft">Encaissements</span></div>
-            <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-400" /><span className="text-[11px] text-ink-soft">Dépenses</span></div>
+            <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /><span className="text-[11px] text-ink-soft">{T.receipts}</span></div>
+            <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-400" /><span className="text-[11px] text-ink-soft">{T.expenses}</span></div>
           </div>
         </Card>
 
         {/* Recouvrement */}
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-ink">Recouvrement</h2>
-            <Link href="/syndic/recouvrement" className="text-[13px] font-medium text-palier-600 hover:underline">Détail</Link>
+            <h2 className="text-[14px] font-semibold text-ink">{T.recovery.title}</h2>
+            <Link href="/syndic/recouvrement" className="text-[13px] font-medium text-palier-600 hover:underline">{T.recovery.detail}</Link>
           </div>
 
           {/* Bar */}
@@ -385,7 +388,7 @@ export function DashboardView({ data: d }: DashboardProps) {
               <div key={s.key} className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
                 <span className="text-[12px] text-ink-soft">{s.label}</span>
-                <span className="text-[13px] font-semibold text-ink">{s.n}</span>
+                <span dir="ltr" className="text-[13px] font-semibold text-ink">{s.n}</span>
               </div>
             ))}
           </div>
@@ -393,7 +396,7 @@ export function DashboardView({ data: d }: DashboardProps) {
           {/* Late residents */}
           {lateResidents.length > 0 && (
             <div className="mt-4 border-t border-black/[0.06] pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Top impayés</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.recovery.topUnpaid}</p>
               <div className="space-y-2">
                 {lateResidents.map((r) => (
                   <div key={r.unitId} className="flex items-center gap-2.5">
@@ -402,9 +405,9 @@ export function DashboardView({ data: d }: DashboardProps) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[12px] font-medium text-ink">{shortName(r.ownerName)}</p>
-                      <p className="text-[11px] text-ink-faint">Lot {r.ref}</p>
+                      <p className="text-[11px] text-ink-faint">{i.profil.lot} <span dir="ltr">{r.ref}</span></p>
                     </div>
-                    <span className="text-[12px] font-semibold text-red-600">{mad(r.amount - r.paid, { decimals: false })}</span>
+                    <span dir="ltr" className="text-[12px] font-semibold text-red-600">{mad(r.amount - r.paid, { decimals: false })}</span>
                   </div>
                 ))}
               </div>
@@ -420,9 +423,9 @@ export function DashboardView({ data: d }: DashboardProps) {
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[14px] font-semibold text-ink">
-              Dépenses par catégorie — {periodLabel(period, customFrom, customTo)}
+              {T.budgetChart} — {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}
             </h2>
-            <Link href="/syndic/budget" className="text-[13px] font-medium text-palier-600 hover:underline">Budget</Link>
+            <Link href="/syndic/budget" className="text-[13px] font-medium text-palier-600 hover:underline">{i.syndic.budget.detail.title}</Link>
           </div>
           {topCategories.length > 0 ? (
             <div className="space-y-3">
@@ -430,7 +433,7 @@ export function DashboardView({ data: d }: DashboardProps) {
                 <div key={c.cat}>
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-[13px] font-medium text-ink">{c.cat}</span>
-                    <span className="text-[12px] font-semibold text-ink">{mad(c.amount, { decimals: false })} <span className="text-ink-faint font-normal">({c.pct}%)</span></span>
+                    <span dir="ltr" className="text-[12px] font-semibold text-ink">{mad(c.amount, { decimals: false })} <span className="text-ink-faint font-normal">({c.pct}%)</span></span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-sand/50">
                     <div className="h-full rounded-full bg-palier-600 transition-all" style={{ width: `${c.pct}%` }} />
@@ -439,21 +442,21 @@ export function DashboardView({ data: d }: DashboardProps) {
               ))}
             </div>
           ) : (
-            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune dépense sur la période</p>
+            <p className="py-4 text-center text-[13px] text-ink-faint">{T.noExpenses}</p>
           )}
         </Card>
 
         {/* Résumé + Actions rapides */}
         <div className="space-y-4">
           <Card>
-            <h2 className="mb-3 text-[14px] font-semibold text-ink">Résumé</h2>
+            <h2 className="mb-3 text-[14px] font-semibold text-ink">{T.summary.title}</h2>
             <div className="space-y-3">
               {[
-                { icon: "Building2", label: "Lots", value: k.lots, hint: `${activeResidents} résidents actifs` },
-                { icon: "TriangleAlert", label: "Incidents", value: `${k.openIncidents}`, hint: newIncidents > 0 ? `${newIncidents} nouveau${newIncidents > 1 ? "x" : ""} sur la période` : "aucun nouveau" },
-                { icon: "FileText", label: "Documents", value: docsInPeriod.length, hint: `${d.documents.length} au total` },
-                { icon: "Calendar", label: "Prochaine AG", value: nextAssembly ? shortDate(nextAssembly.date) : "—", hint: nextAssembly ? `${nextAssembly.agenda.length} point${nextAssembly.agenda.length > 1 ? "s" : ""}` : "aucune prévue" },
-                { icon: "Users", label: "Voisinage", value: postsInPeriod.length, hint: `publication${postsInPeriod.length > 1 ? "s" : ""} sur la période` },
+                { icon: "Building2", label: T.summary.lots, value: k.lots, hint: `${activeResidents} ${T.summary.activeResidents}` },
+                { icon: "TriangleAlert", label: T.summary.incidents, value: `${k.openIncidents}`, hint: newIncidents > 0 ? T.summary.newOnPeriod(newIncidents) : "—" },
+                { icon: "FileText", label: T.summary.documents, value: docsInPeriod.length, hint: `${d.documents.length} ${T.summary.total}` },
+                { icon: "Calendar", label: T.summary.nextAG, value: nextAssembly ? shortDate(nextAssembly.date, lang) : "—", hint: nextAssembly ? T.summary.points(nextAssembly.agenda.length) : T.summary.noScheduled },
+                { icon: "Users", label: T.summary.neighborhood, value: postsInPeriod.length, hint: T.summary.publications(postsInPeriod.length) },
               ].map((m) => (
                 <div key={m.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -463,21 +466,21 @@ export function DashboardView({ data: d }: DashboardProps) {
                       <p className="text-[11px] text-ink-faint">{m.hint}</p>
                     </div>
                   </div>
-                  <span className="text-[16px] font-bold text-ink">{m.value}</span>
+                  <span dir="ltr" className="text-[16px] font-bold text-ink">{m.value}</span>
                 </div>
               ))}
             </div>
           </Card>
 
           <Card>
-            <h2 className="mb-3 text-[14px] font-semibold text-ink">Actions rapides</h2>
+            <h2 className="mb-3 text-[14px] font-semibold text-ink">{T.quickActions.title}</h2>
             <div className="space-y-1">
               {[
-                { href: "/syndic/recouvrement", label: "Émettre un appel de fonds", icon: "ReceiptText" },
-                { href: "/syndic/incidents", label: "Traiter les incidents", icon: "Wrench" },
-                { href: "/syndic/transparence", label: "Saisir une opération", icon: "BookOpen" },
-                { href: "/syndic/documents", label: "Ajouter un document", icon: "Upload" },
-                { href: "/syndic/ag", label: "Convoquer une assemblée", icon: "Calendar" },
+                { href: "/syndic/recouvrement", label: T.quickActions.call, icon: "ReceiptText" },
+                { href: "/syndic/incidents", label: T.quickActions.incidents, icon: "Wrench" },
+                { href: "/syndic/transparence", label: T.quickActions.transaction, icon: "BookOpen" },
+                { href: "/syndic/documents", label: T.quickActions.document, icon: "Upload" },
+                { href: "/syndic/ag", label: T.quickActions.assembly, icon: "Calendar" },
               ].map((a) => (
                 <Link
                   key={a.href}
@@ -502,27 +505,27 @@ export function DashboardView({ data: d }: DashboardProps) {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={smallIconBox}><Icon name="TriangleAlert" className={smallIconCls} /></div>
-              <h2 className="text-[14px] font-semibold text-ink">Incidents · {periodLabel(period, customFrom, customTo)}</h2>
+              <h2 className="text-[14px] font-semibold text-ink">{T.incidentsCard} · {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}</h2>
             </div>
-            <Link href="/syndic/incidents" className="text-[13px] font-medium text-palier-600 hover:underline">Tout voir</Link>
+            <Link href="/syndic/incidents" className="text-[13px] font-medium text-palier-600 hover:underline">{T.viewAll}</Link>
           </div>
           {incidentsInPeriod.length > 0 ? (
             <div className="divide-y divide-black/[0.04]">
-              {incidentsInPeriod.slice(0, 5).map((i: any) => (
-                <div key={i.id} className="flex items-center gap-3 py-2.5">
+              {incidentsInPeriod.slice(0, 5).map((inc: any) => (
+                <div key={inc.id} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-ink">{i.title}</p>
-                    <p className="text-[11px] text-ink-faint">{i.reporter_name} · {timeAgo(i.created_at)}</p>
+                    <p className="truncate text-[13px] font-medium text-ink">{inc.title}</p>
+                    <p className="text-[11px] text-ink-faint">{inc.reporter_name} · {timeAgo(inc.created_at, lang)}</p>
                   </div>
-                  {(i.urgency === "urgent" || i.urgency === "high") && (
-                    <span className="shrink-0 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">Urgent</span>
+                  {(inc.urgency === "urgent" || inc.urgency === "high") && (
+                    <span className="shrink-0 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">{i.syndic.incidents.urgency.urgent}</span>
                   )}
-                  <StatusPill status={i.status} />
+                  <StatusPill status={inc.status} />
                 </div>
               ))}
             </div>
           ) : (
-            <p className="py-4 text-center text-[13px] text-ink-faint">Aucun incident sur cette période</p>
+            <p className="py-4 text-center text-[13px] text-ink-faint">{T.noIncidentsPeriod}</p>
           )}
         </Card>
 
@@ -531,9 +534,9 @@ export function DashboardView({ data: d }: DashboardProps) {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={smallIconBox}><Icon name="BookOpen" className={smallIconCls} /></div>
-              <h2 className="text-[14px] font-semibold text-ink">Opérations · {periodLabel(period, customFrom, customTo)}</h2>
+              <h2 className="text-[14px] font-semibold text-ink">{T.operationsCard} · {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}</h2>
             </div>
-            <Link href="/syndic/transparence" className="text-[13px] font-medium text-palier-600 hover:underline">Journal</Link>
+            <Link href="/syndic/transparence" className="text-[13px] font-medium text-palier-600 hover:underline">{T.journal}</Link>
           </div>
           {ledgerInPeriod.length > 0 ? (
             <div className="divide-y divide-black/[0.04]">
@@ -544,16 +547,16 @@ export function DashboardView({ data: d }: DashboardProps) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-ink">{e.label}</p>
-                    <p className="text-[11px] text-ink-faint">{e.category} · {shortDate(e.entry_date)}</p>
+                    <p className="text-[11px] text-ink-faint">{e.category} · {shortDate(e.entry_date, lang)}</p>
                   </div>
-                  <span className={`shrink-0 text-[13px] font-semibold ${e.type === "in" ? "text-emerald-600" : "text-ink"}`}>
+                  <span dir="ltr" className={`shrink-0 text-[13px] font-semibold ${e.type === "in" ? "text-emerald-600" : "text-ink"}`}>
                     {e.type === "in" ? "+" : "−"}{mad(e.amount, { decimals: false })}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune opération sur cette période</p>
+            <p className="py-4 text-center text-[13px] text-ink-faint">{T.noOperationsPeriod}</p>
           )}
         </Card>
       </div>
@@ -566,26 +569,26 @@ export function DashboardView({ data: d }: DashboardProps) {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={smallIconBox}><Icon name="Calendar" className={smallIconCls} /></div>
-              <h2 className="text-[14px] font-semibold text-ink">Prochaine assemblée</h2>
+              <h2 className="text-[14px] font-semibold text-ink">{T.nextAssemblyCard}</h2>
             </div>
-            <Link href="/syndic/ag" className="text-[13px] font-medium text-palier-600 hover:underline">Toutes les AG</Link>
+            <Link href="/syndic/ag" className="text-[13px] font-medium text-palier-600 hover:underline">{T.allAG}</Link>
           </div>
           {nextAssembly ? (
             <div className="rounded-xl bg-black/[0.02] p-3.5">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-palier-600 text-white">
                   <span className="text-[16px] font-bold leading-none">{new Date(nextAssembly.date).getDate()}</span>
-                  <span className="text-[10px] font-medium uppercase">{new Date(nextAssembly.date).toLocaleDateString("fr-FR", { month: "short" })}</span>
+                  <span className="text-[10px] font-medium uppercase">{i.months[new Date(nextAssembly.date).getMonth()].slice(0, 3)}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-semibold text-ink">Assemblée générale</p>
+                  <p className="text-[14px] font-semibold text-ink">{T.agGeneral}</p>
                   <p className="text-[12px] text-ink-soft">{nextAssembly.time} · {nextAssembly.place}</p>
-                  <p className="mt-0.5 text-[11px] text-ink-faint">{nextAssembly.agenda.length} point{nextAssembly.agenda.length > 1 ? "s" : ""} à l&apos;ordre du jour</p>
+                  <p className="mt-0.5 text-[11px] text-ink-faint">{T.summary.points(nextAssembly.agenda.length)}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <p className="py-4 text-center text-[13px] text-ink-faint">Aucune assemblée prévue</p>
+            <p className="py-4 text-center text-[13px] text-ink-faint">{T.noAssemblyScheduled}</p>
           )}
         </Card>
 
@@ -594,9 +597,9 @@ export function DashboardView({ data: d }: DashboardProps) {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={smallIconBox}><Icon name="FileText" className={smallIconCls} /></div>
-              <h2 className="text-[14px] font-semibold text-ink">Documents · {periodLabel(period, customFrom, customTo)}</h2>
+              <h2 className="text-[14px] font-semibold text-ink">{T.documentsCard} · {periodLabel(period, i.months, T.allPeriods, T.customPeriod, customFrom, customTo)}</h2>
             </div>
-            <Link href="/syndic/documents" className="text-[13px] font-medium text-palier-600 hover:underline">Tous</Link>
+            <Link href="/syndic/documents" className="text-[13px] font-medium text-palier-600 hover:underline">{T.allDocs}</Link>
           </div>
           {docsInPeriod.length > 0 ? (
             <div className="divide-y divide-black/[0.04]">
@@ -607,13 +610,13 @@ export function DashboardView({ data: d }: DashboardProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-ink">{doc.title}</p>
-                    <p className="text-[11px] text-ink-faint">{shortDate(doc.date)} · {doc.size || "—"}</p>
+                    <p className="text-[11px] text-ink-faint">{shortDate(doc.date, lang)} · {doc.size || "—"}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="py-4 text-center text-[13px] text-ink-faint">Aucun document sur cette période</p>
+            <p className="py-4 text-center text-[13px] text-ink-faint">{T.noDocumentsPeriod}</p>
           )}
         </Card>
       </div>

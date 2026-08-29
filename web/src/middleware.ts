@@ -3,11 +3,11 @@ import { SESSION_COOKIE_NAME, decodeSession } from "./lib/session";
 
 /** Constant-time string comparison to prevent timing attacks */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
   const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-  let result = 0;
+  const maxLen = Math.max(a.length, b.length);
+  const bufA = encoder.encode(a.padEnd(maxLen, "\0"));
+  const bufB = encoder.encode(b.padEnd(maxLen, "\0"));
+  let result = a.length ^ b.length; // mismatch in length → nonzero
   for (let i = 0; i < bufA.length; i++) {
     result |= bufA[i] ^ bufB[i];
   }
@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
   // API routes — require valid session (except internal server-to-server)
   if (pathname.startsWith("/api/")) {
     // Dev-login bypass (disabled in production by the route itself)
-    if (pathname === "/api/dev-login" || pathname === "/api/debug-beta") return NextResponse.next();
+    if (pathname === "/api/dev-login") return NextResponse.next();
     const internalSecret = process.env.INTERNAL_API_SECRET;
     const requestSecret = request.headers.get("x-internal-secret");
     if (internalSecret && requestSecret && timingSafeEqual(internalSecret, requestSecret)) {

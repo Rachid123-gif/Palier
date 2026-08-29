@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Sheet } from "@/components/ui/Sheet";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { submitFeedback } from "@/lib/actions";
+import { submitFeedback, uploadFileAction } from "@/lib/actions";
 
 type FeedbackType = "bug" | "suggestion" | "autre";
 
@@ -18,6 +18,7 @@ export function FeedbackCard() {
   const [msg, setMsg] = useState("");
   const [contact, setContact] = useState<"phone" | "email">("phone");
   const [contactValue, setContactValue] = useState(currentUser.phone ?? "");
+  const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(false);
@@ -27,6 +28,13 @@ export function FeedbackCard() {
     setSending(true);
     setError(false);
     try {
+      let attachmentUrl: string | null = null;
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await uploadFileAction(fd);
+        if (res.url) attachmentUrl = res.url;
+      }
       await submitFeedback({
         buildingId,
         type,
@@ -37,6 +45,7 @@ export function FeedbackCard() {
         contactPreference: contact,
         buildingName: building.name,
         senderRole: "resident",
+        attachmentUrl,
       });
       setSent(true);
     } catch {
@@ -49,6 +58,7 @@ export function FeedbackCard() {
   function reset() {
     setSent(false);
     setMsg("");
+    setFile(null);
     setType("suggestion");
   }
 
@@ -121,6 +131,23 @@ export function FeedbackCard() {
                 rows={3}
                 className="w-full rounded-2xl border border-black/[0.06] bg-white px-3.5 py-3 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400"
               />
+            </div>
+
+            {/* Attachment */}
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">
+                {isAr ? "مرفق (اختياري)" : "Fichier joint (optionnel)"}
+              </label>
+              <label className="tap flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-black/[0.12] px-3.5 py-2.5 text-[13px] text-ink-soft hover:bg-sand/30">
+                <Icon name="Paperclip" className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{file ? file.name : (isAr ? "اختيار ملف…" : "Choisir un fichier…")}</span>
+                {file && (
+                  <button type="button" onClick={(e) => { e.preventDefault(); setFile(null); }} className="shrink-0">
+                    <Icon name="X" className="h-3.5 w-3.5 text-ink-faint" />
+                  </button>
+                )}
+                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              </label>
             </div>
 
             {/* Contact preference */}

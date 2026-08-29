@@ -9,48 +9,50 @@ import { logout } from "@/lib/auth";
 import { shortName } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 import { BuildingSwitcher } from "./BuildingSwitcher";
+import { useLang } from "@/lib/LangProvider";
 import type { UserBuilding } from "@/lib/queries";
 
-type NavItem = { href: string; label: string; icon: string; exact?: boolean; badgeKey?: string };
-type NavSection = { title?: string; items: NavItem[] };
+type NavItem = { href: string; labelKey: string; icon: string; exact?: boolean; badgeKey?: string };
+type NavSection = { titleKey?: string; items: NavItem[] };
 
 const navSections: NavSection[] = [
   {
     items: [
-      { href: "/syndic", label: "Tableau de bord", icon: "LayoutDashboard", exact: true },
+      { href: "/syndic", labelKey: "dashboard", icon: "LayoutDashboard", exact: true },
     ],
   },
   {
-    title: "Gestion",
+    titleKey: "gestion",
     items: [
-      { href: "/syndic/recouvrement", label: "Recouvrement", icon: "Banknote", badgeKey: "dunning" },
-      { href: "/syndic/incidents", label: "Incidents", icon: "Wrench", badgeKey: "incidents" },
-      { href: "/syndic/residents", label: "Résidents & lots", icon: "Users" },
-      { href: "/syndic/voisinage", label: "Voisinage", icon: "MessageSquare" },
-      { href: "/syndic/travaux-urgents", label: "Travaux urgents", icon: "Hammer" },
+      { href: "/syndic/recouvrement", labelKey: "recouvrement", icon: "Banknote", badgeKey: "dunning" },
+      { href: "/syndic/incidents", labelKey: "incidents", icon: "Wrench", badgeKey: "incidents" },
+      { href: "/syndic/residents", labelKey: "residents", icon: "Users" },
+      { href: "/syndic/voisinage", labelKey: "voisinage", icon: "MessageSquare" },
+      { href: "/syndic/services", labelKey: "services", icon: "Briefcase" },
+      { href: "/syndic/travaux-urgents", labelKey: "travauxUrgents", icon: "Hammer" },
     ],
   },
   {
-    title: "Finances",
+    titleKey: "finances",
     items: [
-      { href: "/syndic/transparence", label: "Transparence", icon: "BookOpen" },
-      { href: "/syndic/budget", label: "Budget", icon: "Calculator" },
-      { href: "/syndic/comptabilite", label: "Comptabilité", icon: "Receipt" },
+      { href: "/syndic/transparence", labelKey: "transparence", icon: "BookOpen" },
+      { href: "/syndic/budget", labelKey: "budget", icon: "Calculator" },
+      { href: "/syndic/comptabilite", labelKey: "comptabilite", icon: "Receipt" },
     ],
   },
   {
-    title: "Conformité",
+    titleKey: "conformite",
     items: [
-      { href: "/syndic/ag", label: "Assemblées", icon: "Calendar" },
-      { href: "/syndic/reglement", label: "Règlement", icon: "Scale" },
-      { href: "/syndic/assurance", label: "Assurance", icon: "Shield" },
-      { href: "/syndic/mandat", label: "Mandat syndic", icon: "Award" },
-      { href: "/syndic/documents", label: "Documents", icon: "FileText" },
+      { href: "/syndic/ag", labelKey: "ag", icon: "Calendar" },
+      { href: "/syndic/reglement", labelKey: "reglement", icon: "Scale" },
+      { href: "/syndic/assurance", labelKey: "assurance", icon: "Shield" },
+      { href: "/syndic/mandat", labelKey: "mandat", icon: "Award" },
+      { href: "/syndic/documents", labelKey: "documents", icon: "FileText" },
     ],
   },
   {
     items: [
-      { href: "/syndic/parametres", label: "Paramètres", icon: "Settings" },
+      { href: "/syndic/parametres", labelKey: "parametres", icon: "Settings" },
     ],
   },
 ];
@@ -70,6 +72,8 @@ export function SyndicShell({
   children: React.ReactNode;
 }) {
   const path = usePathname();
+  const { i, isAr, toggleLang, lang } = useLang();
+  const S = i.syndic.shell;
   const [showLogout, setShowLogout] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -91,7 +95,7 @@ export function SyndicShell({
   }, [profileId]);
   return (
     <div className="flex min-h-dvh bg-cream text-ink">
-      <a href="#main-content" className="skip-link">Aller au contenu principal</a>
+      <a href="#main-content" className="skip-link">{S.skipToContent}</a>
       {/* Sidebar */}
       <aside
         aria-label="Navigation syndic"
@@ -112,7 +116,7 @@ export function SyndicShell({
           </div>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? S.expandMenu : S.collapseMenu}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sand/50 hover:text-ink"
           >
             <Icon name={collapsed ? "PanelLeftOpen" : "PanelLeftClose"} className="h-4 w-4" strokeWidth={1.8} />
@@ -122,18 +126,19 @@ export function SyndicShell({
         <nav aria-label="Menu principal" className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
           {navSections.map((section, si) => (
             <div key={si}>
-              {section.title && !collapsed && (
-                <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{section.title}</p>
+              {section.titleKey && !collapsed && (
+                <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{(S as any)[section.titleKey]}</p>
               )}
-              {collapsed && section.title && <div className="mx-auto my-2 h-px w-6 bg-black/[0.06]" />}
+              {collapsed && section.titleKey && <div className="mx-auto my-2 h-px w-6 bg-black/[0.06]" />}
               {section.items.map((n) => {
+                const label = (S as any)[n.labelKey] as string;
                 const active = n.exact ? path === n.href : path.startsWith(n.href);
                 const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
                 return (
                   <Link
                     key={n.href}
                     href={n.href}
-                    title={collapsed ? n.label : undefined}
+                    title={collapsed ? label : undefined}
                     className={cn(
                       "relative flex items-center rounded-lg text-[13px] font-medium transition-colors",
                       collapsed ? "justify-center px-0 py-[7px]" : "gap-2.5 px-2.5 py-[7px]",
@@ -143,7 +148,7 @@ export function SyndicShell({
                     )}
                   >
                     <Icon name={n.icon} className="h-4 w-4 shrink-0" strokeWidth={1.8} />
-                    {!collapsed && <span className="flex-1">{n.label}</span>}
+                    {!collapsed && <span className="flex-1">{label}</span>}
                     {badge > 0 && !collapsed && (
                       <span className={cn(
                         "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
@@ -164,6 +169,12 @@ export function SyndicShell({
 
         <div className="border-t border-black/[0.06] pt-3">
           {!collapsed && <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} fallback={building} />}
+          {!collapsed && (
+            <button onClick={toggleLang} className="mx-2.5 mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink">
+              <Icon name="Globe" className="h-3.5 w-3.5" />
+              {isAr ? "Français" : "العربية"}
+            </button>
+          )}
           <div className={cn("mt-2 flex items-center", collapsed ? "justify-center py-1.5" : "gap-2.5 px-2.5 py-1.5")}>
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
               {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -191,7 +202,7 @@ export function SyndicShell({
                 <span className="text-[14px] font-semibold text-ink">Palier</span>
                 <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
+              <button onClick={() => setMobileOpen(false)} aria-label={S.closeMenu} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
                 <Icon name="X" className="h-5 w-5" strokeWidth={1.8} />
               </button>
             </div>
@@ -199,10 +210,11 @@ export function SyndicShell({
             <nav aria-label="Menu mobile" className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-3">
               {navSections.map((section, si) => (
                 <div key={si}>
-                  {section.title && (
-                    <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{section.title}</p>
+                  {section.titleKey && (
+                    <p className="mb-1 mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{(S as any)[section.titleKey]}</p>
                   )}
                   {section.items.map((n) => {
+                    const label = (S as any)[n.labelKey] as string;
                     const active = n.exact ? path === n.href : path.startsWith(n.href);
                     const badge = n.badgeKey === "dunning" ? badges.dunning : n.badgeKey === "incidents" ? badges.incidents : 0;
                     return (
@@ -218,7 +230,7 @@ export function SyndicShell({
                         )}
                       >
                         <Icon name={n.icon} className="h-4 w-4" strokeWidth={1.8} />
-                        <span className="flex-1">{n.label}</span>
+                        <span className="flex-1">{label}</span>
                         {badge > 0 && (
                           <span className={cn(
                             "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
@@ -236,6 +248,10 @@ export function SyndicShell({
 
             <div className="border-t border-black/[0.06] px-3 pt-3 pb-4">
               <BuildingSwitcher buildings={buildings} currentBuildingId={currentBuildingId} fallback={building} />
+              <button onClick={toggleLang} className="mx-2.5 mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink">
+                <Icon name="Globe" className="h-3.5 w-3.5" />
+                {isAr ? "Français" : "العربية"}
+              </button>
               <div className="mt-2 flex items-center gap-2.5 px-2.5 py-1.5">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-palier-600 text-[10px] font-semibold text-white">
                   {syndicName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -256,7 +272,7 @@ export function SyndicShell({
             <span className="text-[14px] font-semibold text-ink">Palier</span>
             <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
           </div>
-          <button onClick={() => setMobileOpen(true)} aria-label="Ouvrir le menu" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
+          <button onClick={() => setMobileOpen(true)} aria-label={S.openMenu} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
             <Icon name="Menu" className="h-5 w-5" strokeWidth={1.8} />
           </button>
         </div>
@@ -270,17 +286,17 @@ export function SyndicShell({
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
                 <Icon name="LogOut" className="h-4 w-4 text-red-600" />
               </div>
-              <h2 className="text-[15px] font-semibold text-ink">Se déconnecter</h2>
+              <h2 className="text-[15px] font-semibold text-ink">{S.logout}</h2>
             </div>
             <p className="mb-4 text-[13px] text-ink-soft">
-              Êtes-vous sûr de vouloir vous déconnecter de l&apos;espace syndic ?
+              {S.logoutConfirm}
             </p>
             <div className="flex gap-2">
               <button onClick={() => setShowLogout(false)} className="flex-1 rounded-lg border border-black/[0.08] py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
-                Annuler
+                {S.cancel}
               </button>
               <button onClick={async () => { localStorage.removeItem("palier_notif_prefs"); localStorage.removeItem("palier_notif_read"); try { await logout(); } finally { window.location.href = "/bienvenue"; } }} className="flex flex-1 items-center justify-center rounded-lg bg-red-600 py-2 text-[13px] font-medium text-white hover:bg-red-700">
-                Se déconnecter
+                {S.logout}
               </button>
             </div>
           </div>

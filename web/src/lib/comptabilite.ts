@@ -12,8 +12,7 @@ export interface AccountCode {
 
 /** Les 7 classes du plan comptable copropriété */
 export const ACCOUNT_CLASSES = [
-  { class: 1, name: "Comptes de financement permanent", color: "#2563eb" },
-  { class: 2, name: "Comptes d'actif immobilisé", color: "#7c3aed" },
+  { class: 1, name: "Provisions, fonds de réserve et résultat", color: "#2563eb" },
   { class: 3, name: "Comptes d'actif circulant", color: "#0891b2" },
   { class: 4, name: "Comptes de passif circulant", color: "#d97706" },
   { class: 5, name: "Comptes de trésorerie", color: "#059669" },
@@ -28,11 +27,6 @@ export const PLAN_COMPTABLE: AccountCode[] = [
   { code: "1150", label: "Fonds de réserve", class: 1, className: "Financement permanent" },
   { code: "1160", label: "Fonds travaux (loi 106-12)", class: 1, className: "Financement permanent" },
   { code: "1400", label: "Emprunts", class: 1, className: "Financement permanent" },
-
-  // Classe 2 — Actif immobilisé
-  { code: "2300", label: "Installations techniques parties communes", class: 2, className: "Actif immobilisé" },
-  { code: "2340", label: "Matériel et outillage", class: 2, className: "Actif immobilisé" },
-  { code: "2350", label: "Mobilier parties communes", class: 2, className: "Actif immobilisé" },
 
   // Classe 3 — Actif circulant
   { code: "3421", label: "Copropriétaires — appels à payer", class: 3, className: "Actif circulant" },

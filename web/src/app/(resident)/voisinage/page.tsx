@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { timeAgo } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
-import { createPost, createComment, fetchComments, likeComment, likePost, deletePost, updatePost, fetchMyLikes } from "@/lib/actions";
+import { createPost, createComment, fetchComments, likeComment, likePost, unlikePost, deletePost, updatePost, fetchMyLikes } from "@/lib/actions";
 import type { Post, PostType, Comment } from "@/lib/types";
 
 const POST_LIMIT = 6;
@@ -61,6 +61,9 @@ export default function VoisinageScreen() {
   // Edit state
   const [editPost, setEditPost] = useState<Post | null>(null);
   const [editText, setEditText] = useState("");
+  const [editMediaFile, setEditMediaFile] = useState<File | null>(null);
+  const [editMediaPreview, setEditMediaPreview] = useState<string | null>(null);
+  const [editKeepFile, setEditKeepFile] = useState(true);
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +74,9 @@ export default function VoisinageScreen() {
     { key: "event", label: T.tabs.event, icon: "PartyPopper" },
     { key: "help", label: T.tabs.help, icon: "HeartHandshake" },
     { key: "found", label: T.tabs.found, icon: "KeyRound" },
+    { key: "general", label: T.tabs.general, icon: "MessageSquare" },
+    { key: "service", label: T.tabs.service, icon: "Wrench" },
+    { key: "recommendation", label: T.tabs.recommendation, icon: "Star" },
   ];
 
   const timePeriods: { key: TimePeriod; label: string }[] = [
@@ -81,19 +87,23 @@ export default function VoisinageScreen() {
   ];
 
   const postTypes: { key: PostType; label: string; icon: string }[] = [
+    { key: "general", label: T.postTypes.general, icon: "MessageSquare" },
+    { key: "announcement", label: T.postTypes.announcement, icon: "Megaphone" },
+    { key: "event", label: T.postTypes.event, icon: "PartyPopper" },
     { key: "help", label: T.postTypes.help, icon: "HeartHandshake" },
     { key: "found", label: T.postTypes.found, icon: "KeyRound" },
-    { key: "event", label: T.postTypes.event, icon: "PartyPopper" },
+    { key: "service", label: T.postTypes.service, icon: "Wrench" },
+    { key: "recommendation", label: T.postTypes.recommendation, icon: "Star" },
   ];
 
-  const typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" }> = {
+  const typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" | "neutral" | "danger" }> = {
     announcement: { label: T.badges.announcement, tone: "brand" },
     event: { label: T.badges.event, tone: "info" },
     help: { label: T.badges.help, tone: "warning" },
     found: { label: T.badges.found, tone: "gold" },
     general: { label: T.badges.general, tone: "success" },
-    service: { label: i.services.badge, tone: "brand" },
-    recommendation: { label: i.services.badge, tone: "brand" },
+    service: { label: T.badges.service, tone: "neutral" },
+    recommendation: { label: T.badges.recommendation, tone: "danger" },
   };
 
   const list = [...posts].sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false));
@@ -125,16 +135,19 @@ export default function VoisinageScreen() {
     let fileName: string | undefined;
     if (mediaFile) {
       try {
+        const fd = new FormData();
+        fd.append("file", mediaFile);
+        const { uploadFileAction } = await import("@/lib/actions");
+        const result = await uploadFileAction(fd);
+        if (result.error || !result.url) throw new Error(result.error ?? "upload_failed");
         if (mediaFile.type.startsWith("image/")) {
-          const { uploadPostImage } = await import("@/lib/storage");
-          imageUrl = await uploadPostImage(mediaFile);
+          imageUrl = result.url;
         } else {
-          const { uploadPostDocument } = await import("@/lib/storage");
-          fileUrl = await uploadPostDocument(mediaFile);
+          fileUrl = result.url;
           fileName = mediaFile.name;
         }
       } catch {
-        setToast({ icon: "AlertCircle", title: T.erreurUpload ?? "Erreur", body: T.erreurUploadBody ?? "Le fichier n'a pas pu être envoyé." });
+        setToast({ icon: "CircleAlert", title: T.erreurUpload ?? "Erreur", body: T.erreurUploadBody ?? "Le fichier n'a pas pu être envoyé." });
         return;
       }
     }
@@ -172,12 +185,48 @@ export default function VoisinageScreen() {
   function openEdit(post: Post) {
     setEditPost(post);
     setEditText(post.body);
+    setEditMediaFile(null);
+    setEditMediaPreview(null);
+    setEditKeepFile(true);
+  }
+
+  function closeEdit() {
+    setEditPost(null); setEditText("");
+    if (editMediaPreview) URL.revokeObjectURL(editMediaPreview);
+    setEditMediaFile(null); setEditMediaPreview(null); setEditKeepFile(true);
   }
 
   async function submitEdit() {
     if (!editPost || !editText.trim()) return;
-    await updatePost({ postId: editPost.id, body: editText.trim(), title: editPost.title });
-    setEditPost(null); setEditText("");
+    let imageUrl: string | null | undefined = undefined;
+    let fileUrl: string | null | undefined = undefined;
+    let fileName: string | null | undefined = undefined;
+
+    // New file uploaded
+    if (editMediaFile) {
+      const fd = new FormData();
+      fd.append("file", editMediaFile);
+      const { uploadFileAction } = await import("@/lib/actions");
+      const result = await uploadFileAction(fd);
+      if (result.error || !result.url) {
+        setToast({ icon: "CircleAlert", title: T.erreurUpload ?? "Erreur", body: T.erreurUploadBody ?? "" });
+        return;
+      }
+      if (editMediaFile.type.startsWith("image/")) {
+        imageUrl = result.url;
+        fileUrl = null; fileName = null;
+      } else {
+        fileUrl = result.url;
+        fileName = editMediaFile.name;
+        imageUrl = null;
+      }
+    } else if (!editKeepFile) {
+      // User removed the existing file
+      imageUrl = null; fileUrl = null; fileName = null;
+    }
+
+    await updatePost({ postId: editPost.id, body: editText.trim(), title: editPost.title, imageUrl, fileUrl, fileName });
+    closeEdit();
     setToast({ icon: "Check", title: T.postModifie, body: T.postModifieBody });
     router.refresh();
   }
@@ -218,9 +267,9 @@ export default function VoisinageScreen() {
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setVisibleCount(POST_LIMIT); }}
-              className={`tap flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold ${tab === t.key ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
+              className={`tap flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold ${tab === t.key ? "bg-palier-600 text-white" : "border border-palier-100 bg-white text-ink-soft"}`}
             >
-              <Icon name={t.icon} className="h-3.5 w-3.5" /> {t.label}
+              <Icon name={t.icon} className="h-3.5 w-3.5 shrink-0" /> {t.label}
             </button>
           ))}
         </div>
@@ -246,7 +295,7 @@ export default function VoisinageScreen() {
                 isOwn={p.authorId === profileId}
                 liked={likedPosts.has(p.id)}
                 onComment={() => openComments(p)}
-                onLike={(id) => { if (!likedPosts.has(id)) { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }}
+                onLike={(id) => { if (likedPosts.has(id)) { setLikedPosts((s) => { const n = new Set(s); n.delete(id); return n; }); unlikePost(id); } else { setLikedPosts((s) => new Set(s).add(id)); likePost(id); } }}
                 onEdit={() => openEdit(p)}
                 onDelete={() => setDeleteConfirm(p)}
                 typeBadge={typeBadge} lang={lang} T={T} syndicBadge={i.syndicBadge}
@@ -322,7 +371,7 @@ export default function VoisinageScreen() {
         </div>
         {isInactive && (
           <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-            <Icon name="AlertTriangle" className="h-4 w-4 shrink-0 text-amber-600" />
+            <Icon name="TriangleAlert" className="h-4 w-4 shrink-0 text-amber-600" />
             <p className="text-[12px] font-medium text-amber-800">{i.desactive.titre} — {i.desactive.desc}</p>
           </div>
         )}
@@ -332,7 +381,7 @@ export default function VoisinageScreen() {
       </Sheet>
 
       {/* ═══ Edit Sheet ═══ */}
-      <Sheet open={!!editPost} onClose={() => { setEditPost(null); setEditText(""); }} title={T.modifierPost}>
+      <Sheet open={!!editPost} onClose={closeEdit} title={T.modifierPost}>
         {editPost && (
           <div className="space-y-4">
             <textarea
@@ -340,6 +389,43 @@ export default function VoisinageScreen() {
               className="w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-[14px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-300"
             />
             <span className="block px-1 text-[12px] text-ink-faint">{editText.length}/300</span>
+
+            {/* Existing file preview */}
+            {editKeepFile && !editMediaFile && (editPost.imageUrl || editPost.fileUrl) && (
+              <div className="flex items-center gap-2 rounded-xl border border-black/5 bg-sand p-3">
+                <Icon name={editPost.imageUrl ? "Image" : "FileText"} className="h-5 w-5 shrink-0 text-palier-600" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
+                  {editPost.fileName ?? (editPost.imageUrl ? "Image" : "Fichier")}
+                </span>
+                <button onClick={() => setEditKeepFile(false)} className="shrink-0 rounded-full p-1 text-ink-faint hover:bg-red-50 hover:text-red-500">
+                  <Icon name="X" className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {/* New file preview */}
+            {editMediaFile && (
+              <div className="flex items-center gap-2 rounded-xl border border-palier-200 bg-palier-50 p-3">
+                <Icon name={editMediaFile.type.startsWith("image/") ? "Image" : "FileText"} className="h-5 w-5 shrink-0 text-palier-600" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{editMediaFile.name}</span>
+                <button onClick={() => { if (editMediaPreview) URL.revokeObjectURL(editMediaPreview); setEditMediaFile(null); setEditMediaPreview(null); }} className="shrink-0 rounded-full p-1 text-ink-faint hover:bg-red-50 hover:text-red-500">
+                  <Icon name="X" className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Add/replace file button */}
+            {!editMediaFile && (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-black/[0.12] px-3 py-2.5 text-[13px] font-medium text-ink-soft hover:bg-sand/30">
+                <Icon name="Paperclip" className="h-4 w-4" />
+                {editKeepFile && (editPost.imageUrl || editPost.fileUrl) ? T.remplacerFichier : T.ajouterFichier}
+                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) { setEditMediaFile(f); setEditMediaPreview(URL.createObjectURL(f)); setEditKeepFile(false); }
+                }} />
+              </label>
+            )}
+
             <button
               onClick={submitEdit}
               disabled={!editText.trim()}
@@ -389,7 +475,7 @@ export default function VoisinageScreen() {
               <p className="mt-1.5 line-clamp-3 text-[13px] text-ink-soft">{commentPost.body}</p>
               <div className="mt-2 flex items-center gap-3 border-t border-black/5 pt-2">
                 <button
-                  onClick={() => { if (!likedPosts.has(commentPost.id)) { setLikedPosts((s) => new Set(s).add(commentPost.id)); likePost(commentPost.id); } }}
+                  onClick={() => { if (likedPosts.has(commentPost.id)) { setLikedPosts((s) => { const n = new Set(s); n.delete(commentPost.id); return n; }); unlikePost(commentPost.id); } else { setLikedPosts((s) => new Set(s).add(commentPost.id)); likePost(commentPost.id); } }}
                   className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold ${likedPosts.has(commentPost.id) ? "bg-palier-100 text-palier-700" : "bg-white text-ink-soft"}`}
                 >
                   <Icon name="ThumbsUp" className="h-3.5 w-3.5" />
@@ -456,14 +542,14 @@ export default function VoisinageScreen() {
 function PostCard({ p, isOwn, liked, onComment, onLike, onEdit, onDelete, typeBadge, lang, T, syndicBadge }: {
   p: Post; isOwn: boolean; liked: boolean; onComment: () => void; onLike: (postId: string) => void;
   onEdit: () => void; onDelete: () => void;
-  typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" }>;
+  typeBadge: Record<PostType, { label: string; tone: "brand" | "info" | "warning" | "gold" | "success" | "neutral" | "danger" }>;
   lang: "fr" | "ar";
   T: typeof import("@/lib/i18n").t.fr.voisinage;
   syndicBadge: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const tb = typeBadge[p.type];
+  const tb = typeBadge[p.type] ?? typeBadge.general;
   const totalReactions = p.reactions.like + p.reactions.love + p.reactions.haha + p.reactions.wow + (liked ? 1 : 0);
   const isLong = p.body.length > BODY_LIMIT;
 
@@ -488,7 +574,7 @@ function PostCard({ p, isOwn, liked, onComment, onLike, onEdit, onDelete, typeBa
         {isOwn && (
           <div className="relative">
             <button onClick={() => setMenuOpen(!menuOpen)} className="tap flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-sand">
-              <Icon name="MoreVertical" className="h-4 w-4" />
+              <Icon name="EllipsisVertical" className="h-4 w-4" />
             </button>
             {menuOpen && (
               <>
@@ -540,7 +626,7 @@ function PostCard({ p, isOwn, liked, onComment, onLike, onEdit, onDelete, typeBa
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <button onClick={() => { if (!liked) { onLike(p.id); } }}
+        <button onClick={() => onLike(p.id)}
           className={`tap flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${liked ? "bg-palier-100 text-palier-700" : "bg-sand text-ink-soft"}`}>
           <Icon name="ThumbsUp" className="h-4 w-4" /> {totalReactions > 0 ? totalReactions : T.jaime}
         </button>

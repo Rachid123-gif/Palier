@@ -35,6 +35,14 @@ import {
   updateChargeCallSchema,
   updatePostSchema,
   updateProfileSchema,
+  logDunningSchema,
+  sendDunningRelanceSchema,
+  insertDocumentSchema,
+  upsertDocumentSchema,
+  submitFeedbackSchema,
+  updateIncidentUrgencySchema,
+  updateUrgentWorkStatusSchema,
+  updateBudgetStatusSchema,
 } from "./schemas";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -144,6 +152,8 @@ export async function createPostSyndic(input: {
   type?: string;
   title?: string;
   imageUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
   pinned?: boolean;
 }) {
   const session = await requireAuth({ role: "syndic", buildingId: input.buildingId });
@@ -158,6 +168,8 @@ export async function createPostSyndic(input: {
     body: v.body,
     title: v.title ?? null,
     image_url: v.imageUrl ?? null,
+    file_url: v.fileUrl ?? null,
+    file_name: v.fileName ?? null,
     pinned: input.pinned ?? false,
   }).select("id").single();
   // Notify all active residents
@@ -266,11 +278,12 @@ export async function logDunning(input: {
   message: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(logDunningSchema, input);
   return supabaseAdmin.from("dunning_logs").insert({
-    building_id: input.buildingId,
-    unit_id: input.unitId,
-    channel: input.channel,
-    message: input.message,
+    building_id: v.buildingId,
+    unit_id: v.unitId,
+    channel: v.channel,
+    message: v.message,
   });
 }
 
@@ -284,6 +297,9 @@ export async function sendRelance(input: {
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(sendRelanceSchema, input);
+  // Verify profileId belongs to this building
+  const { data: member } = await supabaseAdmin.from("memberships").select("profile_id").eq("profile_id", v.profileId).eq("building_id", v.buildingId).single();
+  if (!member) return { notifError: null, dunningError: { message: "forbidden_profile" } };
   const [notifRes, dunningRes] = await Promise.all([
     supabaseAdmin.from("notifications").insert({
       profile_id: v.profileId,
@@ -382,6 +398,22 @@ export async function likePost(postId: string) {
     await supabaseAdmin.rpc("increment_like_count", { post_id_input: postId });
   }
   return { alreadyLiked: !inserted };
+}
+
+export async function unlikePost(postId: string) {
+  const session = await requireAuth();
+  const { data: post } = await supabaseAdmin.from("posts").select("id, like_count").eq("id", postId).eq("building_id", session.buildingId).single();
+  if (!post) throw new Error("forbidden_building");
+  const { data: deleted } = await supabaseAdmin
+    .from("post_likes")
+    .delete()
+    .eq("post_id", postId)
+    .eq("profile_id", session.profileId)
+    .select("id")
+    .single();
+  if (deleted) {
+    await supabaseAdmin.from("posts").update({ like_count: Math.max((post.like_count ?? 0) - 1, 0) }).eq("id", postId);
+  }
 }
 
 export async function fetchMyLikes(buildingId: string): Promise<string[]> {
@@ -699,10 +731,11 @@ export async function reopenIncident(incidentId: string) {
 /** Changer l'urgence d'un incident */
 export async function updateIncidentUrgency(incidentId: string, urgency: "low" | "normal" | "urgent") {
   const session = await requireAuth({ role: "syndic" });
-  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
+  const v = validate(updateIncidentUrgencySchema, { incidentId, urgency });
+  const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", v.incidentId).eq("building_id", session.buildingId).single();
   const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", urgent: "Urgent" };
-  const res = await supabaseAdmin.from("incidents").update({ urgency }).eq("id", incidentId).eq("building_id", session.buildingId);
-  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Urgence modifiée", `${inc.title ?? "Votre incident"} — Niveau : ${urgencyLabels[urgency] ?? urgency}`, "incident");
+  const res = await supabaseAdmin.from("incidents").update({ urgency: v.urgency }).eq("id", v.incidentId).eq("building_id", session.buildingId);
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Urgence modifiée", `${inc.title ?? "Votre incident"} — Niveau : ${urgencyLabels[v.urgency] ?? v.urgency}`, "incident");
   return res;
 }
 
@@ -948,7 +981,7 @@ export async function createAssembly(input: {
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(createAssemblySchema, input);
-  const res = await supabaseAdmin.from("assemblies").insert({
+  return supabaseAdmin.from("assemblies").insert({
     building_id: v.buildingId,
     date: v.date,
     time: v.time,
@@ -958,20 +991,6 @@ export async function createAssembly(input: {
     votes: [],
     quorum: 0,
   });
-  // Auto-notify all active residents
-  const { data: members } = await supabaseAdmin
-    .from("memberships")
-    .select("profile_id")
-    .eq("building_id", v.buildingId)
-    .eq("status", "active")
-    .eq("role", "resident");
-  if (members?.length) {
-    const profileIds = members.map((m: any) => m.profile_id).filter(Boolean);
-    const title = "Assemblée générale convoquée";
-    const body = `Assemblée prévue le ${v.date} à ${v.place}. Consultez l'ordre du jour dans votre application.`;
-    await notifyProfiles(profileIds, title, body, "ag");
-  }
-  return res;
 }
 
 /** Mettre à jour les résultats d'une assemblée */
@@ -1004,10 +1023,19 @@ export async function notifyAssembly(input: {
   date: string;
   place: string;
 }) {
-  await requireAuth({ role: "syndic" });
+  const session = await requireAuth({ role: "syndic" });
+  // Filter profileIds to only members of this building
+  const { data: members } = await supabaseAdmin
+    .from("memberships")
+    .select("profile_id")
+    .eq("building_id", session.buildingId)
+    .in("profile_id", input.profileIds);
+  const validIds = (members ?? []).map((m: any) => m.profile_id);
+  if (validIds.length === 0) return;
+
   const title = "Assemblée générale convoquée";
   const body = `Assemblée prévue le ${input.date} à ${input.place}. Consultez l'ordre du jour dans votre application.`;
-  const notifications = input.profileIds.map((profileId) => ({
+  const notifications = validIds.map((profileId: string) => ({
     profile_id: profileId,
     title,
     body,
@@ -1016,7 +1044,7 @@ export async function notifyAssembly(input: {
 
   // In-app + push
   await supabaseAdmin.from("notifications").insert(notifications);
-  await triggerPush(input.profileIds, title, body);
+  await triggerPush(validIds, title, body);
 }
 
 /** Charger la configuration du bâtiment */
@@ -1158,6 +1186,9 @@ export async function updatePost(input: {
   category?: string;
   providerName?: string;
   providerPhone?: string;
+  imageUrl?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
 }) {
   const session = await requireAuth();
   const v = validate(updatePostSchema, input);
@@ -1170,13 +1201,17 @@ export async function updatePost(input: {
     .single();
   if (!post) throw new Error("post_not_found");
   if (post.profile_id !== session.profileId && session.role !== "syndic") throw new Error("forbidden");
-  return supabaseAdmin.from("posts").update({
+  const updates: Record<string, unknown> = {
     body: v.body,
     title: v.title ?? null,
     category: v.category ?? null,
     provider_name: v.providerName ?? null,
     provider_phone: v.providerPhone ?? null,
-  }).eq("id", post.id);
+  };
+  if (v.imageUrl !== undefined) updates.image_url = v.imageUrl;
+  if (v.fileUrl !== undefined) updates.file_url = v.fileUrl;
+  if (v.fileName !== undefined) updates.file_name = v.fileName;
+  return supabaseAdmin.from("posts").update(updates).eq("id", post.id);
 }
 
 export async function togglePinPost(postId: string, pinned: boolean) {
@@ -1205,7 +1240,7 @@ export async function createIncidentComment(input: {
     author_name: v.author,
     avatar_color: v.avatarColor,
     body: v.body,
-    role: v.role,
+    role: session.role === "syndic" ? "syndic" : "resident",
   });
   if (!error) {
     await supabaseAdmin.rpc("increment_incident_messages", { incident_id_input: v.incidentId });
@@ -1276,6 +1311,9 @@ export async function castVote(input: {
     .single();
   if (membership?.status === "inactive") throw new Error("inactive_member");
   const v = validate(castVoteSchema, input);
+  // Verify assembly belongs to user's building
+  const { data: assembly } = await supabaseAdmin.from("assemblies").select("id").eq("id", v.assemblyId).eq("building_id", session.buildingId).single();
+  if (!assembly) throw new Error("forbidden_building");
   return supabaseAdmin.from("assembly_votes").upsert({
     assembly_id: v.assemblyId,
     vote_id: v.voteId,
@@ -1296,7 +1334,10 @@ export async function fetchMyVotes(assemblyId: string, profileId: string) {
 }
 
 export async function fetchVoteTallies(assemblyId: string) {
-  await requireAuth({ role: "syndic" });
+  const session = await requireAuth({ role: "syndic" });
+  // Verify assembly belongs to syndic's building
+  const { data: assembly } = await supabaseAdmin.from("assemblies").select("id").eq("id", assemblyId).eq("building_id", session.buildingId).single();
+  if (!assembly) throw new Error("forbidden_building");
   const { data } = await supabaseAdmin
     .from("assembly_votes")
     .select("vote_id, choice")
@@ -1398,11 +1439,20 @@ export async function markAssemblyConvoked(assemblyId: string) {
 /** Distribuer le PV aux résidents */
 export async function distributePV(assemblyId: string, profileIds: string[], agDate: string) {
   const session = await requireAuth({ role: "syndic" });
+  // Filter profileIds to only members of this building
+  const { data: members } = await supabaseAdmin
+    .from("memberships")
+    .select("profile_id")
+    .eq("building_id", session.buildingId)
+    .in("profile_id", profileIds);
+  const validIds = (members ?? []).map((m: any) => m.profile_id);
+  if (validIds.length === 0) return;
+
   const title = "Procès-verbal disponible";
   const body = `Le PV de l'assemblée du ${agDate} est disponible. Consultez-le dans votre application.`;
-  const notifications = profileIds.map((pid) => ({ profile_id: pid, title, body, kind: "ag" }));
+  const notifications = validIds.map((pid: string) => ({ profile_id: pid, title, body, kind: "ag" }));
   await supabaseAdmin.from("notifications").insert(notifications);
-  await triggerPush(profileIds, title, body);
+  await triggerPush(validIds, title, body);
   return supabaseAdmin.from("assemblies").update({
     pv_distributed: true,
     pv_sent_at: new Date().toISOString(),
@@ -1451,12 +1501,13 @@ export async function createBudget(input: {
 
 export async function updateBudgetStatus(budgetId: string, status: "draft" | "vote" | "approved" | "closed", assemblyId?: string) {
   const session = await requireAuth({ role: "syndic" });
-  const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-  if (status === "approved") {
+  const v = validate(updateBudgetStatusSchema, { budgetId, status, assemblyId });
+  const update: Record<string, unknown> = { status: v.status, updated_at: new Date().toISOString() };
+  if (v.status === "approved") {
     update.approved_at = new Date().toISOString();
-    if (assemblyId) update.approved_assembly_id = assemblyId;
+    if (v.assemblyId) update.approved_assembly_id = v.assemblyId;
   }
-  return supabaseAdmin.from("budgets").update(update).eq("id", budgetId).eq("building_id", session.buildingId);
+  return supabaseAdmin.from("budgets").update(update).eq("id", v.budgetId).eq("building_id", session.buildingId);
 }
 
 export async function addBudgetLine(budgetId: string, input: { label: string; category: string; amountBudgeted: number; accountCode?: string }) {
@@ -1638,10 +1689,11 @@ export async function createUrgentWork(input: {
 
 export async function updateUrgentWorkStatus(id: string, status: "declared" | "approved" | "in_progress" | "completed", actualCost?: number) {
   const session = await requireAuth({ role: "syndic" });
-  const update: Record<string, unknown> = { status };
-  if (status === "completed") update.completed_at = new Date().toISOString();
-  if (actualCost !== undefined) update.actual_cost = actualCost;
-  return supabaseAdmin.from("urgent_works").update(update).eq("id", id).eq("building_id", session.buildingId);
+  const v = validate(updateUrgentWorkStatusSchema, { id, status, actualCost });
+  const update: Record<string, unknown> = { status: v.status };
+  if (v.status === "completed") update.completed_at = new Date().toISOString();
+  if (v.actualCost !== undefined) update.actual_cost = v.actualCost;
+  return supabaseAdmin.from("urgent_works").update(update).eq("id", v.id).eq("building_id", session.buildingId);
 }
 
 export async function deleteUrgentWork(id: string) {
@@ -1687,23 +1739,31 @@ export async function sendDunningRelance(input: {
   body: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(sendDunningRelanceSchema, input);
+
+  // Verify profileId belongs to this building (IDOR prevention)
+  if (v.profileId) {
+    const { data: member } = await supabaseAdmin.from("memberships").select("profile_id").eq("profile_id", v.profileId).eq("building_id", v.buildingId).single();
+    if (!member) throw new Error("forbidden_profile");
+  }
+
   // Log dunning
   await supabaseAdmin.from("dunning_logs").insert({
-    building_id: input.buildingId,
-    unit_id: input.unitId,
+    building_id: v.buildingId,
+    unit_id: v.unitId,
     channel: "app",
-    message: input.body,
+    message: v.body,
   });
 
   // Send in-app notification + push
-  if (input.profileId) {
+  if (v.profileId) {
     await supabaseAdmin.from("notifications").insert({
-      profile_id: input.profileId,
-      title: input.title,
-      body: input.body,
+      profile_id: v.profileId,
+      title: v.title,
+      body: v.body,
       kind: "charge",
     });
-    await triggerPush([input.profileId], input.title, input.body);
+    await triggerPush([v.profileId], v.title, v.body);
   }
 }
 
@@ -1720,20 +1780,21 @@ export async function insertDocument(input: {
   url: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(insertDocumentSchema, input);
   const { data, error } = await supabaseAdmin.from("documents").insert({
-    building_id: input.buildingId,
-    title: input.title,
-    doc_type: input.docType,
-    doc_date: input.docDate,
-    size: input.size,
-    url: input.url,
+    building_id: v.buildingId,
+    title: v.title,
+    doc_type: v.docType,
+    doc_date: v.docDate,
+    size: v.size,
+    url: v.url,
   }).select().single();
   if (error) throw new Error("insert_document_failed");
   // Notify all active residents
-  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", input.buildingId).eq("status", "active").eq("role", "resident");
+  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(profileIds, "Nouveau document", input.title, "document");
+    await notifyProfiles(profileIds, "Nouveau document", v.title, "document");
   }
   return data;
 }
@@ -1754,14 +1815,15 @@ export async function upsertDocument(input: {
   refId: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
+  const v = validate(upsertDocumentSchema, input);
   const { error } = await supabaseAdmin.from("documents").upsert({
-    building_id: input.buildingId,
-    title: input.title,
-    doc_type: input.docType,
-    doc_date: input.docDate,
-    size: input.size,
-    url: input.url,
-    ref_id: input.refId,
+    building_id: v.buildingId,
+    title: v.title,
+    doc_type: v.docType,
+    doc_date: v.docDate,
+    size: v.size,
+    url: v.url,
+    ref_id: v.refId,
   }, { onConflict: "ref_id" });
   if (error) throw new Error("upsert_document_failed");
 }
@@ -1783,17 +1845,18 @@ export async function submitFeedback(input: {
   attachmentUrl?: string | null;
 }) {
   await requireAuth({ buildingId: input.buildingId });
+  const v = validate(submitFeedbackSchema, input);
   const { error } = await supabaseAdmin.from("feedback").insert({
-    building_id: input.buildingId,
-    type: input.type,
-    message: input.message,
-    sender_name: input.senderName,
-    sender_phone: input.senderPhone ?? null,
-    sender_email: input.senderEmail ?? null,
-    contact_preference: input.contactPreference,
-    building_name: input.buildingName,
-    sender_role: input.senderRole ?? "syndic",
-    attachment_url: input.attachmentUrl ?? null,
+    building_id: v.buildingId,
+    type: v.type,
+    message: v.message,
+    sender_name: v.senderName,
+    sender_phone: v.senderPhone ?? null,
+    sender_email: v.senderEmail ?? null,
+    contact_preference: v.contactPreference,
+    building_name: v.buildingName,
+    sender_role: v.senderRole ?? "syndic",
+    attachment_url: v.attachmentUrl ?? null,
   });
   if (error) throw new Error("submit_feedback_failed");
 }

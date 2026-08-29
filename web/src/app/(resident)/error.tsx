@@ -18,7 +18,7 @@ export default function ResidentError({ error, reset }: { error: Error; reset: (
         <Icon name="TriangleAlert" className="h-8 w-8 text-red-600" />
       </div>
       <h2 className="text-[18px] font-bold text-ink">{t.title}</h2>
-      <p className="mt-2 text-[13px] text-ink-soft">{error.message || t.fallback}</p>
+      <p className="mt-2 text-[13px] text-ink-soft">{t.fallback}</p>
       <button
         onClick={reset}
         className="mt-5 rounded-full bg-palier-600 px-6 py-2.5 text-[14px] font-semibold text-white"
