@@ -73,13 +73,13 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
   if (process.env.SKIP_SMS === "1") {
-    console.log(`[SMS/SKIP] → ${to}: ${message}`);
+    console.log("[SMS/SKIP] → [REDACTED]");
     return;
   }
 
   if (!provider) {
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[SMS/DEV] → ${to}: ${message}`);
+      console.log("[SMS/DEV] → [REDACTED]");
       return;
     }
     // In production, refuse to silently skip SMS

@@ -83,6 +83,12 @@ export const t = {
       erreurProfil: "Impossible de mettre à jour le profil.",
       messageErreur: (name: string, building: string) =>
         `Bonjour,\n\nJe suis ${name}, résident(e) à ${building}.\n\nJe souhaite signaler une erreur dans mes informations sur Palier :\n\n• Détail de l'erreur : [à compléter]\n\nMerci de corriger. Cordialement.`,
+      conditionsUtilisation: "Conditions d'utilisation",
+      politiqueConfidentialite: "Politique de confidentialité",
+      supprimerCompte: "Supprimer mon compte",
+      supprimerCompteDesc: "Cette action est irréversible. Vos données personnelles seront anonymisées et votre compte sera désactivé.",
+      supprimerConfirm: "Supprimer",
+      supprimerAnnuler: "Annuler",
     },
 
     // ── Désactivé ──
@@ -1308,6 +1314,12 @@ export const t = {
       erreurProfil: "تعذر تحديث الملف الشخصي.",
       messageErreur: (name: string, building: string) =>
         `مرحبا،\n\nأنا ${name}، ساكن(ة) في ${building}.\n\nأريد الإبلاغ عن خطأ في معلوماتي على Palier:\n\n• تفاصيل الخطأ: [يرجى التوضيح]\n\nشكراً.`,
+      conditionsUtilisation: "شروط الاستخدام",
+      politiqueConfidentialite: "سياسة الخصوصية",
+      supprimerCompte: "حذف حسابي",
+      supprimerCompteDesc: "هذا الإجراء لا رجعة فيه. سيتم إخفاء هوية بياناتك الشخصية وتعطيل حسابك.",
+      supprimerConfirm: "حذف",
+      supprimerAnnuler: "إلغاء",
     },
 
     // ── Désactivé ──

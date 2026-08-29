@@ -68,6 +68,159 @@ async function requireAuth(opts?: {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   COMPTE — Export des données (droit à la portabilité — Art. 7 Loi 09-08)
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function exportMyData() {
+  const session = await requireAuth();
+  const pid = session.profileId;
+  const bid = session.buildingId;
+  const uid = session.unitId;
+
+  const [
+    { data: profile },
+    { data: membership },
+    { data: building },
+    { data: charges },
+    { data: incidents },
+    { data: posts },
+    { data: payments },
+    { data: votes },
+    { data: notifications },
+    { data: likes },
+  ] = await Promise.all([
+    supabaseAdmin.from("profiles").select("full_name, phone, avatar_color").eq("id", pid).single(),
+    supabaseAdmin.from("memberships").select("role, active, unit_id").eq("profile_id", pid).eq("building_id", bid).single(),
+    supabaseAdmin.from("buildings").select("name, city").eq("id", bid).single(),
+    uid
+      ? supabaseAdmin.from("charges").select("label, detail, period, amount, paid, due_date, status, category, created_at").eq("unit_id", uid).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    supabaseAdmin.from("incidents").select("category, title, details, urgency, status, image_url, created_at").eq("building_id", bid).eq("reporter_id", pid).order("created_at", { ascending: false }),
+    supabaseAdmin.from("posts").select("type, title, body, image_url, file_url, created_at").eq("profile_id", pid).order("created_at", { ascending: false }),
+    supabaseAdmin.from("payments").select("amount, method, note, created_at, charge_id").eq("profile_id", pid).order("created_at", { ascending: false }),
+    supabaseAdmin.from("assembly_votes").select("vote_id, choice, created_at, assembly_id").eq("profile_id", pid).order("created_at", { ascending: false }),
+    supabaseAdmin.from("notifications").select("title, body, kind, created_at, read").eq("profile_id", pid).order("created_at", { ascending: false }),
+    supabaseAdmin.from("post_likes").select("post_id, created_at").eq("profile_id", pid).order("created_at", { ascending: false }),
+  ]);
+
+  // Get unit info if available
+  let unit: string | null = null;
+  if (uid) {
+    const { data: unitData } = await supabaseAdmin.from("units").select("ref").eq("id", uid).single();
+    unit = unitData?.ref ?? null;
+  }
+
+  return {
+    profil: {
+      nom: profile?.full_name ?? "",
+      telephone: profile?.phone ?? "",
+      lot: unit,
+      role: membership?.role ?? "",
+      residence: building?.name ?? "",
+      ville: building?.city ?? "",
+    },
+    charges: (charges ?? []).map((c: any) => ({
+      label: c.label,
+      detail: c.detail,
+      periode: c.period,
+      montant: Number(c.amount),
+      paye: Number(c.paid),
+      echeance: c.due_date,
+      statut: c.status,
+      categorie: c.category,
+      date: c.created_at,
+    })),
+    paiements: (payments ?? []).map((p: any) => ({
+      montant: Number(p.amount),
+      methode: p.method,
+      note: p.note,
+      date: p.created_at,
+    })),
+    incidents: (incidents ?? []).map((inc: any) => ({
+      categorie: inc.category,
+      titre: inc.title,
+      details: inc.details,
+      urgence: inc.urgency,
+      statut: inc.status,
+      photo: inc.image_url,
+      date: inc.created_at,
+    })),
+    publications: (posts ?? []).map((p: any) => ({
+      type: p.type,
+      titre: p.title,
+      contenu: p.body,
+      image: p.image_url,
+      fichier: p.file_url,
+      date: p.created_at,
+    })),
+    votes: (votes ?? []).map((v: any) => ({
+      assemblee: v.assembly_id,
+      resolution: v.vote_id,
+      choix: v.choice,
+      date: v.created_at,
+    })),
+    notifications: (notifications ?? []).map((n: any) => ({
+      titre: n.title,
+      contenu: n.body,
+      type: n.kind,
+      lu: n.read,
+      date: n.created_at,
+    })),
+    likes: (likes ?? []).map((l: any) => ({
+      postId: l.post_id,
+      date: l.created_at,
+    })),
+    exportDate: new Date().toISOString(),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPTE — Suppression (droit à l'effacement — Art. 8 Loi 09-08)
+   Anonymise l'identité, conserve les données comptables (Décret 2.23.700)
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function deleteAccount() {
+  const session = await requireAuth();
+  const pid = session.profileId;
+
+  // 1. Anonymiser le profil (identité personnelle)
+  await supabaseAdmin.from("profiles").update({
+    full_name: "[Supprimé]",
+    phone: "",
+    avatar_color: "#999",
+  }).eq("id", pid);
+
+  // 2. Désactiver les memberships (couper l'accès)
+  await supabaseAdmin.from("memberships").update({ active: false }).eq("profile_id", pid);
+
+  // 3. Supprimer les données purement personnelles
+  await supabaseAdmin.from("push_subscriptions").delete().eq("profile_id", pid);
+  await supabaseAdmin.from("notifications").delete().eq("profile_id", pid);
+  await supabaseAdmin.from("post_likes").delete().eq("profile_id", pid);
+  await supabaseAdmin.from("otp_codes").delete().eq("profile_id", pid);
+  await supabaseAdmin.from("access_codes").update({ used_by: null, used_at: null }).eq("used_by", pid);
+
+  // 4. Anonymiser les publications (données de la copropriété)
+  await supabaseAdmin.from("posts").update({
+    author_name: "[Supprimé]",
+    profile_id: null,
+  }).eq("profile_id", pid);
+
+  // 5. Anonymiser les incidents signalés
+  await supabaseAdmin.from("incidents").update({
+    reporter_name: "[Supprimé]",
+    reporter_id: null,
+  }).eq("reporter_id", pid);
+
+  // 6. Anonymiser les votes AG (PV officiel — obligation légale)
+  await supabaseAdmin.from("assembly_votes").update({
+    profile_id: null,
+  }).eq("profile_id", pid);
+
+  // Charges & paiements : conservés (obligation comptable — Décret 2.23.700, Loi 9-88)
+}
+
+/* ═══════════════════════════════════════════════════════════════
    RÉSIDENT — Actions
    ═══════════════════════════════════════════════════════════════ */
 

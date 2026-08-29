@@ -287,6 +287,8 @@ export default function SitePage() {
             <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[13px] text-white/50">
               <a href="#fonctionnalites" className="transition-colors hover:text-white/80">Fonctionnalités</a>
               <CopyEmail email="contact@palier.ma" className="text-white/50 hover:text-white/80" />
+              <Link href="/conditions-utilisation" className="transition-colors hover:text-white/80">Conditions d&apos;utilisation</Link>
+              <Link href="/politique-confidentialite" className="transition-colors hover:text-white/80">Politique de confidentialité</Link>
             </div>
           </div>
           <div className="mt-10 flex flex-col items-center gap-3 border-t border-white/[0.06] pt-6 sm:flex-row sm:justify-between">

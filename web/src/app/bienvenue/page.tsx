@@ -99,6 +99,11 @@ const t = {
     recoverSuccessDesc: "Votre nouveau code d'accès :",
     recoverSuccessKeep: "Notez ce code. C'est votre nouveau code de connexion.",
     recoverSuccessContinue: "Accéder à mon espace",
+    consentLabel: "En m'inscrivant, j'accepte les ",
+    codeConsentLabel: "En me connectant, j'accepte les ",
+    consentCguLink: "conditions d'utilisation",
+    consentAnd: " et la ",
+    consentPrivacyLink: "politique de confidentialité",
   },
   ar: {
     langLabel: "Français",
@@ -189,6 +194,11 @@ const t = {
     recoverSuccessDesc: "رمز الدخول الجديد:",
     recoverSuccessKeep: "سجّل هذا الرمز. إنه رمز الاتصال الجديد الخاص بك.",
     recoverSuccessContinue: "الدخول إلى مساحتي",
+    consentLabel: "بالتسجيل، أوافق على ",
+    codeConsentLabel: "بتسجيل الدخول، أوافق على ",
+    consentCguLink: "شروط الاستخدام",
+    consentAnd: " و",
+    consentPrivacyLink: "سياسة الخصوصية",
   },
 };
 
@@ -224,6 +234,7 @@ function BienvenueContent() {
   const [slide, setSlide] = useState(0);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
+  const [codeConsent, setCodeConsent] = useState(false);
 
   const i = t[lang];
   const isAr = lang === "ar";
@@ -253,6 +264,7 @@ function BienvenueContent() {
   const [regCityCustom, setRegCityCustom] = useState("");
   const [regLots, setRegLots] = useState("");
   const [regUnit, setRegUnit] = useState("");
+  const [regConsent, setRegConsent] = useState(false);
   const [regError, setRegError] = useState("");
   const [registering, setRegistering] = useState(false);
 
@@ -527,7 +539,7 @@ function BienvenueContent() {
   }
 
   const resolvedCity = regCity === "__other__" ? regCityCustom.trim() : regCity;
-  const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && resolvedCity && regLots;
+  const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && resolvedCity && regLots && regConsent;
 
   // Bouton de langue (coin haut droit)
   const langBtn = (
@@ -882,6 +894,24 @@ function BienvenueContent() {
         </div>
 
         <div className="px-6 pb-10 pt-2">
+          <label className="mb-4 flex items-start gap-2.5 text-[13px] leading-relaxed text-ink-soft">
+            <input
+              type="checkbox"
+              checked={regConsent}
+              onChange={(e) => setRegConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-palier-600"
+            />
+            <span>
+              {i.consentLabel}
+              <a href="/conditions-utilisation" target="_blank" rel="noopener noreferrer" className="text-palier-600 underline">
+                {i.consentCguLink}
+              </a>
+              {i.consentAnd}
+              <a href="/politique-confidentialite" target="_blank" rel="noopener noreferrer" className="text-palier-600 underline">
+                {i.consentPrivacyLink}
+              </a>
+            </span>
+          </label>
           <button
             onClick={handleRegister}
             disabled={!regFormValid || registering}
@@ -1070,10 +1100,28 @@ function BienvenueContent() {
         </div>
 
         <div className="px-6 pb-10">
+          <label className="mb-4 flex items-start gap-2.5 text-[13px] leading-relaxed text-ink-soft">
+            <input
+              type="checkbox"
+              checked={codeConsent}
+              onChange={(e) => setCodeConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-palier-600"
+            />
+            <span>
+              {i.codeConsentLabel}
+              <a href="/conditions-utilisation" target="_blank" rel="noopener noreferrer" className="text-palier-600 underline">
+                {i.consentCguLink}
+              </a>
+              {i.consentAnd}
+              <a href="/politique-confidentialite" target="_blank" rel="noopener noreferrer" className="text-palier-600 underline">
+                {i.consentPrivacyLink}
+              </a>
+            </span>
+          </label>
           <button
             onClick={validateCode}
-            disabled={!code.trim() || validating}
-            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!code.trim() || validating ? "opacity-50" : ""}`}
+            disabled={!code.trim() || !codeConsent || validating}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!code.trim() || !codeConsent || validating ? "opacity-50" : ""}`}
           >
             {validating ? <><Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> </> : null}{i.codeBtn}
           </button>
