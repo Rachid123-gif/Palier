@@ -106,10 +106,6 @@ export default function SitePage() {
         <div className="mx-auto max-w-6xl px-5 pt-20 pb-20 sm:px-8 sm:pt-28 sm:pb-28 lg:pt-32 lg:pb-32">
           <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-12">
             <div className="text-center lg:text-left">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0B7A57]/15 bg-[#0B7A57]/[0.06] px-4 py-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#0B7A57]" />
-                <span className="text-[13px] font-semibold text-[#0B7A57]">La super-app des copropriétés</span>
-              </div>
               <h1 className="text-[38px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[52px] lg:text-[60px]">
                 Votre résidence,<br />
                 <span className="text-[#0B7A57]">enfin bien gérée.</span>
