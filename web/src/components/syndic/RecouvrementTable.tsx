@@ -191,7 +191,13 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</
         setLocalCalls((prev) => prev.filter((c) => !(c.label === deleteCallTarget.label && c.dueDate === deleteCallTarget.dueDate)));
         flash(T.deleteSuccess); setDeleteCallTarget(null);
       }
-    } catch { setDeletePending(false); flash(C.networkError); }
+    } catch (err) {
+      setDeletePending(false);
+      const msg = err instanceof Error && err.message.includes("has_payments")
+        ? "Impossible de supprimer : des paiements ont déjà été enregistrés"
+        : C.networkError;
+      flash(msg);
+    }
   }
 
   async function handleEmit(e: React.FormEvent) {

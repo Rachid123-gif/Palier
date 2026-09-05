@@ -42,7 +42,7 @@ export function ResidentsView({
   const [page, setPage] = useState(0);
   const [modal, setModal] = useState<"add" | "edit" | "delete" | null>(null);
   const [addForm, setAddForm] = useState({ name: "", phone: "", unit: "", role: "owner" as "owner" | "tenant" });
-  const [addResult, setAddResult] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
   const [editTarget, setEditTarget] = useState<Resident | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", role: "owner" as "owner" | "tenant" | "syndic", unit: "" });
   const [toast, setToast] = useState("");
@@ -53,7 +53,7 @@ export function ResidentsView({
   useEffect(() => { setLocalResidents(residents); }, [residents]);
 
   const [codeTarget, setCodeTarget] = useState<Resident | null>(null);
-  const [codeValue, setCodeValue] = useState<string | null>(null);
+  const [codeSuccess, setCodeSuccess] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
 
   const activeResidents = localResidents.filter((r) => (r.status ?? "active") === "active");
@@ -103,7 +103,7 @@ export function ResidentsView({
     flash(T.csv.downloaded);
   }
 
-  function openAdd() { setAddForm({ name: "", phone: "", unit: "", role: "owner" }); setAddResult(null); setAddError(""); setModal("add"); }
+  function openAdd() { setAddForm({ name: "", phone: "", unit: "", role: "owner" }); setAddSuccess(false); setAddError(""); setModal("add"); }
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -112,7 +112,7 @@ export function ResidentsView({
     const phone = normalizePhone(addForm.phone.trim());
     startTransition(async () => {
       const res = await addResident({ buildingId, name: addForm.name.trim(), phone, unit: addForm.unit.trim(), role: addForm.role });
-      if (res.error) {
+      if (res.error && res.error !== "sms_failed") {
         const msgs: Record<string, string> = {
           unit_not_found: T.errors.unitNotFound,
           profile_error: T.errors.profileError,
@@ -124,7 +124,11 @@ export function ResidentsView({
           : msgs[res.error] ?? T.errors.genericError;
         setAddError(errMsg);
       } else {
-        setAddResult(res.code!);
+        // sms_failed = resident created but SMS failed — still show success with warning
+        if (res.error === "sms_failed") {
+          setAddError("Résident ajouté mais le SMS n'a pas pu être envoyé. Utilisez « Renvoyer le code » pour réessayer.");
+        }
+        setAddSuccess(true);
         setAddForm({ ...addForm, phone });
         // Optimistic update — add resident to local list immediately
         const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
@@ -194,12 +198,12 @@ export function ResidentsView({
 
   async function handleRegenerateCode(r: Resident) {
     setCodeTarget(r);
-    setCodeValue(null);
+    setCodeSuccess(false);
     setCodeLoading(true);
     try {
       const res = await regenerateResidentCode(r.id);
       if (res.error) { flash(T.toasts.codeNotFound); setCodeTarget(null); }
-      else setCodeValue(res.code!);
+      else setCodeSuccess(true);
     } catch { flash(T.toasts.codeGenError); setCodeTarget(null); }
     setCodeLoading(false);
   }
@@ -469,7 +473,7 @@ export function ResidentsView({
       {/* ── Modal: Ajouter ── */}
       {modal === "add" && (
         <Overlay onClose={() => setModal(null)}>
-          {addResult ? (
+          {addSuccess ? (
             <div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
                 <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
@@ -477,7 +481,7 @@ export function ResidentsView({
                 </span>
                 <p className="mt-3 text-[14px] font-semibold text-emerald-800">{T.addModal.success}</p>
                 <p className="mt-2 text-[12px] text-ink-soft">
-                  {T.addModal.codeSentTo(addForm.name.split(" ")[0])} <span className="font-semibold text-palier-700">{T.addModal.codeSentWhatsapp}</span> {T.addModal.codeSentSuffix(addForm.name.split(" ")[0])}
+                  {T.addModal.codeSentTo(addForm.name.split(" ")[0])}
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
@@ -729,7 +733,7 @@ export function ResidentsView({
               <Icon name="LoaderCircle" className="mx-auto h-6 w-6 animate-spin text-ink-faint" />
               <p className="mt-2 text-[13px] text-ink-soft">{T.codeModal.generating}</p>
             </div>
-          ) : codeValue ? (
+          ) : codeSuccess ? (
             <div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
                 <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
@@ -737,7 +741,7 @@ export function ResidentsView({
                 </span>
                 <p className="mt-3 text-[14px] font-semibold text-emerald-800">{T.codeModal.success}</p>
                 <p className="mt-2 text-[12px] text-ink-soft">
-                  {T.codeModal.codeSentDesc(codeTarget.name.split(" ")[0])} <span className="font-semibold text-palier-700">{T.codeModal.codeSentWhatsapp}</span> {T.codeModal.codeSentSuffix(codeTarget.name.split(" ")[0])}
+                  {T.codeModal.codeSentDesc(codeTarget.name.split(" ")[0])}
                 </p>
               </div>
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">

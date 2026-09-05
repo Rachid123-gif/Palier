@@ -2,11 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
-import { useData } from "@/lib/DataProvider";
+import { useDataSafe } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 import { markNotificationsRead, fetchNotifications } from "@/lib/actions";
+import { NOTIF_KIND_TO_PREF } from "@/lib/types";
 
 type Notif = { id: string; title: string; body: string; created_at: string; kind: string; read: boolean };
 
@@ -16,15 +17,6 @@ const kindIcon: Record<string, { icon: string; tint: string; color: string }> = 
   post: { icon: "Megaphone", tint: "bg-palier-100", color: "text-palier-600" },
   ag: { icon: "CalendarDays", tint: "bg-amber-100", color: "text-amber-600" },
   document: { icon: "FileText", tint: "bg-blue-100", color: "text-blue-600" },
-};
-
-/** Map notification kinds to preference keys from profile settings */
-const kindToPref: Record<string, string> = {
-  incident: "incidents",
-  charge: "charges",
-  post: "voisinage",
-  ag: "ag",
-  document: "syndic",
 };
 
 function getNotifPrefs(): Record<string, boolean> {
@@ -37,15 +29,35 @@ function getNotifPrefs(): Record<string, boolean> {
 
 const POLL_INTERVAL = 30_000; // 30 seconds
 
-export function NotificationsBell({ dark = false }: { dark?: boolean }) {
-  const { notifications: initialNotifs, profileId } = useData();
+export function NotificationsBell({ dark = false, profileId: profileIdProp }: { dark?: boolean; profileId?: string }) {
+  const data = useDataSafe();
+  const profileId = profileIdProp ?? data?.profileId ?? "";
   const { lang, i } = useLang();
   const [open, setOpen] = useState(false);
   const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
   const [polledNotifs, setPolledNotifs] = useState<Notif[] | null>(null);
   const pushPrompted = useRef(false);
 
-  const rawNotifs: Notif[] = polledNotifs ?? initialNotifs.map((n: any) => ({ ...n, read: !!n.read }));
+  const initialNotifs: Notif[] = data?.notifications?.map((n: any) => ({ ...n, read: !!n.read })) ?? [];
+  const rawNotifs: Notif[] = polledNotifs ?? initialNotifs;
+
+  // Fetch immediately if no initial data (syndic context without DataProvider)
+  useEffect(() => {
+    if (!data) {
+      fetchNotifications().then(setPolledNotifs).catch(() => {});
+    }
+  }, [data]);
+
+  // Sync server notification prefs to localStorage on mount (once)
+  const prefsSynced = useRef(false);
+  useEffect(() => {
+    if (prefsSynced.current) return;
+    const serverPrefs = data?.currentUser?.notificationPrefs;
+    if (serverPrefs && typeof window !== "undefined") {
+      prefsSynced.current = true;
+      localStorage.setItem("palier_notif_prefs", JSON.stringify(serverPrefs));
+    }
+  }, [data]);
 
   // Poll for new notifications every 30s
   useEffect(() => {
@@ -85,7 +97,7 @@ export function NotificationsBell({ dark = false }: { dark?: boolean }) {
   // Filter by user preferences
   const prefs = getNotifPrefs();
   const notifications = rawNotifs.filter((n) => {
-    const prefKey = kindToPref[n.kind];
+    const prefKey = NOTIF_KIND_TO_PREF[n.kind];
     return prefKey ? prefs[prefKey] !== false : true;
   });
 

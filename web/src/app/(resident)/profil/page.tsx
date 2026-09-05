@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { FeedbackCard } from "@/components/resident/FeedbackCard";
+import { FeedbackHistory } from "@/components/ui/FeedbackHistory";
 import { useData } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { LangToggle } from "@/components/resident/LangToggle";
@@ -12,7 +13,8 @@ import { Sheet, Toast } from "@/components/ui/Sheet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
-import { deleteAccount, exportMyData } from "@/lib/actions";
+import { deleteAccount, exportMyData, saveNotificationPrefs } from "@/lib/actions";
+import { subscribeToPush, unsubscribeFromPush } from "@/lib/push";
 
 type NotifKey = "charges" | "incidents" | "voisinage" | "ag" | "syndic";
 
@@ -48,19 +50,27 @@ export default function ProfilPage() {
     { icon: "Building2", label: p.residence, value: building.name },
   ];
 
-  /* ── Notification preferences (local state, persisted to localStorage) ── */
+  /* ── Notification preferences (server-first, localStorage as cache) ── */
+  const defaults: Record<NotifKey, boolean> = { charges: true, incidents: true, voisinage: true, ag: true, syndic: true };
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>(() => {
-    if (typeof window === "undefined") return { charges: true, incidents: true, voisinage: true, ag: true, syndic: true };
+    // Prefer server-stored prefs, fall back to localStorage, then defaults
+    if (currentUser.notificationPrefs) {
+      const prefs = { ...defaults, ...currentUser.notificationPrefs } as Record<NotifKey, boolean>;
+      if (typeof window !== "undefined") localStorage.setItem("palier_notif_prefs", JSON.stringify(prefs));
+      return prefs;
+    }
+    if (typeof window === "undefined") return defaults;
     try {
       const saved = localStorage.getItem("palier_notif_prefs");
-      return saved ? JSON.parse(saved) : { charges: true, incidents: true, voisinage: true, ag: true, syndic: true };
-    } catch { return { charges: true, incidents: true, voisinage: true, ag: true, syndic: true }; }
+      return saved ? JSON.parse(saved) : defaults;
+    } catch { return defaults; }
   });
 
   function toggleNotif(key: NotifKey) {
     setNotifs((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       localStorage.setItem("palier_notif_prefs", JSON.stringify(next));
+      saveNotificationPrefs(next).catch(() => setToast({ icon: "AlertTriangle", title: "Erreur", body: "Impossible de sauvegarder les préférences" }));
       return next;
     });
   }
@@ -69,6 +79,35 @@ export default function ProfilPage() {
     const next: Record<NotifKey, boolean> = { charges: on, incidents: on, voisinage: on, ag: on, syndic: on };
     setNotifs(next);
     localStorage.setItem("palier_notif_prefs", JSON.stringify(next));
+    saveNotificationPrefs(next).catch(() => setToast({ icon: "AlertTriangle", title: "Erreur", body: "Impossible de sauvegarder les préférences" }));
+  }
+
+  /* ── Push notification toggle ── */
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushToggling, setPushToggling] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPushEnabled(Notification.permission === "granted");
+    }
+  }, []);
+
+  async function togglePush() {
+    if (pushToggling) return;
+    setPushToggling(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(profileId ?? "");
+        setPushEnabled(false);
+      } else {
+        const perm = await Notification.requestPermission();
+        if (perm === "granted") {
+          await subscribeToPush(profileId ?? "");
+          setPushEnabled(true);
+        }
+      }
+    } catch { /* silent */ }
+    setPushToggling(false);
   }
 
   const allOn = Object.values(notifs).every(Boolean);
@@ -161,6 +200,23 @@ export default function ProfilPage() {
               </button>
             </div>
           ))}
+          {/* Push notification toggle */}
+          <div className="flex items-center gap-3.5 px-4 py-3.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-50">
+              <Icon name="BellRing" className="h-4 w-4 text-palier-600" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-ink">Notifications push</p>
+              <p className="text-[11px] text-ink-faint">Recevoir des alertes même quand l&apos;app est fermée</p>
+            </div>
+            <button
+              onClick={togglePush}
+              disabled={pushToggling}
+              className={`relative h-7 w-12 rounded-full transition-colors ${pushEnabled ? "bg-palier-600" : "bg-black/10"} ${pushToggling ? "opacity-50" : ""}`}
+            >
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${pushEnabled ? "start-[22px]" : "start-0.5"}`} />
+            </button>
+          </div>
         </div>
 
         {/* ═══════ Apparence ═══════ */}
@@ -294,6 +350,9 @@ ${d.likes.length ? section(isAr ? "الإعجابات" : `Likes (${d.likes.lengt
 
         {/* ═══════ Votre avis ═══════ */}
         <FeedbackCard />
+
+        {/* ═══════ Mes retours (suivi feedback) ═══════ */}
+        <FeedbackHistory isAr={isAr} />
 
         {/* ═══════ CGU & Politique de confidentialité ═══════ */}
         <div className="flex justify-center gap-3 text-[12px] text-ink-soft">

@@ -101,10 +101,17 @@ export default function AgScreen() {
                             disabled={isPending || isInactive}
                             onClick={() => {
                               if (!profileId) return;
+                              const prev = choice[v.id];
                               setChoice((c) => ({ ...c, [v.id]: o }));
                               setToast(true);
-                              startTransition(() => {
-                                castVote({ assemblyId: assembly.id, voteId: v.id, profileId, choice: o });
+                              startTransition(async () => {
+                                try {
+                                  await castVote({ assemblyId: assembly.id, voteId: v.id, profileId, choice: o });
+                                } catch {
+                                  // Revert optimistic update
+                                  setChoice((c) => ({ ...c, [v.id]: prev }));
+                                  setToast(false);
+                                }
                               });
                             }}
                             className={`tap flex w-full items-center justify-between rounded-2xl border p-3 ${active ? "border-palier-500 bg-palier-50" : "border-black/5 bg-white"} ${isPending || isInactive ? "cursor-not-allowed opacity-50" : ""}`}

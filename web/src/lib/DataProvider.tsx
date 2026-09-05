@@ -13,3 +13,8 @@ export function useData(): AppData {
   if (!ctx) throw new Error("useData must be used within DataProvider");
   return ctx;
 }
+
+/** Safe version that returns null outside DataProvider (for shared components like NotificationsBell) */
+export function useDataSafe(): AppData | null {
+  return useContext(Ctx);
+}

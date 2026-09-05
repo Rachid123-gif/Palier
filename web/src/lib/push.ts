@@ -47,3 +47,24 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   if (Notification.permission !== "default") return Notification.permission;
   return Notification.requestPermission();
 }
+
+/** Unsubscribe from push notifications and remove subscription from server */
+export async function unsubscribeFromPush(profileId: string): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return true; // already unsubscribed
+    const endpoint = subscription.endpoint;
+    await subscription.unsubscribe();
+    // Remove from server
+    await fetch("/api/push/subscribe", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, endpoint }),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

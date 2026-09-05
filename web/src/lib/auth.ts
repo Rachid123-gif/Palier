@@ -85,52 +85,167 @@ export async function loginWithCode(
     .eq("code", upper)
     .single();
 
-  if (!data) return { ok: false, error: "code_not_found" };
-  if (data.role !== selectedRole)
-    return { ok: false, error: "wrong_role" };
+  // ── Code found in access_codes → normal login ──
+  if (data) {
+    if (data.role !== selectedRole)
+      return { ok: false, error: "wrong_role" };
 
-  let profileId: string | null = null;
-  let unitId: string | null = null;
+    let profileId: string | null = null;
+    let unitId: string | null = null;
 
-  if (data.used_by) {
-    // Code linked to a profile
-    profileId = data.used_by;
-    const { data: mem } = await supabaseAdmin
-      .from("memberships")
-      .select("unit_id, status")
-      .eq("profile_id", profileId)
-      .eq("building_id", data.building_id)
-      .single();
+    if (data.used_by) {
+      profileId = data.used_by;
+      const { data: mem } = await supabaseAdmin
+        .from("memberships")
+        .select("unit_id, status")
+        .eq("profile_id", profileId)
+        .eq("building_id", data.building_id)
+        .single();
 
-    if (!mem || mem.status === "inactive") {
-      return { ok: false, error: "code_not_found" };
+      if (!mem || mem.status === "inactive") {
+        return { ok: false, error: "code_not_found" };
+      }
+
+      unitId = mem.unit_id ?? null;
+    } else {
+      return { ok: false, error: "code_not_linked" };
     }
 
-    unitId = mem.unit_id ?? null;
-  } else {
-    // Code without profile link — reject for both roles.
-    return { ok: false, error: "code_not_linked" };
+    await supabaseAdmin
+      .from("access_codes")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", data.id);
+
+    const session: SessionData = {
+      profileId,
+      buildingId: data.building_id,
+      unitId,
+      role: selectedRole,
+    };
+
+    const cookieStore = await cookies();
+    const token = await encodeSession(session);
+    cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+
+    return { ok: true };
   }
 
-  // Track last login (does not block reuse)
+  // ── Code not in access_codes → check registration_requests (approved syndic) ──
+  if (selectedRole === "syndic") {
+    const { data: req } = await supabaseAdmin
+      .from("registration_requests")
+      .select("*")
+      .eq("access_code", upper)
+      .eq("status", "approved")
+      .single();
+
+    if (req) {
+      const result = await activateApprovedRequest(req);
+      if (!result.ok) return { ok: false, error: result.error };
+
+      const session: SessionData = {
+        profileId: result.profileId,
+        buildingId: result.buildingId,
+        unitId: result.unitId,
+        role: "syndic",
+      };
+
+      const cookieStore = await cookies();
+      const token = await encodeSession(session);
+      cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+
+      return { ok: true };
+    }
+  }
+
+  return { ok: false, error: "code_not_found" };
+}
+
+/** Create building + profile + access code from an approved registration request */
+async function activateApprovedRequest(
+  req: { id: string; full_name: string; phone: string; building_name: string; city: string; lots_count: number; syndic_unit: string | null; access_code: string },
+): Promise<{ ok: true; profileId: string; buildingId: string; unitId: string | null } | { ok: false; error: string }> {
+  // 1. Create building
+  const { data: building, error: bErr } = await supabaseAdmin
+    .from("buildings")
+    .insert({
+      name: req.building_name,
+      address: "",
+      city: req.city,
+      lots_count: req.lots_count,
+      syndic_name: req.full_name,
+      syndic_phone: req.phone,
+      balance: 0,
+      payment_rate: 0,
+    })
+    .select("id")
+    .single();
+  if (bErr || !building) return { ok: false, error: "creation_failed" };
+
+  // 2. Create or reuse profile
+  let profileId: string;
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("phone", req.phone)
+    .single();
+
+  if (existingProfile) {
+    profileId = existingProfile.id;
+    await supabaseAdmin.from("profiles").update({ full_name: req.full_name }).eq("id", profileId);
+  } else {
+    const { data: profile, error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .insert({ full_name: req.full_name, phone: req.phone })
+      .select("id")
+      .single();
+    if (pErr || !profile) return { ok: false, error: "creation_failed" };
+    profileId = profile.id;
+  }
+
+  // 3. Create syndic unit if provided
+  let syndicUnitId: string | null = null;
+  if (req.syndic_unit) {
+    const { data: unitData } = await supabaseAdmin
+      .from("units")
+      .insert({ building_id: building.id, ref: req.syndic_unit.toUpperCase() })
+      .select("id")
+      .single();
+    syndicUnitId = unitData?.id ?? null;
+  }
+
+  // 4. Create membership
+  await supabaseAdmin.from("memberships").insert({
+    profile_id: profileId,
+    building_id: building.id,
+    unit_id: syndicUnitId,
+    role: "syndic",
+    status: "active",
+  });
+
+  // 5. Create building settings
+  await supabaseAdmin.from("building_settings").insert({
+    building_id: building.id,
+    syndic_phone: req.phone,
+  });
+
+  // 6. Move access code to access_codes table (permanent)
+  await supabaseAdmin.from("access_codes").insert({
+    building_id: building.id,
+    code: req.access_code,
+    role: "syndic",
+    label: `Syndic — ${req.full_name}`,
+    used_by: profileId,
+    used_at: new Date().toISOString(),
+  });
+
+  // 7. Mark request as completed
   await supabaseAdmin
-    .from("access_codes")
-    .update({ used_at: new Date().toISOString() })
-    .eq("id", data.id);
+    .from("registration_requests")
+    .update({ status: "completed" })
+    .eq("id", req.id);
 
-  // Set session cookie
-  const session: SessionData = {
-    profileId,
-    buildingId: data.building_id,
-    unitId,
-    role: selectedRole,
-  };
-
-  const cookieStore = await cookies();
-  const token = await encodeSession(session);
-  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
-
-  return { ok: true };
+  return { ok: true, profileId, buildingId: building.id, unitId: syndicUnitId };
 }
 
 /* ─── Register syndic (OTP-verified, two-phase) ─── */
@@ -216,7 +331,7 @@ export async function requestSyndicRegistrationOtp(input: {
   return { ok: true };
 }
 
-/** Phase 2: Verify OTP and complete syndic registration */
+/** Phase 2: Verify OTP and save registration request (pending approval) */
 export async function completeSyndicRegistration(input: {
   fullName: string;
   phone: string;
@@ -225,7 +340,7 @@ export async function completeSyndicRegistration(input: {
   lotsCount: number;
   syndicUnit?: string;
   otp: string;
-}): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true } | { ok: false; error: string }> {
   const hdrs = await headers();
   const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
   const rl = await checkRateLimit(`register:${ip}`, RATE_LIMITS.login);
@@ -241,13 +356,11 @@ export async function completeSyndicRegistration(input: {
     return { ok: false, error: "missing_fields" };
   }
 
-  // Validate phone format (Moroccan: 06/07/05 + 8 digits)
   const phoneClean = phone.replace(/\s+/g, "");
   if (!/^0[5-7]\d{8}$/.test(phoneClean)) {
     return { ok: false, error: "invalid_phone" };
   }
 
-  // Validate lots
   if (lots < 2) {
     return { ok: false, error: "invalid_lots" };
   }
@@ -266,7 +379,6 @@ export async function completeSyndicRegistration(input: {
     return { ok: false, error: "otp_expired" };
   }
 
-  // Atomic increment + check: only increment if attempts < 3
   const { data: updated, error: incErr } = await supabaseAdmin
     .from("otp_codes")
     .update({ attempts: entry.attempts + 1 })
@@ -280,7 +392,6 @@ export async function completeSyndicRegistration(input: {
     return { ok: false, error: "too_many_attempts" };
   }
 
-  // Constant-time comparison
   const otpTrimmed = input.otp.trim();
   if (otpTrimmed.length !== entry.code.length || !timingSafeEqual(otpTrimmed, entry.code)) {
     return { ok: false, error: "otp_invalid" };
@@ -289,9 +400,7 @@ export async function completeSyndicRegistration(input: {
   // OTP valid — clean up
   await supabaseAdmin.from("otp_codes").delete().eq("id", entry.id);
 
-  // ── Proceed with registration ──
-
-  // Check if phone already registered as syndic
+  // ── Check for duplicate phone ──
   const { data: existingProfile } = await supabaseAdmin
     .from("profiles")
     .select("id")
@@ -312,110 +421,130 @@ export async function completeSyndicRegistration(input: {
     }
   }
 
-  // 1. Create building
-  const { data: building, error: bErr } = await supabaseAdmin
-    .from("buildings")
+  // ── Check for duplicate pending request ──
+  const { data: existingRequest } = await supabaseAdmin
+    .from("registration_requests")
+    .select("id")
+    .eq("phone", phoneClean)
+    .eq("status", "pending")
+    .single();
+
+  if (existingRequest) {
+    return { ok: false, error: "request_already_pending" };
+  }
+
+  // ── Save pending registration request ──
+  const { error: insertErr } = await supabaseAdmin
+    .from("registration_requests")
     .insert({
-      name: buildingName,
-      address: "",
+      full_name: name,
+      phone: phoneClean,
+      building_name: buildingName,
       city,
       lots_count: lots,
-      syndic_name: name,
-      syndic_phone: phoneClean,
-      balance: 0,
-      payment_rate: 0,
-    })
-    .select("id")
-    .single();
-  if (bErr || !building) return { ok: false, error: "creation_failed" };
-
-  // 2. Reuse existing profile or create new one
-  let profileId: string;
-  if (existingProfile) {
-    profileId = existingProfile.id;
-    // Update name if needed
-    await supabaseAdmin.from("profiles").update({ full_name: name }).eq("id", profileId);
-  } else {
-    const { data: profile, error: pErr } = await supabaseAdmin
-      .from("profiles")
-      .insert({ full_name: name, phone: phoneClean })
-      .select("id")
-      .single();
-    if (pErr || !profile) return { ok: false, error: "creation_failed" };
-    profileId = profile.id;
-  }
-
-  // 3. Create syndic unit (lot) if provided
-  let syndicUnitId: string | null = null;
-  if (input.syndicUnit) {
-    const { data: unitData } = await supabaseAdmin
-      .from("units")
-      .insert({ building_id: building.id, ref: input.syndicUnit.toUpperCase() })
-      .select("id")
-      .single();
-    syndicUnitId = unitData?.id ?? null;
-  }
-
-  // 3b. Create membership
-  await supabaseAdmin.from("memberships").insert({
-    profile_id: profileId,
-    building_id: building.id,
-    unit_id: syndicUnitId,
-    role: "syndic",
-    status: "active",
-  });
-
-  // 3b. Create default building settings
-  const { error: settingsErr } = await supabaseAdmin.from("building_settings").insert({
-    building_id: building.id,
-    syndic_phone: phoneClean,
-  });
-  if (settingsErr) {
-    console.error("[completeSyndicRegistration] building_settings insert failed:", settingsErr);
-  }
-
-  // 4. Generate access code with retry on collision
-  let code = generateCode("SYN-", 6);
-
-  const { error: codeErr } = await supabaseAdmin.from("access_codes").insert({
-    building_id: building.id,
-    code,
-    role: "syndic",
-    label: `Syndic — ${name}`,
-    used_by: profileId,
-    used_at: new Date().toISOString(),
-  });
-
-  if (codeErr) {
-    console.error("[completeSyndicRegistration] access_codes insert failed:", codeErr);
-    // Try once more with a different code
-    const retryCode = generateCode("SYN-", 6);
-    const { error: retryErr } = await supabaseAdmin.from("access_codes").insert({
-      building_id: building.id,
-      code: retryCode,
-      role: "syndic",
-      label: `Syndic — ${name}`,
-      used_by: profileId,
-      used_at: new Date().toISOString(),
+      syndic_unit: input.syndicUnit?.trim() || null,
     });
-    if (retryErr) {
-      return { ok: false, error: "creation_failed" };
-    }
-    code = retryCode;
+
+  if (insertErr) {
+    console.error("[completeSyndicRegistration] insert failed:", insertErr);
+    return { ok: false, error: "creation_failed" };
   }
 
-  // 5. Set session cookie (auto-login)
-  const session: SessionData = {
-    profileId,
-    buildingId: building.id,
-    unitId: null,
-    role: "syndic",
-  };
-  const cookieStore = await cookies();
-  const token = await encodeSession(session);
-  cookieStore.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+  return { ok: true };
+}
 
-  return { ok: true, accessCode: code };
+/* ─── Admin: approve / reject registration requests ─── */
+
+export async function listRegistrationRequests(): Promise<
+  { id: string; fullName: string; phone: string; buildingName: string; city: string; lotsCount: number; syndicUnit: string | null; status: string; betaCode: string | null; accessCode: string | null; createdAt: string }[]
+> {
+  const { requireAdminSession } = await import("./admin-auth");
+  await requireAdminSession();
+
+  const { data } = await supabaseAdmin
+    .from("registration_requests")
+    .select("id, full_name, phone, building_name, city, lots_count, syndic_unit, status, beta_code, access_code, created_at")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    fullName: r.full_name,
+    phone: r.phone,
+    buildingName: r.building_name,
+    city: r.city,
+    lotsCount: r.lots_count,
+    syndicUnit: r.syndic_unit,
+    status: r.status,
+    betaCode: r.beta_code,
+    accessCode: r.access_code,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function approveSyndicRequest(
+  requestId: string,
+): Promise<{ ok: true; betaCode: string; accessCode: string } | { ok: false; error: string }> {
+  const { requireAdminSession } = await import("./admin-auth");
+  await requireAdminSession();
+
+  const { data: req } = await supabaseAdmin
+    .from("registration_requests")
+    .select("*")
+    .eq("id", requestId)
+    .eq("status", "pending")
+    .single();
+
+  if (!req) return { ok: false, error: "not_found" };
+
+  // Generate both codes (no account creation yet)
+  const betaCode = generateCode("BETA-", 8);
+  const accessCode = generateCode("SYN-", 6);
+
+  // Save beta code in beta_invites
+  await supabaseAdmin.from("beta_invites").insert({
+    code: betaCode,
+    building_name: req.building_name,
+    city: req.city,
+  });
+
+  // Store codes in the request + mark as approved
+  await supabaseAdmin
+    .from("registration_requests")
+    .update({
+      status: "approved",
+      beta_code: betaCode,
+      access_code: accessCode,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", requestId);
+
+  // Send SMS with both codes
+  try {
+    await sendSMS(
+      req.phone,
+      `Palier — accès approuvé !\nCode beta : ${betaCode}\nCode d'accès : ${accessCode}\nConnectez-vous sur palier.ma`,
+    );
+  } catch (e) {
+    console.error("[approveSyndicRequest] SMS failed:", e);
+  }
+
+  return { ok: true, betaCode, accessCode };
+}
+
+export async function rejectSyndicRequest(
+  requestId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { requireAdminSession } = await import("./admin-auth");
+  await requireAdminSession();
+
+  const { error } = await supabaseAdmin
+    .from("registration_requests")
+    .update({ status: "rejected", reviewed_at: new Date().toISOString() })
+    .eq("id", requestId)
+    .eq("status", "pending");
+
+  if (error) return { ok: false, error: "update_failed" };
+  return { ok: true };
 }
 
 /* ─── Recover syndic access (forgot code) — OTP flow ─── */
@@ -656,49 +785,64 @@ export async function validateBetaCode(
 
   if (!invite) return { ok: false, error: "invalid_code" };
 
+  // Mark first usage (for admin tracking), but allow reuse by the same person
+  if (!invite.used_at) {
+    await supabaseAdmin
+      .from("beta_invites")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", invite.id);
+  }
+
   const cookieStore = await cookies();
   cookieStore.set(BETA_COOKIE, "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
   return { ok: true };
 }
 
-/** Generate unique beta invite codes (admin only) */
-export async function generateBetaInvites(
-  count: number,
-): Promise<{ codes: string[] }> {
+/** Generate a beta invite code linked to a building (admin only) */
+export async function generateBetaInvite(
+  buildingName: string,
+  city: string,
+): Promise<{ code: string } | { error: string }> {
   const { requireAdminSession } = await import("./admin-auth");
   await requireAdminSession();
-  const generated: string[] = [];
+
+  const name = buildingName.trim();
+  const c = city.trim();
+  if (!name || !c) return { error: "missing_fields" };
+
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-  for (let i = 0; i < Math.min(count, 50); i++) {
-    const bytes = new Uint8Array(8);
-    crypto.getRandomValues(bytes);
-    let code = "BETA-";
-    for (let j = 0; j < 8; j++) {
-      code += chars[bytes[j] % chars.length];
-    }
-
-    const { error } = await supabaseAdmin.from("beta_invites").insert({ code });
-    if (!error) generated.push(code);
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let code = "BETA-";
+  for (let j = 0; j < 8; j++) {
+    code += chars[bytes[j] % chars.length];
   }
 
-  return { codes: generated };
+  const { error } = await supabaseAdmin.from("beta_invites").insert({
+    code,
+    building_name: name,
+    city: c,
+  });
+  if (error) return { error: "generation_failed" };
+  return { code };
 }
 
 /** List all beta invites (admin only) */
 export async function listBetaInvites(): Promise<
-  { id: string; code: string; usedAt: string | null; createdAt: string }[]
+  { id: string; code: string; buildingName: string; city: string; usedAt: string | null; createdAt: string }[]
 > {
   const { requireAdminSession } = await import("./admin-auth");
   await requireAdminSession();
   const { data } = await supabaseAdmin
     .from("beta_invites")
-    .select("id, code, used_at, created_at")
+    .select("id, code, building_name, city, used_at, created_at")
     .order("created_at", { ascending: false });
 
   return (data ?? []).map((r) => ({
     id: r.id,
     code: r.code,
+    buildingName: r.building_name ?? "",
+    city: r.city ?? "",
     usedAt: r.used_at,
     createdAt: r.created_at,
   }));

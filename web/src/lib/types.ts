@@ -216,4 +216,14 @@ export interface CurrentUser {
   cityName: string;
   avatarColor: string;
   membershipStatus: "active" | "inactive";
+  notificationPrefs: Record<string, boolean> | null;
 }
+
+/** Shared mapping: notification kind → resident preference key */
+export const NOTIF_KIND_TO_PREF: Record<string, string> = {
+  incident: "incidents",
+  charge: "charges",
+  post: "voisinage",
+  ag: "ag",
+  document: "syndic",
+};

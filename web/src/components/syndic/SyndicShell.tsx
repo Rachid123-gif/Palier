@@ -9,6 +9,7 @@ import { logout } from "@/lib/auth";
 import { shortName } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
 import { BuildingSwitcher } from "./BuildingSwitcher";
+import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { useLang } from "@/lib/LangProvider";
 import type { UserBuilding } from "@/lib/queries";
 
@@ -114,13 +115,16 @@ export function SyndicShell({
               </>
             )}
           </div>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? S.expandMenu : S.collapseMenu}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sand/50 hover:text-ink"
-          >
-            <Icon name={collapsed ? "PanelLeftOpen" : "PanelLeftClose"} className="h-4 w-4" strokeWidth={1.8} />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationsBell profileId={profileId} />
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? S.expandMenu : S.collapseMenu}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sand/50 hover:text-ink"
+            >
+              <Icon name={collapsed ? "PanelLeftOpen" : "PanelLeftClose"} className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
 
         <nav aria-label="Menu principal" className="no-scrollbar flex-1 space-y-1 overflow-y-auto">
@@ -272,9 +276,12 @@ export function SyndicShell({
             <span className="text-[14px] font-semibold text-ink">Palier</span>
             <span className="rounded-md bg-palier-50 px-1.5 py-0.5 text-[10px] font-semibold text-palier-700">Syndic</span>
           </div>
-          <button onClick={() => setMobileOpen(true)} aria-label={S.openMenu} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
-            <Icon name="Menu" className="h-5 w-5" strokeWidth={1.8} />
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationsBell profileId={profileId} />
+            <button onClick={() => setMobileOpen(true)} aria-label={S.openMenu} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:bg-sand/50 hover:text-ink">
+              <Icon name="Menu" className="h-5 w-5" strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
         <div className="mx-auto w-full max-w-[1060px] flex-1 px-4 py-4 lg:px-8 lg:py-8">{children}</div>
       </main>

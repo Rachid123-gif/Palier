@@ -3,7 +3,9 @@
 import { supabaseAdmin } from "./supabase-server";
 import { getSession } from "./auth";
 import type { Comment, IncidentComment } from "./types";
+import { NOTIF_KIND_TO_PREF } from "./types";
 import type { SessionData } from "./session";
+import { sendSMS } from "./sms";
 import {
   createIncidentSchema,
   createPostSchema,
@@ -191,7 +193,7 @@ export async function deleteAccount() {
   }).eq("id", pid);
 
   // 2. Désactiver les memberships (couper l'accès)
-  await supabaseAdmin.from("memberships").update({ active: false }).eq("profile_id", pid);
+  await supabaseAdmin.from("memberships").update({ status: "inactive" }).eq("profile_id", pid);
 
   // 3. Supprimer les données purement personnelles
   await supabaseAdmin.from("push_subscriptions").delete().eq("profile_id", pid);
@@ -257,7 +259,7 @@ export async function createIncident(input: {
     .eq("status", "active");
   if (syndicMembers?.length) {
     const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(syndicIds, "Nouvel incident", `${v.title} — ${v.urgency === "urgent" ? "⚠️ Urgent" : v.category}`, "incident");
+    await notifyProfiles(syndicIds, "Nouvel incident", `${v.title} — ${v.urgency === "urgent" ? "⚠️ Urgent" : v.category}`, "incident", { buildingId: v.buildingId, eventType: "incident_new" });
   }
   return res;
 }
@@ -329,7 +331,7 @@ export async function createPostSyndic(input: {
   const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(profileIds, "Nouvelle annonce", v.title || v.body.slice(0, 60), "post");
+    await notifyProfiles(profileIds, "Nouvelle annonce", v.title || v.body.slice(0, 60), "post", { buildingId: v.buildingId, eventType: "post_new" });
   }
   return { data: post, error };
 }
@@ -375,7 +377,7 @@ export async function createPost(input: {
     .eq("status", "active");
   if (syndicMembers?.length) {
     const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(syndicIds, "Nouvelle publication", v.title || v.body.slice(0, 60), "post");
+    await notifyProfiles(syndicIds, "Nouvelle publication", v.title || v.body.slice(0, 60), "post", { buildingId: v.buildingId, eventType: "post_new" });
   }
   return res;
 }
@@ -453,13 +455,9 @@ export async function sendRelance(input: {
   // Verify profileId belongs to this building
   const { data: member } = await supabaseAdmin.from("memberships").select("profile_id").eq("profile_id", v.profileId).eq("building_id", v.buildingId).single();
   if (!member) return { notifError: null, dunningError: { message: "forbidden_profile" } };
-  const [notifRes, dunningRes] = await Promise.all([
-    supabaseAdmin.from("notifications").insert({
-      profile_id: v.profileId,
-      title: v.title,
-      body: v.body,
-      kind: "charge",
-    }),
+
+  const [, dunningRes] = await Promise.all([
+    notifyProfiles([v.profileId], v.title, v.body, "charge", { buildingId: v.buildingId, eventType: "charge_due" }),
     supabaseAdmin.from("dunning_logs").insert({
       building_id: v.buildingId,
       unit_id: v.unitId,
@@ -468,10 +466,7 @@ export async function sendRelance(input: {
     }),
   ]);
 
-  // Trigger push notification
-  await triggerPush([v.profileId], v.title, v.body);
-
-  return { notifError: notifRes.error, dunningError: dunningRes.error };
+  return { notifError: null, dunningError: dunningRes.error };
 }
 
 export async function createComment(input: {
@@ -496,7 +491,7 @@ export async function createComment(input: {
     // Notify post author (if commenter is not the author)
     const { data: postData } = await supabaseAdmin.from("posts").select("profile_id, title, body").eq("id", v.postId).single();
     if (postData?.profile_id && postData.profile_id !== session.profileId) {
-      await notifyProfiles([postData.profile_id], "Nouveau commentaire", `${v.author} a commenté : ${v.body.slice(0, 60)}`, "post");
+      await notifyProfiles([postData.profile_id], "Nouveau commentaire", `${v.author} a commenté : ${v.body.slice(0, 60)}`, "post", { buildingId: session.buildingId, eventType: "post_new" });
     }
   }
   return { error };
@@ -675,7 +670,7 @@ export async function addResident(input: {
   phone: string;
   unit: string;
   role: "owner" | "tenant";
-}): Promise<{ error?: string; code?: string }> {
+}): Promise<{ error?: string }> {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   let v;
   try {
@@ -741,11 +736,26 @@ export async function addResident(input: {
     used_by: profile.id,
   });
 
-  return { code };
+  // Get building name for SMS message
+  const { data: building } = await supabaseAdmin
+    .from("buildings")
+    .select("name")
+    .eq("id", v.buildingId)
+    .single();
+  const buildingName = building?.name ?? "votre résidence";
+
+  try {
+    await sendSMS(v.phone, `Bienvenue sur Palier ! Voici votre code d'accès pour la résidence ${buildingName} : ${code}`);
+  } catch (err) {
+    console.warn("[addResident] SMS failed:", err instanceof Error ? err.message : err);
+    return { error: "sms_failed" };
+  }
+
+  return {};
 }
 
 /** Régénérer le code d'accès d'un résident (invalide l'ancien) */
-export async function regenerateResidentCode(profileId: string): Promise<{ error?: string; code?: string }> {
+export async function regenerateResidentCode(profileId: string): Promise<{ error?: string }> {
   const session = await requireAuth({ role: "syndic" });
 
   // Verify resident belongs to this building
@@ -758,10 +768,10 @@ export async function regenerateResidentCode(profileId: string): Promise<{ error
     .single();
   if (!membership) return { error: "not_found" };
 
-  // Get resident name for label
+  // Get resident name + phone for label and SMS
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("full_name")
+    .select("full_name, phone")
     .eq("id", profileId)
     .single();
 
@@ -792,25 +802,46 @@ export async function regenerateResidentCode(profileId: string): Promise<{ error
     used_by: profileId,
   });
 
-  return { code };
+  // Get building name for SMS
+  const { data: building } = await supabaseAdmin
+    .from("buildings")
+    .select("name")
+    .eq("id", session.buildingId)
+    .single();
+  const buildingName = building?.name ?? "votre résidence";
+
+  if (profile?.phone) {
+    try {
+      await sendSMS(profile.phone, `Voici votre nouveau code d'accès Palier pour la résidence ${buildingName} : ${code}`);
+    } catch (err) {
+      console.warn("[regenerateResidentCode] SMS failed:", err instanceof Error ? err.message : err);
+      return { error: "sms_failed" };
+    }
+  }
+
+  return {};
 }
 
 /** Renvoyer un code d'accès en cherchant le résident par téléphone */
-export async function resendCodeByPhone(phone: string): Promise<{ error?: string; code?: string; name?: string; unitRef?: string }> {
+export async function resendCodeByPhone(phone: string): Promise<{ error?: string; name?: string; unitRef?: string }> {
   const session = await requireAuth({ role: "syndic" });
 
-  // Normalize phone (strip spaces)
-  const normalized = phone.replace(/\s+/g, "");
+  // Normalize phone (strip spaces, convert +212 to 0-prefix)
+  let normalized = phone.replace(/\s+/g, "");
+  if (normalized.startsWith("+212")) normalized = "0" + normalized.slice(4);
+  if (normalized.startsWith("00212")) normalized = "0" + normalized.slice(5);
 
   // Validate format
   if (!/^0[5-7]\d{8}$/.test(normalized)) return { error: "invalid_format" };
 
-  // Find profile by phone
+  // Try both formats (0-prefix and +212-prefix) since storage format may vary
+  const intlFormat = "+212" + normalized.slice(1);
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, full_name")
-    .eq("phone", normalized)
-    .single();
+    .or(`phone.eq.${normalized},phone.eq.${intlFormat}`)
+    .limit(1)
+    .maybeSingle();
   if (!profile) return { error: "not_found" };
 
   // Verify active membership in this building
@@ -851,7 +882,22 @@ export async function resendCodeByPhone(phone: string): Promise<{ error?: string
     used_by: profile.id,
   });
 
-  return { code, name: profile.full_name ?? undefined, unitRef: unit?.ref ?? undefined };
+  // Get building name for SMS
+  const { data: building } = await supabaseAdmin
+    .from("buildings")
+    .select("name")
+    .eq("id", session.buildingId)
+    .single();
+  const buildingName = building?.name ?? "votre résidence";
+
+  try {
+    await sendSMS(normalized, `Voici votre nouveau code d'accès Palier pour la résidence ${buildingName} : ${code}`);
+  } catch (err) {
+    console.warn("[resendCodeByPhone] SMS failed:", err instanceof Error ? err.message : err);
+    return { error: "sms_failed", name: profile.full_name ?? undefined, unitRef: unit?.ref ?? undefined };
+  }
+
+  return { name: profile.full_name ?? undefined, unitRef: unit?.ref ?? undefined };
 }
 
 /** Marquer un incident comme en cours de traitement */
@@ -859,7 +905,7 @@ export async function markIncidentInProgress(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
   const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
   const res = await supabaseAdmin.from("incidents").update({ status: "in_progress" }).eq("id", incidentId).eq("building_id", session.buildingId);
-  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident en cours", inc.title ?? "Votre incident est en cours de traitement", "incident");
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident en cours", inc.title ?? "Votre incident est en cours de traitement", "incident", { buildingId: session.buildingId, eventType: "incident_resolved" });
   return res;
 }
 
@@ -868,7 +914,7 @@ export async function resolveIncident(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
   const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
   const res = await supabaseAdmin.from("incidents").update({ status: "resolved" }).eq("id", incidentId).eq("building_id", session.buildingId);
-  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident résolu", inc.title ?? "Votre incident a été résolu", "incident");
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident résolu", inc.title ?? "Votre incident a été résolu", "incident", { buildingId: session.buildingId, eventType: "incident_resolved" });
   return res;
 }
 
@@ -877,7 +923,7 @@ export async function reopenIncident(incidentId: string) {
   const session = await requireAuth({ role: "syndic" });
   const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", incidentId).eq("building_id", session.buildingId).single();
   const res = await supabaseAdmin.from("incidents").update({ status: "open" }).eq("id", incidentId).eq("building_id", session.buildingId);
-  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident réouvert", inc.title ?? "Votre incident a été réouvert", "incident");
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Incident réouvert", inc.title ?? "Votre incident a été réouvert", "incident", { buildingId: session.buildingId, eventType: "incident_resolved" });
   return res;
 }
 
@@ -888,7 +934,7 @@ export async function updateIncidentUrgency(incidentId: string, urgency: "low" |
   const { data: inc } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", v.incidentId).eq("building_id", session.buildingId).single();
   const urgencyLabels: Record<string, string> = { low: "Faible", normal: "Normal", urgent: "Urgent" };
   const res = await supabaseAdmin.from("incidents").update({ urgency: v.urgency }).eq("id", v.incidentId).eq("building_id", session.buildingId);
-  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Urgence modifiée", `${inc.title ?? "Votre incident"} — Niveau : ${urgencyLabels[v.urgency] ?? v.urgency}`, "incident");
+  if (inc?.reporter_id) await notifyProfiles([inc.reporter_id], "Urgence modifiée", `${inc.title ?? "Votre incident"} — Niveau : ${urgencyLabels[v.urgency] ?? v.urgency}`, "incident", { buildingId: session.buildingId, eventType: "incident_resolved" });
   return res;
 }
 
@@ -934,7 +980,9 @@ export async function emitCharges(input: {
     };
   });
 
-  // Send notification to all residents (not syndic)
+  const result = await supabaseAdmin.from("charges").insert(charges);
+
+  // Send notification to all residents (not syndic) — after successful insert
   const { data: memberships } = await supabaseAdmin
     .from("memberships")
     .select("profile_id")
@@ -944,10 +992,10 @@ export async function emitCharges(input: {
 
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(profileIds, "Nouvel appel de fonds", `${v.label} — Échéance : ${v.dueDate}`, "charge");
+    await notifyProfiles(profileIds, "Nouvel appel de fonds", `${v.label} — Échéance : ${v.dueDate}`, "charge", { buildingId: v.buildingId, eventType: "charge_due" });
   }
 
-  return supabaseAdmin.from("charges").insert(charges);
+  return result;
 }
 
 /** Enregistrer un paiement côté syndic (cash, chèque, virement…) */
@@ -1035,7 +1083,7 @@ export async function syndicRecordPayment(input: {
         const msg = newStatus === "paid"
           ? `Votre charge "${charge.label}" a été réglée intégralement.`
           : `Un paiement partiel de ${v.amount} MAD a été enregistré sur "${charge.label}".`;
-        await notifyProfiles(profileIds, "Paiement confirmé", msg, "charge");
+        await notifyProfiles(profileIds, "Paiement confirmé", msg, "charge", { buildingId: v.buildingId, eventType: "payment_received" });
       }
     }
   }
@@ -1115,6 +1163,21 @@ export async function updateChargeCall(input: {
 /** Supprimer un appel de fonds (toutes les charges du même appel) */
 export async function deleteChargeCall(buildingId: string, label: string, dueDate: string) {
   await requireAuth({ role: "syndic", buildingId });
+
+  // Vérifier qu'aucune charge n'a de paiement enregistré
+  const { data: withPayments } = await supabaseAdmin
+    .from("charges")
+    .select("id")
+    .eq("building_id", buildingId)
+    .eq("label", label)
+    .eq("due_date", dueDate)
+    .gt("paid", 0)
+    .limit(1);
+
+  if (withPayments && withPayments.length > 0) {
+    throw new Error("has_payments");
+  }
+
   return supabaseAdmin
     .from("charges")
     .delete()
@@ -1188,16 +1251,8 @@ export async function notifyAssembly(input: {
 
   const title = "Assemblée générale convoquée";
   const body = `Assemblée prévue le ${input.date} à ${input.place}. Consultez l'ordre du jour dans votre application.`;
-  const notifications = validIds.map((profileId: string) => ({
-    profile_id: profileId,
-    title,
-    body,
-    kind: "ag",
-  }));
 
-  // In-app + push
-  await supabaseAdmin.from("notifications").insert(notifications);
-  await triggerPush(validIds, title, body);
+  await notifyProfiles(validIds, title, body, "ag", { buildingId: session.buildingId, eventType: "ag_reminder" });
 }
 
 /** Charger la configuration du bâtiment */
@@ -1400,7 +1455,7 @@ export async function createIncidentComment(input: {
     // Notify incident reporter (if commenter is different)
     const { data: incidentData } = await supabaseAdmin.from("incidents").select("reporter_id, title").eq("id", v.incidentId).single();
     if (incidentData?.reporter_id && incidentData.reporter_id !== session.profileId) {
-      await notifyProfiles([incidentData.reporter_id], "Réponse à votre signalement", `${v.author} : ${v.body.slice(0, 60)}`, "incident");
+      await notifyProfiles([incidentData.reporter_id], "Réponse à votre signalement", `${v.author} : ${v.body.slice(0, 60)}`, "incident", { buildingId: session.buildingId });
     }
     // If commenter is resident, also notify syndic members
     if (v.role === "resident") {
@@ -1413,7 +1468,7 @@ export async function createIncidentComment(input: {
       if (syndicMembers?.length) {
         const syndicIds = syndicMembers.map((m: any) => m.profile_id).filter((id: string) => id !== session.profileId);
         if (syndicIds.length) {
-          await notifyProfiles(syndicIds, "Nouveau message incident", `${incidentData?.title ?? "Incident"} — ${v.body.slice(0, 60)}`, "incident");
+          await notifyProfiles(syndicIds, "Nouveau message incident", `${incidentData?.title ?? "Incident"} — ${v.body.slice(0, 60)}`, "incident", { buildingId: session.buildingId, eventType: "incident_new" });
         }
       }
     }
@@ -1465,8 +1520,14 @@ export async function castVote(input: {
   if (membership?.status === "inactive") throw new Error("inactive_member");
   const v = validate(castVoteSchema, input);
   // Verify assembly belongs to user's building
-  const { data: assembly } = await supabaseAdmin.from("assemblies").select("id").eq("id", v.assemblyId).eq("building_id", session.buildingId).single();
+  const { data: assembly } = await supabaseAdmin.from("assemblies").select("id, votes").eq("id", v.assemblyId).eq("building_id", session.buildingId).single();
   if (!assembly) throw new Error("forbidden_building");
+  // Block voting after closesAt deadline
+  const votes = (assembly.votes ?? []) as { id?: string; closesAt?: string }[];
+  const vote = votes.find((vt) => vt.id === v.voteId);
+  if (vote?.closesAt && new Date(vote.closesAt) < new Date()) {
+    throw new Error("vote_closed");
+  }
   return supabaseAdmin.from("assembly_votes").upsert({
     assembly_id: v.assemblyId,
     vote_id: v.voteId,
@@ -1556,10 +1617,9 @@ export async function updateResolutionResult(resolutionId: string, input: {
   const v = validate(updateResolutionResultSchema, input);
   // Verify resolution's assembly belongs to syndic's building
   const { data: res } = await supabaseAdmin.from("assembly_resolutions").select("assembly_id").eq("id", resolutionId).single();
-  if (res) {
-    const { data: ag } = await supabaseAdmin.from("assemblies").select("id").eq("id", res.assembly_id).eq("building_id", session.buildingId).single();
-    if (!ag) throw new Error("forbidden_building");
-  }
+  if (!res) throw new Error("not_found");
+  const { data: ag } = await supabaseAdmin.from("assemblies").select("id").eq("id", res.assembly_id).eq("building_id", session.buildingId).single();
+  if (!ag) throw new Error("forbidden_building");
   return supabaseAdmin.from("assembly_resolutions").update({
     result: v.result,
     pour_tantiemes: v.pourTantiemes,
@@ -1603,9 +1663,7 @@ export async function distributePV(assemblyId: string, profileIds: string[], agD
 
   const title = "Procès-verbal disponible";
   const body = `Le PV de l'assemblée du ${agDate} est disponible. Consultez-le dans votre application.`;
-  const notifications = validIds.map((pid: string) => ({ profile_id: pid, title, body, kind: "ag" }));
-  await supabaseAdmin.from("notifications").insert(notifications);
-  await triggerPush(validIds, title, body);
+  await notifyProfiles(validIds, title, body, "ag", { buildingId: session.buildingId, eventType: "ag_reminder" });
   return supabaseAdmin.from("assemblies").update({
     pv_distributed: true,
     pv_sent_at: new Date().toISOString(),
@@ -1683,10 +1741,9 @@ export async function updateBudgetLine(lineId: string, input: { label?: string; 
   const v = validate(updateBudgetLineSchema, input);
   // Verify budget_line's budget belongs to syndic's building
   const { data: line } = await supabaseAdmin.from("budget_lines").select("budget_id").eq("id", lineId).single();
-  if (line) {
-    const { data: budget } = await supabaseAdmin.from("budgets").select("id").eq("id", line.budget_id).eq("building_id", session.buildingId).single();
-    if (!budget) throw new Error("forbidden_building");
-  }
+  if (!line) throw new Error("not_found");
+  const { data: budget } = await supabaseAdmin.from("budgets").select("id").eq("id", line.budget_id).eq("building_id", session.buildingId).single();
+  if (!budget) throw new Error("forbidden_building");
   const dbUpdate: Record<string, unknown> = {};
   if (v.label !== undefined) dbUpdate.label = v.label;
   if (v.category !== undefined) dbUpdate.category = v.category;
@@ -1910,13 +1967,7 @@ export async function sendDunningRelance(input: {
 
   // Send in-app notification + push
   if (v.profileId) {
-    await supabaseAdmin.from("notifications").insert({
-      profile_id: v.profileId,
-      title: v.title,
-      body: v.body,
-      kind: "charge",
-    });
-    await triggerPush([v.profileId], v.title, v.body);
+    await notifyProfiles([v.profileId], v.title, v.body, "charge", { buildingId: v.buildingId, eventType: "charge_due" });
   }
 }
 
@@ -1947,7 +1998,7 @@ export async function insertDocument(input: {
   const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
-    await notifyProfiles(profileIds, "Nouveau document", v.title, "document");
+    await notifyProfiles(profileIds, "Nouveau document", v.title, "document", { buildingId: v.buildingId });
   }
   return data;
 }
@@ -1997,10 +2048,11 @@ export async function submitFeedback(input: {
   senderRole?: string;
   attachmentUrl?: string | null;
 }) {
-  await requireAuth({ buildingId: input.buildingId });
+  const session = await requireAuth({ buildingId: input.buildingId });
   const v = validate(submitFeedbackSchema, input);
   const { error } = await supabaseAdmin.from("feedback").insert({
     building_id: v.buildingId,
+    profile_id: session.profileId,
     type: v.type,
     message: v.message,
     sender_name: v.senderName,
@@ -2012,6 +2064,74 @@ export async function submitFeedback(input: {
     attachment_url: v.attachmentUrl ?? null,
   });
   if (error) throw new Error("submit_feedback_failed");
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEEDBACK — Admin actions (respond) + user tracking
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function fetchAllFeedback() {
+  const { getAdminSession } = await import("./admin-auth");
+  const session = await getAdminSession();
+  if (!session || session.role !== "admin") throw new Error("unauthorized");
+  const { data } = await supabaseAdmin
+    .from("feedback")
+    .select("id, building_name, type, message, sender_role, status, admin_response, responded_at, attachment_url, created_at")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((f: Record<string, unknown>) => ({
+    id: f.id as string,
+    buildingName: (f.building_name as string) ?? "",
+    type: (f.type as string) ?? "",
+    message: (f.message as string) ?? "",
+    senderRole: (f.sender_role as string) ?? "resident",
+    status: (f.status as string) ?? "new",
+    adminResponse: (f.admin_response as string) ?? "",
+    respondedAt: (f.responded_at as string) ?? "",
+    attachmentUrl: (f.attachment_url as string) ?? "",
+    createdAt: (f.created_at as string) ?? "",
+  }));
+}
+
+export async function respondToFeedback(feedbackId: string, response: string) {
+  const { getAdminSession } = await import("./admin-auth");
+  const session = await getAdminSession();
+  if (!session || session.role !== "admin") throw new Error("unauthorized");
+  if (!feedbackId || !response.trim()) throw new Error("invalid_input");
+  const { error } = await supabaseAdmin
+    .from("feedback")
+    .update({ admin_response: response.trim(), status: "responded", responded_at: new Date().toISOString() })
+    .eq("id", feedbackId);
+  if (error) throw new Error("respond_failed");
+}
+
+export async function markFeedbackRead(feedbackId: string) {
+  const { getAdminSession } = await import("./admin-auth");
+  const session = await getAdminSession();
+  if (!session || session.role !== "admin") throw new Error("unauthorized");
+  const { error } = await supabaseAdmin
+    .from("feedback")
+    .update({ status: "read" })
+    .eq("id", feedbackId)
+    .eq("status", "new");
+  if (error) throw new Error("mark_read_failed");
+}
+
+export async function fetchMyFeedback() {
+  const session = await requireAuth();
+  const { data } = await supabaseAdmin
+    .from("feedback")
+    .select("id, type, message, status, admin_response, responded_at, created_at")
+    .eq("profile_id", session.profileId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((f: Record<string, unknown>) => ({
+    id: f.id as string,
+    type: (f.type as string) ?? "",
+    message: (f.message as string) ?? "",
+    status: (f.status as string) ?? "new",
+    adminResponse: (f.admin_response as string) ?? "",
+    respondedAt: (f.responded_at as string) ?? "",
+    createdAt: (f.created_at as string) ?? "",
+  }));
 }
 
 export async function markNotificationsRead(notificationIds: string[]) {
@@ -2030,7 +2150,8 @@ export async function fetchNotifications(): Promise<{ id: string; title: string;
     .from("notifications")
     .select("*")
     .eq("profile_id", session.profileId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
   return (data ?? []).map((n: any) => ({ id: n.id, title: n.title, body: n.body, created_at: n.created_at, kind: n.kind, read: !!n.read }));
 }
 
@@ -2038,24 +2159,92 @@ export async function fetchNotifications(): Promise<{ id: string; title: string;
    NOTIFICATIONS — Internal helpers (not exported)
    ═══════════════════════════════════════════════════════════════ */
 
-/** Create in-app notifications for multiple profiles */
-async function notifyProfiles(profileIds: string[], title: string, body: string, kind: string) {
+const kindToPrefKey = NOTIF_KIND_TO_PREF;
+
+/** Create in-app notifications for multiple profiles, respecting prefs */
+async function notifyProfiles(
+  profileIds: string[],
+  title: string,
+  body: string,
+  kind: string,
+  options?: { buildingId?: string; eventType?: string },
+) {
   if (!profileIds.length) return;
-  const notifications = profileIds.map((pid) => ({
+
+  // Check building-level notification settings (syndic configuration)
+  if (options?.buildingId) {
+    const { data: bSettings } = await supabaseAdmin
+      .from("building_settings")
+      .select("notifications")
+      .eq("building_id", options.buildingId)
+      .single();
+    const notifSettings = (bSettings as any)?.notifications;
+    if (notifSettings) {
+      // Master in-app toggle
+      if (notifSettings.inapp_enabled === false) return;
+      // Per-event toggle
+      if (options.eventType && notifSettings.events?.[options.eventType] === false) return;
+      // Quiet hours — suppress push (still insert in-app notification)
+      const qh = notifSettings.quiet_hours;
+      if (qh?.enabled && qh.from && qh.to) {
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const inQuiet = qh.from <= qh.to
+          ? hhmm >= qh.from && hhmm < qh.to        // e.g. 08:00 → 18:00
+          : hhmm >= qh.from || hhmm < qh.to;       // e.g. 22:00 → 07:00 (overnight)
+        if (inQuiet) {
+          // Still create in-app notifications but skip push
+          options = { ...options, _skipPush: true } as any;
+        }
+      }
+    }
+  }
+
+  // Filter by resident notification preferences
+  let filteredIds = profileIds;
+  const prefKey = kindToPrefKey[kind];
+  if (prefKey) {
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, notification_prefs")
+      .in("id", profileIds);
+    filteredIds = (profiles ?? [])
+      .filter((p: any) => {
+        const prefs = p.notification_prefs;
+        return !prefs || prefs[prefKey] !== false;
+      })
+      .map((p: any) => p.id);
+  }
+
+  if (!filteredIds.length) return;
+
+  const notifications = filteredIds.map((pid) => ({
     profile_id: pid,
     title,
     body,
     kind,
   }));
   await supabaseAdmin.from("notifications").insert(notifications);
-  await triggerPush(profileIds, title, body);
+  if (!(options as any)?._skipPush) {
+    await triggerPush(filteredIds, title, body);
+  }
+  // Cleanup: delete read notifications older than 90 days (fire-and-forget)
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  supabaseAdmin.from("notifications").delete().eq("read", true).lt("created_at", cutoff).then(() => {}, () => {});
+}
+
+/** Save resident notification preferences to server */
+export async function saveNotificationPrefs(prefs: Record<string, boolean>) {
+  const session = await requireAuth();
+  await supabaseAdmin.from("profiles").update({ notification_prefs: prefs }).eq("id", session.profileId);
 }
 
 /** Trigger push notifications (best-effort, never throws) */
 async function triggerPush(profileIds: string[], title: string, body: string) {
   try {
     const origin = process.env.NEXT_PUBLIC_APP_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+    if (!origin) return; // No URL configured — skip push silently
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
     await fetch(`${origin}/api/push/send`, {
@@ -2068,7 +2257,8 @@ async function triggerPush(profileIds: string[], title: string, body: string) {
       signal: controller.signal,
     });
     clearTimeout(timeout);
-  } catch {
-    // Push is best-effort, don't fail the action
+  } catch (err) {
+    // Push is best-effort — log but don't fail the action
+    console.warn("[triggerPush] failed:", err instanceof Error ? err.message : err);
   }
 }

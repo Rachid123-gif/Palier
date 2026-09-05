@@ -73,6 +73,9 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
   if (process.env.SKIP_SMS === "1") {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SKIP_SMS must not be set in production");
+    }
     console.log("[SMS/SKIP] → [REDACTED]");
     return;
   }

@@ -51,24 +51,37 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Beta gate — skip for /beta itself, admin routes, static assets, and API
+  // Beta gate — redirect unauthenticated users to /bienvenue when beta is enabled
   const betaEnabled = !!process.env.BETA_ACCESS_CODE;
   const hasBetaCookie = !!request.cookies.get("palier_beta")?.value;
   if (
     betaEnabled &&
     !hasBetaCookie &&
-    pathname !== "/beta" &&
+    !session &&
+    pathname !== "/bienvenue" &&
+    pathname !== "/site" &&
+    pathname !== "/conditions-utilisation" &&
+    pathname !== "/politique-confidentialite" &&
     !pathname.startsWith("/admin") &&
     !pathname.startsWith("/api/") &&
     !pathname.startsWith("/_next") &&
     pathname !== "/sw.js" &&
     pathname !== "/manifest.webmanifest"
   ) {
-    return NextResponse.redirect(new URL("/beta", request.url));
+    return NextResponse.redirect(new URL("/bienvenue", request.url));
+  }
+
+  // Admin routes — block on production domain (only accessible via Vercel deployment URL)
+  if (pathname.startsWith("/admin")) {
+    const publicDomain = process.env.NEXT_PUBLIC_APP_DOMAIN; // e.g. "palier.ma"
+    const host = request.headers.get("host")?.split(":")[0];
+    if (publicDomain && host === publicDomain) {
+      return new NextResponse(null, { status: 404 });
+    }
   }
 
   // Public routes — always accessible
-  if (pathname === "/beta" || pathname === "/bienvenue" || pathname === "/site" || pathname === "/admin/login" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+  if (pathname === "/bienvenue" || pathname === "/site" || pathname === "/conditions-utilisation" || pathname === "/politique-confidentialite" || pathname === "/admin/login" || pathname.startsWith("/_next") || pathname.startsWith("/icon") || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
     // If already authenticated and visiting /bienvenue, redirect to home
     if (pathname === "/bienvenue" && session) {
       const dest = session.role === "syndic" ? "/syndic" : "/";

@@ -150,35 +150,65 @@ export default function PolitiqueConfidentialitePage() {
           {/* 8. Vos droits */}
           <section>
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">8. Vos droits</h2>
-            <p>Conformément à la Loi 09-08, vous disposez des droits suivants :</p>
+            <p>Conformément aux articles 7, 8, 9 et 12 de la Loi 09-08, vous disposez des droits suivants :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li><strong>Droit d&apos;accès</strong> — obtenir une copie de vos données personnelles (export disponible depuis votre profil)</li>
-              <li><strong>Droit de rectification</strong> — corriger des données inexactes</li>
+              <li><strong>Droit d&apos;accès</strong> (art. 7) — obtenir une copie de vos données personnelles (export disponible depuis votre profil)</li>
+              <li><strong>Droit de rectification</strong> (art. 9) — corriger des données inexactes ou incomplètes</li>
               <li><strong>Droit de suppression</strong> — demander l&apos;effacement de vos données (suppression disponible depuis votre profil)</li>
-              <li><strong>Droit à la portabilité</strong> — recevoir vos données dans un format lisible et imprimable</li>
-              <li><strong>Droit d&apos;opposition</strong> — vous opposer au traitement de vos données</li>
+              <li><strong>Droit d&apos;opposition</strong> (art. 12) — vous opposer au traitement de vos données pour des motifs légitimes</li>
             </ul>
             <p className="mt-2">
               L&apos;export et la suppression de compte sont accessibles directement depuis votre profil dans l&apos;application.
               Pour les autres droits, contactez-nous à{" "}
               <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a>.
+              Nous nous engageons à répondre à toute demande dans un délai maximum de <strong>trente (30) jours</strong>.
             </p>
           </section>
 
-          {/* 9. CNDP */}
+          {/* 9. Réclamation auprès de la CNDP */}
           <section>
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">9. Réclamation auprès de la CNDP</h2>
             <p>
               Si vous estimez que le traitement de vos données ne respecte pas la réglementation en vigueur,
               vous avez le droit d&apos;introduire une réclamation auprès de la{" "}
               <strong>Commission Nationale de contrôle de la protection des Données à caractère Personnel (CNDP)</strong>,
-              autorité de contrôle compétente au Maroc.
+              autorité de contrôle compétente au Maroc
+              (<a href="https://www.cndp.ma" target="_blank" rel="noopener noreferrer" className="text-[#0B7A57] underline">www.cndp.ma</a>).
             </p>
           </section>
 
-          {/* 10. Cookies et stockage local */}
+          {/* 10. Mesures de sécurité */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">10. Cookies et stockage local</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">10. Mesures de sécurité</h2>
+            <p>
+              Palier met en œuvre des mesures techniques et organisationnelles appropriées pour protéger
+              vos données personnelles contre tout accès, altération, divulgation ou destruction non autorisés :
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                <strong>Chiffrement</strong> — toutes les communications sont chiffrées (HTTPS).
+                Les sessions utilisateur sont signées et stockées de manière sécurisée.
+              </li>
+              <li>
+                <strong>Contrôle d&apos;accès</strong> — chaque action est restreinte selon le rôle
+                de l&apos;utilisateur (résident, syndic, administrateur). Les données de chaque résidence
+                sont isolées et inaccessibles aux autres résidences.
+              </li>
+              <li>
+                <strong>Protection contre les abus</strong> — les tentatives de connexion sont limitées
+                en fréquence. Les codes de vérification expirent après quelques minutes et sont bloqués
+                après plusieurs tentatives incorrectes.
+              </li>
+              <li>
+                <strong>Validation et sécurité des données</strong> — toutes les données soumises sont
+                validées côté serveur. Les fichiers uploadés sont vérifiés par type et limités en taille.
+              </li>
+            </ul>
+          </section>
+
+          {/* 11. Cookies et stockage local */}
+          <section>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">11. Cookies et stockage local</h2>
             <p>Palier utilise les cookies et mécanismes de stockage suivants, tous strictement nécessaires au fonctionnement de l&apos;application :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>

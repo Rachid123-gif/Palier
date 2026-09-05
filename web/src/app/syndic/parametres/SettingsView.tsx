@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { saveBuildingSettings, resendCodeByPhone, uploadFileAction } from "@/lib/actions";
 import { submitFeedback } from "@/lib/actions";
+import { FeedbackHistory } from "@/components/ui/FeedbackHistory";
 import { logout } from "@/lib/auth";
 import { useLang } from "@/lib/LangProvider";
 
@@ -80,9 +81,6 @@ const NOTIF_EVENT_DEFS: { key: string; icon: string; color: string }[] = [
   { key: "charge_due", icon: "CalendarClock", color: "text-red-600" },
   { key: "post_new", icon: "MessageSquare", color: "text-blue-600" },
   { key: "ag_reminder", icon: "Users", color: "text-purple-600" },
-  { key: "insurance_expiry", icon: "Shield", color: "text-red-600" },
-  { key: "mandate_expiry", icon: "UserCheck", color: "text-amber-600" },
-  { key: "budget_alert", icon: "TrendingUp", color: "text-red-600" },
 ];
 
 const DEFAULT_NOTIF_EVENTS: Record<string, boolean> = Object.fromEntries(NOTIF_EVENT_DEFS.map((e) => [e.key, true]));
@@ -299,15 +297,7 @@ export function SettingsView({
       return;
     }
 
-    if (result.code) {
-      // Format phone for WhatsApp (leading 0 → +212)
-      let phone = normalized;
-      if (phone.startsWith("0")) phone = "+212" + phone.slice(1);
-      if (!phone.startsWith("+")) phone = "+212" + phone;
-
-      const msg = encodeURIComponent(T.codes.whatsappMsg(building.name, result.code));
-      window.open(`https://wa.me/${phone.replace("+", "")}?text=${msg}`, "_blank");
-
+    if (!result.error) {
       setCodePhone("");
       setCodeSent(true);
       setTimeout(() => setCodeSent(false), 5000);
@@ -715,10 +705,10 @@ export function SettingsView({
                   <button
                     onClick={handleSendCode}
                     disabled={generatingCode || !codePhone.trim()}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-[13px] font-medium text-white hover:bg-[#20bd5a] disabled:opacity-40"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-palier-600 px-4 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
                   >
                     <Icon name="Send" className="h-4 w-4" />
-                    {generatingCode ? T.codes.sending : T.codes.sendWhatsApp}
+                    {generatingCode ? T.codes.sending : T.codes.sendSMS}
                   </button>
                 </div>
 
@@ -755,24 +745,6 @@ export function SettingsView({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {/* WhatsApp */}
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.06] px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#25D366]/10">
-                        <Icon name="MessageCircle" className="h-4.5 w-4.5 text-[#25D366]" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-ink">WhatsApp</p>
-                        <p className="text-[11px] text-ink-soft">{T.notif.whatsappDesc}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setNotifWhatsapp(!notifWhatsapp)}
-                      className={`flex h-[24px] w-[44px] shrink-0 items-center rounded-full p-0.5 transition-colors ${notifWhatsapp ? "bg-palier-600" : "bg-black/10"}`}
-                    >
-                      <div className={`h-[20px] w-[20px] rounded-full bg-white shadow-sm transition-transform ${notifWhatsapp ? "translate-x-[20px]" : "translate-x-0"}`} />
-                    </button>
-                  </div>
                   {/* In-app */}
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.06] px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -1140,6 +1112,9 @@ export function SettingsView({
                   </div>
                 )}
               </Card>
+
+              {/* Suivi des retours */}
+              <FeedbackHistory isAr={isAr} />
             </>
           )}
 

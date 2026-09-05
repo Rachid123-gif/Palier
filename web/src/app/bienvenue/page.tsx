@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { StatusBar } from "@/components/resident/StatusBar";
-import { loginWithCode, requestSyndicRegistrationOtp, completeSyndicRegistration, requestRecoveryOtp, verifyRecoveryOtp } from "@/lib/auth";
+import { loginWithCode, requestSyndicRegistrationOtp, completeSyndicRegistration, requestRecoveryOtp, verifyRecoveryOtp, validateBetaCode } from "@/lib/auth";
 
 
 type Lang = "fr" | "ar";
@@ -56,6 +56,8 @@ const t = {
     syndicHasCodeDesc: "Je me connecte avec mon code d'accès.",
     syndicRegister: "C'est ma première fois",
     syndicRegisterDesc: "Je m'inscris pour gérer mon immeuble sur Palier.",
+    syndicActivate: "J'ai reçu mon code d'accès anticipé",
+    syndicActivateDesc: "J'entre mon code beta reçu par SMS pour activer mon compte.",
     // Register step
     registerTitle: "Créer votre espace",
     registerDesc: "Remplissez ces informations pour commencer à gérer votre immeuble.",
@@ -151,6 +153,8 @@ const t = {
     syndicHasCodeDesc: "أدخل برمز الوصول الخاص بي.",
     syndicRegister: "هذه أول مرة",
     syndicRegisterDesc: "أسجّل لإدارة عمارتي على Palier.",
+    syndicActivate: "تلقيت رمز الوصول المبكر",
+    syndicActivateDesc: "أدخل رمز بيتا الذي تلقيته عبر الرسالة لتفعيل حسابي.",
     // Register step
     registerTitle: "أنشئ مساحتك",
     registerDesc: "املأ هذه المعلومات لبدء إدارة عمارتك.",
@@ -210,7 +214,7 @@ const cities = [
   "Béni Mellal", "Nador", "Taza", "Settat", "Khémisset", "Berrechid", "Autre",
 ];
 
-type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-otp" | "register-success" | "recover" | "recover-otp" | "recover-success";
+type Step = "lang" | "welcome" | "role" | "syndic-choice" | "code" | "register" | "register-otp" | "register-success" | "activate" | "recover" | "recover-otp" | "recover-success";
 
 export default function BienvenuePage() {
   return (
@@ -286,6 +290,11 @@ function BienvenueContent() {
   const [regOtp, setRegOtp] = useState("");
   const [regOtpError, setRegOtpError] = useState("");
   const [regVerifying, setRegVerifying] = useState(false);
+
+  // Activation state (beta code)
+  const [actBeta, setActBeta] = useState("");
+  const [actError, setActError] = useState("");
+  const [activating, setActivating] = useState(false);
 
   // OTP countdown timer
   const [otpSentAt, setOtpSentAt] = useState<number | null>(null);
@@ -456,7 +465,7 @@ function BienvenueContent() {
 
       if (result.ok) {
         localStorage.setItem("palier_lang", lang);
-        setAccessCode(result.accessCode);
+        sessionStorage.removeItem("palier_onboarding");
         setStep("register-success");
       } else {
         const errorMap: Record<string, string> = {
@@ -465,6 +474,9 @@ function BienvenueContent() {
           too_many_attempts: lang === "fr"
             ? "Trop de tentatives. Veuillez recommencer."
             : "محاولات كثيرة. يرجى البدء من جديد.",
+          request_already_pending: lang === "fr"
+            ? "Une demande est déjà en cours pour ce numéro."
+            : "طلب قيد المعالجة لهذا الرقم.",
         };
         setRegOtpError(errorMap[result.error] ?? i.registerError);
       }
@@ -757,13 +769,28 @@ function BienvenueContent() {
               <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
             </button>
 
-            {/* Option 2 : Inscrire mon immeuble */}
+            {/* Option 2 : J'ai reçu mon code d'accès anticipé */}
             <button
-              onClick={() => setStep("register")}
+              onClick={() => setStep("activate")}
               className="tap flex w-full items-center gap-4 rounded-2xl border-2 border-palier-200 bg-palier-50/50 p-4 text-start shadow-card"
             >
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-600">
-                <Icon name="CirclePlus" className="h-7 w-7 text-white" strokeWidth={1.8} />
+                <Icon name="ShieldCheck" className="h-7 w-7 text-white" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[17px] font-bold text-ink">{i.syndicActivate}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">{i.syndicActivateDesc}</p>
+              </div>
+              <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
+            </button>
+
+            {/* Option 3 : Inscrire mon immeuble */}
+            <button
+              onClick={() => setStep("register")}
+              className="tap flex w-full items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 text-start shadow-card"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-palier-100">
+                <Icon name="CirclePlus" className="h-7 w-7 text-palier-600" strokeWidth={1.8} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[17px] font-bold text-ink">{i.syndicRegister}</p>
@@ -772,6 +799,85 @@ function BienvenueContent() {
               <Icon name={isAr ? "ChevronLeft" : "ChevronRight"} className="h-5 w-5 text-ink-faint" />
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── ACTIVATION : entrer code beta → puis rediriger vers code d'accès ──
+  if (step === "activate") {
+    async function handleActivate() {
+      if (!actBeta.trim()) return;
+      setActivating(true);
+      setActError("");
+      try {
+        const result = await validateBetaCode(actBeta.trim());
+        if (result.ok) {
+          // Beta validé → passer à la saisie du code d'accès
+          setActBeta("");
+          setStep("code");
+        } else {
+          setActError(lang === "fr" ? "Code invalide. Vérifiez et réessayez." : "رمز غير صالح. تحقق وأعد المحاولة.");
+        }
+      } catch {
+        setActError(lang === "fr" ? "Erreur. Vérifiez votre code." : "خطأ. تحقق من رمزك.");
+      } finally {
+        setActivating(false);
+      }
+    }
+
+    return (
+      <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
+        <StatusBar />
+
+        <div className="flex items-center justify-between px-6 pt-6">
+          {backBtn(() => { setStep("syndic-choice"); setActBeta(""); setActError(""); })}
+          {langBtn}
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-palier-100">
+            <Icon name="ShieldCheck" className="h-8 w-8 text-palier-600" />
+          </div>
+
+          <h1 className="mt-5 text-[24px] font-bold tracking-tight text-ink">
+            {lang === "fr" ? "Code d'accès anticipé" : "رمز الوصول المبكر"}
+          </h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">
+            {lang === "fr"
+              ? "Entrez le code beta reçu par SMS."
+              : "أدخل رمز بيتا الذي تلقيته عبر الرسالة النصية."}
+          </p>
+
+          <div className="mt-6">
+            <input
+              type="text"
+              value={actBeta}
+              onChange={(e) => { setActBeta(e.target.value.toUpperCase()); setActError(""); }}
+              placeholder="BETA-XXXXXXXX"
+              dir="ltr"
+              className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 font-mono text-[15px] font-bold tracking-wide text-ink outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus:border-palier-400 ${isAr ? "text-right" : ""}`}
+            />
+          </div>
+
+          {actError && (
+            <p className="mt-3 flex items-center gap-1.5 text-[13px] text-red-500">
+              <Icon name="CircleAlert" className="h-4 w-4" /> {actError}
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 pb-10">
+          <button
+            onClick={handleActivate}
+            disabled={!actBeta.trim() || activating}
+            className={`tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white ${!actBeta.trim() || activating ? "opacity-50" : ""}`}
+          >
+            {activating ? <Icon name="Loader2" className="h-4.5 w-4.5 animate-spin" /> : null}
+            {activating
+              ? (lang === "fr" ? "Vérification…" : "جارٍ التحقق…")
+              : (lang === "fr" ? "Continuer" : "متابعة")}
+          </button>
         </div>
       </div>
     );
@@ -997,51 +1103,42 @@ function BienvenueContent() {
     );
   }
 
-  // ─── SUCCÈS INSCRIPTION SYNDIC ─────────────────────────────
+  // ─── DEMANDE ENVOYÉE (en attente d'approbation) ────────────
   if (step === "register-success") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
         <StatusBar />
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-            <Icon name="Check" className="h-10 w-10 text-emerald-600" strokeWidth={2.5} />
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-palier-100">
+            <Icon name="Clock" className="h-10 w-10 text-palier-600" strokeWidth={1.8} />
           </div>
 
-          <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">{i.successTitle}</h1>
-          <p className="mt-2 max-w-[18rem] text-[14px] leading-snug text-ink-soft">{i.successDesc}</p>
+          <h1 className="mt-6 text-[24px] font-bold tracking-tight text-ink">
+            {lang === "fr" ? "Demande envoyée !" : "تم إرسال الطلب!"}
+          </h1>
+          <p className="mt-2 max-w-[20rem] text-[14px] leading-relaxed text-ink-soft">
+            {lang === "fr"
+              ? "Votre demande d'accès anticipé a été enregistrée. Vous recevrez vos codes d'accès par SMS une fois la demande approuvée."
+              : "تم تسجيل طلب الوصول المبكر. ستتلقى رموز الوصول عبر رسالة نصية بعد الموافقة على الطلب."}
+          </p>
 
-          <div className="mt-6 w-full max-w-[18rem]">
-            <div className="rounded-2xl border-2 border-palier-200 bg-palier-50/50 px-6 py-5">
-              <p className="font-mono text-[28px] font-bold tracking-[0.2em] text-palier-700">{accessCode}</p>
-            </div>
-
-            <button
-              onClick={async () => {
-                try { await navigator.clipboard.writeText(accessCode); } catch {}
-                setCodeCopied(true);
-                setTimeout(() => setCodeCopied(false), 2000);
-              }}
-              className="tap mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-2.5 text-[13px] font-semibold text-ink-soft"
-            >
-              <Icon name={codeCopied ? "Check" : "Copy"} className="h-4 w-4" />
-              {codeCopied ? i.successCopied : i.successCopy}
-            </button>
-          </div>
-
-          <div className="mt-5 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-4 py-3 text-start" dir={isAr ? "rtl" : "ltr"}>
-            <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            <p className="text-[12px] leading-snug text-amber-800">{i.successKeep}</p>
+          <div className="mt-6 flex items-start gap-2.5 rounded-2xl bg-palier-50 px-4 py-3 text-start" dir={isAr ? "rtl" : "ltr"}>
+            <Icon name="Info" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
+            <p className="text-[12px] leading-snug text-palier-800">
+              {lang === "fr"
+                ? "Vous recevrez un SMS contenant votre code beta et votre code d'accès permanent."
+                : "ستتلقى رسالة نصية تحتوي على رمز بيتا ورمز الوصول الدائم."}
+            </p>
           </div>
         </div>
 
         <div className="px-6 pb-10">
           <button
-            onClick={() => { sessionStorage.removeItem("palier_onboarding"); router.push("/syndic"); router.refresh(); }}
+            onClick={() => { setStep("lang"); setRole(null); }}
             className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3.5 text-[15px] font-semibold text-white"
           >
-            {i.successContinue}
-            <Icon name={isAr ? "ArrowLeft" : "ArrowRight"} className="h-4.5 w-4.5" />
+            {lang === "fr" ? "Retour à l'accueil" : "العودة إلى الصفحة الرئيسية"}
           </button>
         </div>
       </div>

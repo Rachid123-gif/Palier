@@ -48,3 +48,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const session = token ? await decodeSession(token) : null;
+    if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+    const { profileId, endpoint } = await request.json();
+    if (!profileId || !endpoint) return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+    if (session.profileId !== profileId) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+    await supabaseAdmin.from("push_subscriptions").delete().eq("profile_id", profileId).eq("endpoint", endpoint);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+}

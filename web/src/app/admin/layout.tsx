@@ -1,11 +1,5 @@
-import { requireAdminSession } from "@/lib/admin-auth";
-import { fetchAdminData } from "@/lib/admin-queries";
-import { AdminShell } from "./AdminShell";
+import type { ReactNode } from "react";
 
-export const dynamic = "force-dynamic";
-
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdminSession();
-  const data = await fetchAdminData();
-  return <AdminShell data={data}>{children}</AdminShell>;
+export default function AdminRootLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }

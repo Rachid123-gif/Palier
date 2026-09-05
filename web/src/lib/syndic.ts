@@ -94,7 +94,7 @@ export interface SyndicData {
 export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
   const [bRes, uRes, mRes, pRes, chRes, dRes, incRes, ledRes, docRes, agRes, setRes, postRes,
     budgetRes, insRes, mandateRes, uwRes, ruleRes, resolutionRes] = await Promise.all([
-    supabaseAdmin.from("buildings").select("*").eq("id", buildingId).single(),
+    supabaseAdmin.from("buildings").select("*").eq("id", buildingId).maybeSingle(),
     supabaseAdmin.from("units").select("*").eq("building_id", buildingId),
     supabaseAdmin.from("memberships").select("*").eq("building_id", buildingId),
     supabaseAdmin.from("memberships").select("profile_id").eq("building_id", buildingId).then(async (mRes) => {
@@ -108,13 +108,13 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
     supabaseAdmin.from("ledger_entries").select("*").eq("building_id", buildingId).order("entry_date", { ascending: false }),
     supabaseAdmin.from("documents").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("assemblies").select("*").eq("building_id", buildingId).order("date", { ascending: false }),
-    supabaseAdmin.from("building_settings").select("*").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("building_settings").select("*").eq("building_id", buildingId).maybeSingle(),
     supabaseAdmin.from("posts").select("*").eq("building_id", buildingId).order("created_at", { ascending: false }),
     supabaseAdmin.from("budgets").select("*").eq("building_id", buildingId).order("fiscal_year", { ascending: false }),
     supabaseAdmin.from("insurance_policies").select("*").eq("building_id", buildingId).order("end_date", { ascending: false }),
-    supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("elected_at", { ascending: false }).limit(1).single(),
+    supabaseAdmin.from("syndic_mandates").select("*").eq("building_id", buildingId).order("elected_at", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("urgent_works").select("*").eq("building_id", buildingId).order("declared_at", { ascending: false }),
-    supabaseAdmin.from("copropriete_rules").select("*").eq("building_id", buildingId).single(),
+    supabaseAdmin.from("copropriete_rules").select("*").eq("building_id", buildingId).maybeSingle(),
     supabaseAdmin.from("assemblies").select("id").eq("building_id", buildingId).then(async (aRes) => {
       const aids = (aRes.data ?? []).map((a: any) => a.id);
       if (!aids.length) return { data: [] };
@@ -150,8 +150,16 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
     .map((u: any) => {
       const mem = memberships.find((m: any) => m.unit_id === u.id && m.is_primary) ?? memberships.find((m: any) => m.unit_id === u.id);
       const prof: any = mem ? profileById.get(mem.profile_id) : null;
-      const ch = charges.find((c: any) => c.unit_id === u.id);
-      const dueDate = ch?.due_date ?? null;
+      // Aggregate ALL charges for this unit (not just the first one)
+      const unitCharges = charges.filter((c: any) => c.unit_id === u.id);
+      const totalAmount = unitCharges.reduce((s: number, c: any) => s + Number(c.amount), 0);
+      const totalPaid = unitCharges.reduce((s: number, c: any) => s + Number(c.paid), 0);
+      // Find the first unpaid charge (for payment recording) — prefer oldest due date
+      const unpaid = unitCharges
+        .filter((c: any) => c.status !== "paid")
+        .sort((a: any, b: any) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
+      const firstUnpaid = unpaid[0] ?? null;
+      const dueDate = firstUnpaid?.due_date ?? unitCharges[0]?.due_date ?? null;
       const daysSinceDue = dueDate ? Math.floor((now.getTime() - new Date(dueDate).getTime()) / 86400000) : null;
       return {
         unitId: u.id, profileId: mem?.profile_id ?? null, ref: u.ref, floor: u.floor,
@@ -160,19 +168,15 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
         avatarColor: prof?.avatar_color ?? "#8a9893",
         role: mem?.role ?? "owner",
         phone: prof?.phone ?? "",
-        chargeId: ch?.id ?? null,
-        amount: ch ? Number(ch.amount) : 0,
-        paid: ch ? Number(ch.paid) : 0,
+        chargeId: firstUnpaid?.id ?? unitCharges[0]?.id ?? null,
+        amount: totalAmount,
+        paid: totalPaid,
         status: (() => {
-          const dbStatus = ch?.status ?? "due";
-          if (dbStatus === "paid") return "paid";
-          if (dbStatus === "partial") {
-            // Partial but past due → still partial
-            return "partial";
-          }
-          // If due date passed and not paid → late
-          if (dueDate && new Date(dueDate) < now && dbStatus === "due") return "late";
-          return dbStatus;
+          if (unitCharges.length === 0) return "due";
+          if (totalPaid >= totalAmount) return "paid";
+          if (totalPaid > 0) return "partial";
+          if (unpaid.some((c: any) => c.due_date && new Date(c.due_date) < now)) return "late";
+          return "due";
         })() as RecouvrementRow["status"],
         lastDunnedAt: lastDunnedByUnit.get(u.id) ?? null,
         dueDate,
