@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (!url) {
+  throw new Error("[FATAL] NEXT_PUBLIC_SUPABASE_URL is not set.");
+}
 
 /**
  * Server-only Supabase client.

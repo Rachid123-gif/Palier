@@ -16,12 +16,16 @@ export async function POST(request: NextRequest) {
     if (!rl.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
     const { profileId, subscription } = await request.json();
-    if (!profileId || !subscription) {
+    if (!profileId || typeof profileId !== "string" || !subscription || typeof subscription !== "object") {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
     }
 
-    // Validate push subscription keys are present
-    if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+    // Validate push subscription keys are present and are strings with size limits
+    if (
+      typeof subscription.endpoint !== "string" || subscription.endpoint.length > 512 ||
+      typeof subscription.keys?.p256dh !== "string" || subscription.keys.p256dh.length > 255 ||
+      typeof subscription.keys?.auth !== "string" || subscription.keys.auth.length > 255
+    ) {
       return NextResponse.json({ error: "invalid_subscription" }, { status: 400 });
     }
 
@@ -42,9 +46,13 @@ export async function POST(request: NextRequest) {
       { onConflict: "profile_id,endpoint" }
     );
 
-    if (error) return NextResponse.json({ error: "server_error" }, { status: 500 });
+    if (error) {
+      console.error("[push/subscribe] Upsert error:", error);
+      return NextResponse.json({ error: "server_error" }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    console.error("[push/subscribe] Error:", err);
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 }
@@ -61,7 +69,8 @@ export async function DELETE(request: NextRequest) {
 
     await supabaseAdmin.from("push_subscriptions").delete().eq("profile_id", profileId).eq("endpoint", endpoint);
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    console.error("[push/subscribe DELETE] Error:", err);
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 }

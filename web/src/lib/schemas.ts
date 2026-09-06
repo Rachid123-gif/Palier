@@ -133,7 +133,7 @@ export const createAssemblySchema = z.object({
   agenda: z.array(z.object({
     n: z.number().int().positive(),
     t: shortString,
-    d: safeString,
+    d: z.string().max(2000).trim().default(""),
   })).min(1),
 });
 

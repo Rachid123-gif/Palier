@@ -1214,6 +1214,18 @@ export const t = {
         },
         logout: "Se déconnecter",
       },
+      aiAgent: {
+        title: "Agent IA", subtitle: "Assistant intelligent",
+        placeholder: "Tapez un message...", send: "Envoyer",
+        examples: "Exemples", confirm: "Confirmer", confirmed: "Action effectuée",
+        transparency: "Transparence", collections: "Recouvrement",
+        assembly: "Assemblée", drafting: "Rédaction",
+        amount: "Montant", type: "Type", category: "Catégorie",
+        label: "Libellé", date: "Date", unpaid: "Impayés",
+        totalDue: "Total dû", urgent: "Urgents", rate: "Taux",
+        quorum: "Quorum", minutes: "Procès-verbal", agenda: "Ordre du jour",
+        legalRef: "Références juridiques", postType: "Type de post",
+      },
     },
 
     // ── Months ──
@@ -2421,6 +2433,18 @@ export const t = {
           incidentsNote: "يمكن للسكان أيضاً الإبلاغ عن حادث بفئة مخصصة عبر « أخرى ». ستظهر هذه الفئات الجديدة تلقائياً هنا.",
         },
         logout: "تسجيل الخروج",
+      },
+      aiAgent: {
+        title: "الوكيل الذكي", subtitle: "مساعد ذكي",
+        placeholder: "اكتب رسالة...", send: "إرسال",
+        examples: "أمثلة", confirm: "تأكيد", confirmed: "تم تنفيذ الإجراء",
+        transparency: "الشفافية", collections: "التحصيل",
+        assembly: "الجمعية العامة", drafting: "التحرير",
+        amount: "المبلغ", type: "النوع", category: "الفئة",
+        label: "الوصف", date: "التاريخ", unpaid: "غير مدفوع",
+        totalDue: "المجموع المستحق", urgent: "عاجل", rate: "النسبة",
+        quorum: "النصاب", minutes: "المحضر", agenda: "جدول الأعمال",
+        legalRef: "المراجع القانونية", postType: "نوع المنشور",
       },
     },
 

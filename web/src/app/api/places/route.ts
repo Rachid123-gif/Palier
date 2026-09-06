@@ -24,8 +24,11 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q"); // e.g. "plombier Casablanca"
   const city = searchParams.get("city") ?? "Casablanca";
 
-  if (!query || query.length < 2) {
-    return NextResponse.json({ error: "query_too_short" }, { status: 400 });
+  if (!query || query.length < 2 || query.length > 100) {
+    return NextResponse.json({ error: "query_invalid" }, { status: 400 });
+  }
+  if (city.length > 100) {
+    return NextResponse.json({ error: "city_invalid" }, { status: 400 });
   }
 
   try {
@@ -47,8 +50,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const errBody = await res.text();
-      console.error("[Places API] Error:", res.status, errBody);
+      console.error("[Places API] Error:", res.status);
       return NextResponse.json({ error: "places_api_error" }, { status: 502 });
     }
 

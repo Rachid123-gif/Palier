@@ -49,8 +49,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { profileIds, title, body, url } = await request.json();
-    if (!profileIds?.length || !title) {
+    const json = await request.json();
+    const { profileIds, title, body, url } = json;
+    if (!Array.isArray(profileIds) || profileIds.length === 0 || profileIds.length > 500 || typeof title !== "string" || !title.trim()) {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
     }
 
@@ -115,7 +116,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, sent });
-  } catch {
+  } catch (err) {
+    console.error("[push/send] Error:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
