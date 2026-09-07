@@ -73,26 +73,26 @@ export default function SitePage() {
           </Link>
           <div className="flex items-center gap-5">
             <a href="#fonctionnalites" className="hidden text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#111815] sm:block">Fonctionnalités</a>
-            <Link href="/bienvenue?role=syndic" className="rounded-full bg-[#111815] px-5 py-[7px] text-[13px] font-semibold text-white transition-opacity hover:opacity-85">Espace Syndic</Link>
+            <Link href="/bienvenue?role=syndic" className="hidden rounded-full bg-[#111815] px-5 py-[7px] text-[13px] font-semibold text-white transition-opacity hover:opacity-85 sm:block">Espace Syndic</Link>
           </div>
         </div>
       </nav>
 
       {/* ═══ Hero ═══ */}
       <section className="overflow-hidden bg-white">
-        <div className="mx-auto max-w-6xl px-5 pt-14 pb-10 sm:px-8 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16">
+        <div className="mx-auto max-w-6xl px-4 pt-10 pb-6 sm:px-8 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16">
           <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-10">
             <div className="text-center lg:text-left">
-              <h1 className="text-[36px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[48px] lg:text-[56px]">
+              <h1 className="text-[28px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[48px] lg:text-[56px]">
                 Votre résidence,<br />
                 <span className="text-[#0B7A57]">enfin bien gérée.</span>
               </h1>
-              <p className="mx-auto mt-6 max-w-[420px] text-[16px] leading-relaxed text-[#6b7280] sm:text-[18px] lg:mx-0">
+              <p className="mx-auto mt-4 max-w-[420px] text-[14px] leading-relaxed text-[#6b7280] sm:mt-6 sm:text-[18px] lg:mx-0">
                 Charges, incidents, voisinage. Tout ce qu'il faut pour que votre résidence fonctionne, enfin sur une seule plateforme.
               </p>
-              <div className="mt-9 flex flex-col items-center gap-4 lg:items-start">
+              <div className="mt-6 flex flex-col items-center gap-4 sm:mt-9 lg:items-start">
                 <InstallButton />
-                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#0B7A57] transition-colors hover:text-[#096b4b] sm:text-[16px]">
+                <Link href="/bienvenue?role=syndic" className="hidden items-center gap-2 text-[15px] font-semibold text-[#0B7A57] transition-colors hover:text-[#096b4b] sm:inline-flex sm:text-[16px]">
                   Vous êtes syndic ? Accédez à votre espace <Icon name="ArrowRight" className="h-5 w-5" />
                 </Link>
               </div>
@@ -100,9 +100,9 @@ export default function SitePage() {
 
             <div className="relative mx-auto flex max-w-[560px] items-end justify-center pb-8 lg:mx-0 lg:max-w-none lg:pb-0">
               <div className="absolute inset-[-10%] rounded-full bg-[#0B7A57]/[0.07] blur-[90px]" />
-              <PhoneFrame src="/screens/charges.png" alt="Suivi des charges" className="relative z-0 -mr-3 mb-10 w-[135px] -rotate-6 opacity-90 sm:-mr-4 sm:w-[160px] lg:w-[170px]" />
-              <PhoneFrame src="/screens/home.png" alt="Accueil résident" className="relative z-10 w-[170px] sm:w-[210px] lg:w-[220px]" />
-              <PhoneFrame src="/screens/immeuble.png" alt="Transparence financière" className="relative z-0 -ml-3 mb-10 w-[135px] rotate-6 opacity-90 sm:-ml-4 sm:w-[160px] lg:w-[170px]" />
+              <PhoneFrame src="/screens/charges.png" alt="Suivi des charges" className="relative z-0 -mr-2 mb-8 w-[100px] -rotate-6 opacity-90 sm:-mr-4 sm:mb-10 sm:w-[160px] lg:w-[170px]" />
+              <PhoneFrame src="/screens/home.png" alt="Accueil résident" className="relative z-10 w-[130px] sm:w-[210px] lg:w-[220px]" />
+              <PhoneFrame src="/screens/immeuble.png" alt="Transparence financière" className="relative z-0 -ml-2 mb-8 w-[100px] rotate-6 opacity-90 sm:-ml-4 sm:mb-10 sm:w-[160px] lg:w-[170px]" />
             </div>
           </div>
         </div>
