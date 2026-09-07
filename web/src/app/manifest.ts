@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Palier",
     description:
       "La super-app des copropriétés marocaines : charges, immeuble, voisinage et services à domicile.",
-    start_url: "/",
+    start_url: "/bienvenue",
     display: "standalone",
     background_color: "#f5f1ea",
     theme_color: "#1e5b50",
