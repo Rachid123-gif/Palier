@@ -340,7 +340,7 @@ export function prepareAnnexe6(works: UrgentWork[]) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ANNEXE 7 — Suivi du fonds de réserve (art. 37bis Loi 18-00)
+   ANNEXE 7 — Suivi du fonds de réserve
    Grand ≥ 500 000 MAD
 
    Chronologie des mouvements du fonds de réserve
@@ -631,7 +631,7 @@ export function prepareAnnexe13_1(
       dotation: reserveIn,
       utilisation: reserveOut,
       exerciceN1: reserveN1,
-      observations: "Art. 37bis Loi 18-00",
+      observations: "",
     },
     {
       label: "Créances (Classe 3)",

@@ -12,7 +12,7 @@ import { useLang } from "@/lib/LangProvider";
 import type { Charge } from "@/lib/types";
 
 export default function ChargesScreen() {
-  const { charges, chargesHistory } = useData();
+  const { charges, chargesHistory, currentUser } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.charges;
   const [receiptCharge, setReceiptCharge] = useState<Charge | null>(null);
@@ -21,6 +21,34 @@ export default function ChargesScreen() {
   const [periodMonth, setPeriodMonth] = useState<string>("");
   const [periodYear, setPeriodYear] = useState<string>("");
   const [visibleCount, setVisibleCount] = useState(5);
+
+  function printReceipt(c: Charge) {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(T.recuPaiement as string)}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:420px;margin:40px auto;padding:30px;border:1px solid #ddd;border-radius:8px}
+.hd{text-align:center;border-bottom:2px solid #222;padding-bottom:16px;margin-bottom:20px}.hd h1{font-size:18px;letter-spacing:1px}.hd p{color:#666;font-size:13px;margin-top:4px}
+.r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}.r .l{color:#666}.r .v{font-weight:600;direction:ltr}
+.amt{font-size:26px;text-align:center;margin:20px 0;padding:16px;background:#f0fdf4;border-radius:10px;color:#16a34a;font-weight:700}
+.sep{border-top:1px dashed #ccc;margin:16px 0}.ft{margin-top:36px;text-align:center;color:#999;font-size:12px}
+@media print{body{border:none;margin:0}}</style></head><body>
+<div class="hd"><h1>${esc(T.recuPaiement as string)}</h1></div>
+<div class="r"><span class="l">${esc(T.immeuble as string)}</span><span class="v">${esc(currentUser.building)}</span></div>
+<div class="r"><span class="l">${esc(T.resident as string)}</span><span class="v">${esc(currentUser.name)}</span></div>
+<div class="r"><span class="l">${esc(T.lot as string)}</span><span class="v">${esc(currentUser.unit)}</span></div>
+<div class="sep"></div>
+<div class="r"><span class="l">${esc(T.charge as string)}</span><span class="v">${esc(c.label)}</span></div>
+<div class="r"><span class="l">${esc(T.detail as string)}</span><span class="v">${esc(c.detail)}</span></div>
+<div class="r"><span class="l">${esc(T.periode)}</span><span class="v">${esc(c.period)}</span></div>
+<div class="r"><span class="l">${esc(T.echeance as string)}</span><span class="v">${esc(shortDate(c.dueDate, lang))}</span></div>
+<div class="amt" dir="ltr">${new Intl.NumberFormat("fr-MA").format(c.amount)} MAD</div>
+<div class="ft"><p>Palier · ${esc(currentUser.building)}</p></div>
+</body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  }
 
   const total = charges.reduce((s, c) => s + (c.amount - c.paid), 0);
 
@@ -246,6 +274,13 @@ export default function ChargesScreen() {
                 ))}
               </div>
             </div>
+            <button
+              onClick={() => printReceipt(receiptCharge)}
+              className="tap flex w-full items-center justify-center gap-2 rounded-full bg-palier-600 py-3 text-[14px] font-semibold text-white"
+            >
+              <Icon name="Printer" className="h-4.5 w-4.5" />
+              {T.imprimerRecu as string}
+            </button>
             <div className="rounded-2xl border border-palier-100 bg-palier-50 p-3 text-center">
               <p className="text-[12px] text-palier-700">
                 <Icon name="ShieldCheck" className="mr-1 inline h-3.5 w-3.5" />

@@ -28,8 +28,15 @@ interface BuildingSettings {
   charge_categories?: string[] | null;
   voisinage_categories?: string[] | null;
   budget_categories?: string[] | null;
+  document_categories?: string[] | null;
   relance_message?: string | null;
+  auto_relance_enabled?: boolean | null;
+  auto_relance_delay_days?: number | null;
+  auto_relance_frequency_days?: number | null;
+  auto_receipt_enabled?: boolean | null;
   gardien?: GardienInfo | null;
+  gardien_nuit?: GardienInfo | null;
+  has_two_gardiens?: boolean | null;
   notifications?: NotificationSettings | null;
 }
 
@@ -71,6 +78,9 @@ const DEFAULT_VOISINAGE_CATS = [
 ];
 const DEFAULT_BUDGET_CATS = [
   "Personnel", "Maintenance", "Fluides", "Assurance", "Gestion", "Travaux", "Autre",
+];
+const DEFAULT_DOCUMENT_CATS = [
+  "PV d'assemblée", "Règlement", "Contrat", "Facture", "Attestation", "Appel de fonds", "Autre",
 ];
 
 /* ── Notification events ── */
@@ -160,17 +170,46 @@ export function SettingsView({
     setGardienHoraires((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
   }
 
+  // ── Two gardiens (jour / nuit) ──
+  const [hasTwoGardiens, setHasTwoGardiens] = useState(settings?.has_two_gardiens ?? false);
+  const savedNuit = settings?.gardien_nuit;
+  const defaultNuitHoraires: GardienInfo["horaires"] = {};
+  for (let idx = 0; idx < 7; idx++) defaultNuitHoraires[String(idx)] = { de: "18:00", a: "08:00", repos: idx === 6 };
+  const [nuitName, setNuitName] = useState(savedNuit?.name ?? "");
+  const [nuitPhone, setNuitPhone] = useState(savedNuit?.phone ?? "");
+  const [nuitPhoneError, setNuitPhoneError] = useState(() => {
+    const p = savedNuit?.phone ?? "";
+    return p && !/^0[567]\d{8}$/.test(p) ? T.gardien.phoneError : "";
+  });
+  function handleNuitPhone(val: string) {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    setNuitPhone(digits);
+    if (digits && !/^0[567]\d{8}$/.test(digits)) {
+      setNuitPhoneError(T.gardien.phoneError);
+    } else {
+      setNuitPhoneError("");
+    }
+  }
+  const [nuitHoraires, setNuitHoraires] = useState<GardienInfo["horaires"]>(savedNuit?.horaires ? normalizeHoraires(savedNuit.horaires) : defaultNuitHoraires);
+  const [nuitTaches, setNuitTaches] = useState<string[]>(savedNuit?.taches ?? ["Surveillance de nuit", "Ronde sécurité", "Gestion entrées/sorties"]);
+  const [newNuitTache, setNewNuitTache] = useState("");
+  function setNuitHoraire(day: string, field: "de" | "a" | "repos", value: string | boolean) {
+    setNuitHoraires((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
+  }
+
   // ── Categories ──
   const [incidentCats, setIncidentCats] = useState<string[]>(settings?.incident_categories ?? DEFAULT_INCIDENT_CATS);
   const [expenseCats, setExpenseCats] = useState<string[]>(settings?.expense_categories ?? DEFAULT_EXPENSE_CATS);
   const [chargeCats, setChargeCats] = useState<string[]>(settings?.charge_categories ?? DEFAULT_CHARGE_CATS);
   const [voisinageCats, setVoisinageCats] = useState<string[]>(settings?.voisinage_categories ?? DEFAULT_VOISINAGE_CATS);
   const [budgetCats, setBudgetCats] = useState<string[]>(settings?.budget_categories ?? DEFAULT_BUDGET_CATS);
+  const [documentCats, setDocumentCats] = useState<string[]>(settings?.document_categories ?? DEFAULT_DOCUMENT_CATS);
   const [newIncidentCat, setNewIncidentCat] = useState("");
   const [newExpenseCat, setNewExpenseCat] = useState("");
   const [newChargeCat, setNewChargeCat] = useState("");
   const [newVoisinageCat, setNewVoisinageCat] = useState("");
   const [newBudgetCat, setNewBudgetCat] = useState("");
+  const [newDocumentCat, setNewDocumentCat] = useState("");
 
   // ── Access codes ──
   const [codePhone, setCodePhone] = useState("");
@@ -192,6 +231,10 @@ export function SettingsView({
     settings?.relance_message ??
     "Bonjour, nous vous rappelons que votre cotisation est en attente de paiement. Merci de régulariser votre situation via l'application Palier."
   );
+  const [autoRelanceEnabled, setAutoRelanceEnabled] = useState(settings?.auto_relance_enabled ?? false);
+  const [autoRelanceDelay, setAutoRelanceDelay] = useState(settings?.auto_relance_delay_days ?? 3);
+  const [autoRelanceFrequency, setAutoRelanceFrequency] = useState(settings?.auto_relance_frequency_days ?? 7);
+  const [autoReceiptEnabled, setAutoReceiptEnabled] = useState(settings?.auto_receipt_enabled ?? false);
 
   // ── Notifications ──
   const savedNotif = settings?.notifications;
@@ -215,6 +258,7 @@ export function SettingsView({
   const doSave = useCallback(() => {
     // Block save if gardien phone is filled but invalid
     if (gardienPhone.trim() && !/^0[567]\d{8}$/.test(gardienPhone.trim())) return;
+    if (nuitPhone.trim() && !/^0[567]\d{8}$/.test(nuitPhone.trim())) return;
 
     startTransition(async () => {
       setSaveStatus("saving");
@@ -227,12 +271,24 @@ export function SettingsView({
         charge_categories: chargeCats,
         voisinage_categories: voisinageCats,
         budget_categories: budgetCats,
+        document_categories: documentCats,
         relance_message: relanceMsg || undefined,
+        auto_relance_enabled: autoRelanceEnabled,
+        auto_relance_delay_days: autoRelanceDelay,
+        auto_relance_frequency_days: autoRelanceFrequency,
+        auto_receipt_enabled: autoReceiptEnabled,
         gardien: gardienName.trim() ? {
           name: gardienName.trim(),
           phone: gardienPhone.trim(),
           horaires: gardienHoraires,
           taches: gardienTaches,
+        } : null,
+        has_two_gardiens: hasTwoGardiens,
+        gardien_nuit: hasTwoGardiens && nuitName.trim() ? {
+          name: nuitName.trim(),
+          phone: nuitPhone.trim(),
+          horaires: nuitHoraires,
+          taches: nuitTaches,
         } : null,
         notifications: {
           whatsapp_enabled: notifWhatsapp,
@@ -244,7 +300,7 @@ export function SettingsView({
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     });
-  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, budgetCats, relanceMsg, gardienName, gardienPhone, gardienHoraires, gardienTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, startTransition]);
+  }, [building.id, email, welcome, incidentCats, expenseCats, chargeCats, voisinageCats, budgetCats, documentCats, relanceMsg, autoRelanceEnabled, autoRelanceDelay, autoRelanceFrequency, autoReceiptEnabled, gardienName, gardienPhone, gardienHoraires, gardienTaches, hasTwoGardiens, nuitName, nuitPhone, nuitHoraires, nuitTaches, notifWhatsapp, notifInapp, notifEvents, quietEnabled, quietFrom, quietTo, startTransition]);
 
   // Auto-save with 1s debounce
   useEffect(() => {
@@ -441,6 +497,38 @@ export function SettingsView({
           {/* ═══ GARDIEN ═══ */}
           {activeSection === "gardien" && (
             <>
+              {/* Mode toggle: 1 gardien vs 2 (jour/nuit) */}
+              <Card>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+                    <Icon name="Users" className="h-4 w-4 text-violet-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-[14px] font-semibold text-ink">{T.gardien.modeTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.gardien.modeDesc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={hasTwoGardiens}
+                    onClick={() => setHasTwoGardiens(!hasTwoGardiens)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${hasTwoGardiens ? "bg-palier-600" : "bg-black/20"}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${hasTwoGardiens ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </div>
+                {hasTwoGardiens && (
+                  <p className="mt-2 rounded-lg bg-palier-50 px-3 py-2 text-[11px] text-palier-700">{T.gardien.modeHint}</p>
+                )}
+              </Card>
+
+              {/* ── Gardien principal (jour ou unique) ── */}
+              {hasTwoGardiens && (
+                <p className="px-1 text-[13px] font-semibold text-ink flex items-center gap-1.5">
+                  <Icon name="Sun" className="h-4 w-4 text-amber-500" /> {T.gardien.dayShift}
+                </p>
+              )}
+
               {/* Identity */}
               <Card>
                 <div className="mb-4 flex items-center gap-2">
@@ -565,6 +653,124 @@ export function SettingsView({
                 </div>
               </Card>
 
+              {/* ── Gardien de nuit (si activé) ── */}
+              {hasTwoGardiens && (
+                <>
+                <p className="px-1 text-[13px] font-semibold text-ink flex items-center gap-1.5">
+                  <Icon name="Moon" className="h-4 w-4 text-indigo-500" /> {T.gardien.nightShift}
+                </p>
+
+                <Card>
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
+                      <Icon name="User" className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-[14px] font-semibold text-ink">{T.gardien.identityTitle}</h2>
+                      <p className="text-[12px] text-ink-soft">{T.gardien.identityDesc}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.gardien.fullName}</label>
+                      <input value={nuitName} onChange={(e) => setNuitName(e.target.value)} placeholder="Ex: Ahmed" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[12px] font-semibold text-ink-soft">{T.gardien.phoneWhatsapp}</label>
+                      <input type="tel" inputMode="numeric" value={nuitPhone} onChange={(e) => handleNuitPhone(e.target.value)} placeholder="06 XX XX XX XX" maxLength={10} className={`${inputCls} ${nuitPhoneError ? "border-red-400 focus:border-red-400 focus:ring-red-400" : ""}`} dir="ltr" />
+                      {nuitPhoneError && <p className="mt-1 text-[11px] text-red-500">{nuitPhoneError}</p>}
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
+                      <Icon name="Clock" className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-[14px] font-semibold text-ink">{T.gardien.scheduleTitle}</h2>
+                      <p className="text-[12px] text-ink-soft">{T.gardien.scheduleDesc}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {DAY_KEYS.map((key, idx) => {
+                      const h = nuitHoraires[key] ?? { de: "18:00", a: "08:00", repos: false };
+                      return (
+                        <div key={key} className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 hover:bg-sand/30 sm:flex-nowrap sm:gap-3">
+                          <span className="w-[70px] shrink-0 text-[13px] font-medium text-ink sm:w-[80px]">{DAYS[idx]}</span>
+                          {h.repos ? (
+                            <span className="flex-1 text-[12px] text-ink-faint">{T.gardien.dayOff}</span>
+                          ) : (
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                              <input type="time" value={h.de} onChange={(e) => setNuitHoraire(key, "de", e.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none" />
+                              <span className="text-[11px] text-ink-faint">{C.at}</span>
+                              <input type="time" value={h.a} onChange={(e) => setNuitHoraire(key, "a", e.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[12px] text-ink outline-none focus:border-palier-400 sm:flex-none" />
+                            </div>
+                          )}
+                          <button
+                            onClick={() => setNuitHoraire(key, "repos", !h.repos)}
+                            className={`flex h-[22px] w-[40px] shrink-0 items-center rounded-full p-0.5 transition-colors ${h.repos ? "bg-black/10" : "bg-indigo-600"}`}
+                            title={h.repos ? T.gardien.enableDay : T.gardien.dayOffToggle}
+                          >
+                            <div className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${h.repos ? "translate-x-0" : "translate-x-[18px]"}`} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
+                      <Icon name="ClipboardList" className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-[14px] font-semibold text-ink">{T.gardien.tasksTitle}</h2>
+                      <p className="text-[12px] text-ink-soft">{T.gardien.tasksDesc}</p>
+                    </div>
+                  </div>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {nuitTaches.map((t, i) => (
+                      <span key={t} className="inline-flex items-center gap-1 rounded-lg border border-black/[0.06] bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink">
+                        {t}
+                        <button onClick={() => setNuitTaches((prev) => prev.filter((_, j) => j !== i))} className="ml-0.5 rounded p-0.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500">
+                          <Icon name="X" className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                    {nuitTaches.length === 0 && <p className="text-[12px] text-ink-soft">{T.gardien.noTasks}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={newNuitTache}
+                      onChange={(e) => setNewNuitTache(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const v = newNuitTache.trim();
+                          if (v && !nuitTaches.includes(v)) { setNuitTaches((prev) => [...prev, v]); setNewNuitTache(""); }
+                        }
+                      }}
+                      placeholder="Ex: Ronde de nuit…"
+                      className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                    />
+                    <button
+                      onClick={() => {
+                        const v = newNuitTache.trim();
+                        if (v && !nuitTaches.includes(v)) { setNuitTaches((prev) => [...prev, v]); setNewNuitTache(""); }
+                      }}
+                      disabled={!newNuitTache.trim()}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+                    >
+                      <Icon name="Plus" className="h-3.5 w-3.5" />
+                      {C.add}
+                    </button>
+                  </div>
+                </Card>
+                </>
+              )}
+
               <div className="flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
                 <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
                 <p className="text-[12px] text-ink-soft">
@@ -658,6 +864,21 @@ export function SettingsView({
                 placeholder="Ex: Jardinage, Ascenseur…"
                 onAdd={() => addCat(budgetCats, setBudgetCats, newBudgetCat, setNewBudgetCat)}
                 onRemove={(i) => removeCat(budgetCats, setBudgetCats, i)}
+              />
+
+              {/* Document categories */}
+              <CategoryBlock
+                title={T.categories.documents}
+                desc={T.categories.documentsDesc}
+                icon="FileText"
+                iconTint="bg-violet-100"
+                iconColor="text-violet-600"
+                items={documentCats}
+                newValue={newDocumentCat}
+                setNewValue={setNewDocumentCat}
+                placeholder="Ex: Quittance, Devis, Assurance…"
+                onAdd={() => addCat(documentCats, setDocumentCats, newDocumentCat, setNewDocumentCat)}
+                onRemove={(i) => removeCat(documentCats, setDocumentCats, i)}
               />
             </>
           )}
@@ -874,6 +1095,85 @@ export function SettingsView({
 
           {/* ═══ RELANCES ═══ */}
           {activeSection === "relance" && (
+            <>
+            {/* Auto-relance card */}
+            <Card>
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                  <Icon name="Zap" className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-[14px] font-semibold text-ink">{T.relance.autoTitle}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.relance.autoDesc}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoRelanceEnabled}
+                  onClick={() => setAutoRelanceEnabled(!autoRelanceEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${autoRelanceEnabled ? "bg-palier-600" : "bg-black/20"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${autoRelanceEnabled ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </div>
+
+              {autoRelanceEnabled && (
+                <div className="space-y-4 rounded-xl border border-black/[0.06] bg-sand/30 p-4">
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.relance.autoDelay}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1} max={30}
+                        value={autoRelanceDelay}
+                        onChange={(e) => setAutoRelanceDelay(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
+                        className="w-20 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-center text-[13px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                      />
+                      <span className="text-[12px] text-ink-soft">{T.relance.autoDays}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-faint">{T.relance.autoDelayHint}</p>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-ink">{T.relance.autoFrequency}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1} max={60}
+                        value={autoRelanceFrequency}
+                        onChange={(e) => setAutoRelanceFrequency(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
+                        className="w-20 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-center text-[13px] text-ink outline-none focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
+                      />
+                      <span className="text-[12px] text-ink-soft">{T.relance.autoDays}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-faint">{T.relance.autoFrequencyHint}</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Auto-receipt card */}
+            <Card>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                  <Icon name="Receipt" className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-[14px] font-semibold text-ink">{T.relance.autoReceiptTitle}</h2>
+                  <p className="text-[12px] text-ink-soft">{T.relance.autoReceiptDesc}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoReceiptEnabled}
+                  onClick={() => setAutoReceiptEnabled(!autoReceiptEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${autoReceiptEnabled ? "bg-palier-600" : "bg-black/20"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${autoReceiptEnabled ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </div>
+            </Card>
+
+            {/* Message de relance card */}
             <Card>
               <div className="mb-4 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-coral-100">
@@ -925,6 +1225,7 @@ export function SettingsView({
                 </p>
               </div>
             </Card>
+            </>
           )}
 
           {/* ═══ APPARENCE ═══ */}

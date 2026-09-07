@@ -4,14 +4,14 @@ import { Icon } from "@/components/ui/Icon";
 import { StatusPill } from "@/components/syndic/ui";
 import { PageHeader } from "@/components/syndic/ui";
 import { mad, num, timeAgo, currentPeriod, shortDate, shortName } from "@/lib/format";
-import { sendRelance, emitCharges, logDunning, syndicRecordPayment, updateChargeCall, deleteChargeCall, fetchBuildingPayments } from "@/lib/actions";
+import { sendRelance, emitCharges, logDunning, syndicRecordPayment, updateChargeCall, deleteChargeCall, fetchBuildingPayments, sendReceiptNotification } from "@/lib/actions";
 import { dunningMessage } from "@/lib/whatsapp";
 import { longDate } from "@/lib/format";
 import { useLang } from "@/lib/LangProvider";
 import type { RecouvrementRow, ChargeCall } from "@/lib/syndic";
 
 interface PaymentRecord { id: string; amount: number; method: string; note?: string; created_at: string; charge_id?: string }
-interface ReceiptInfo { building: string; residentName: string; lot: string; amount: number; method: string; date: string; receiptId: string; chargeLabel?: string; chargeDueDate?: string }
+interface ReceiptInfo { building: string; residentName: string; lot: string; amount: number; method: string; date: string; receiptId: string; chargeLabel?: string; chargeDueDate?: string; chargeId?: string; profileId?: string | null }
 
 const PER_PAGE = 15;
 
@@ -74,6 +74,7 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
   const [payHistSearch, setPayHistSearch] = useState("");
   // Receipt
   const [receiptInfo, setReceiptInfo] = useState<ReceiptInfo | null>(null);
+  const [sendingReceipt, setSendingReceipt] = useState(false);
   // Edit charge call modal
   const [editCall, setEditCall] = useState<ChargeCall | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -113,6 +114,8 @@ export function RecouvrementTable({ rows, building, buildingId, chargeCalls, cha
         receiptId: res.paymentId ? `P-${res.paymentId.slice(0, 8).toUpperCase()}` : `P-${Date.now()}`,
         chargeLabel: res.chargeLabel,
         chargeDueDate: res.chargeDueDate,
+        chargeId: showPayment.chargeId ?? undefined,
+        profileId: showPayment.profileId,
       };
       setLocalRows((prev) => prev.map((r) => r.unitId === showPayment.unitId ? { ...r, paid: r.paid + Number(payAmount), status: (r.paid + Number(payAmount) >= r.amount ? "paid" : "partial") as any } : r));
       setShowPayment(null); setPayAmount(""); setPayMethod("cash"); setPayNote("");
@@ -157,6 +160,26 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</
     win.document.write(html);
     win.document.close();
     setTimeout(() => win.print(), 300);
+  }
+
+  async function handleSendReceipt(info: ReceiptInfo, chargeId?: string, profileId?: string | null) {
+    if (sendingReceipt) return;
+    setSendingReceipt(true);
+    try {
+      const res = await sendReceiptNotification({
+        buildingId,
+        profileId: profileId || undefined,
+        chargeId: chargeId || undefined,
+        receiptId: info.receiptId,
+        residentName: info.residentName,
+        amount: info.amount,
+        method: info.method,
+        chargeLabel: info.chargeLabel,
+      });
+      if (res?.error) { flash(T.receiptModal.receiptError); }
+      else { flash(T.receiptModal.receiptSent); }
+    } catch { flash(T.receiptModal.receiptError); }
+    setSendingReceipt(false);
   }
 
   async function handleEditCall(e: React.FormEvent) {
@@ -987,20 +1010,37 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</
                           <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">{METHOD_LABELS[p.method] ?? p.method}</td>
                           <td className="px-3 py-2.5 text-[12px] text-ink-soft max-w-[200px] truncate">{p.note || "—"}</td>
                           <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                            <button
-                              onClick={() => printReceipt({
-                                building,
-                                residentName: row?.ownerName ?? "—",
-                                lot: row?.ref ?? "—",
-                                amount: p.amount,
-                                method: p.method,
-                                date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
-                                receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
-                              })}
-                              className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink"
-                            >
-                              <Icon name="Printer" className="h-3 w-3" /> {T.imprimer}
-                            </button>
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleSendReceipt({
+                                  building,
+                                  residentName: row?.ownerName ?? "—",
+                                  lot: row?.ref ?? "—",
+                                  amount: p.amount,
+                                  method: p.method,
+                                  date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
+                                  receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
+                                }, p.charge_id ?? undefined, row?.profileId)}
+                                disabled={sendingReceipt}
+                                className="inline-flex items-center gap-1 rounded-md border border-palier-200 bg-palier-50 px-2.5 py-1 text-[11px] font-medium text-palier-700 transition-colors hover:bg-palier-100 disabled:opacity-50"
+                              >
+                                <Icon name="Send" className="h-3 w-3" /> {T.envoyerRecu}
+                              </button>
+                              <button
+                                onClick={() => printReceipt({
+                                  building,
+                                  residentName: row?.ownerName ?? "—",
+                                  lot: row?.ref ?? "—",
+                                  amount: p.amount,
+                                  method: p.method,
+                                  date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
+                                  receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
+                                })}
+                                className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink-soft transition-colors hover:bg-sand/50 hover:text-ink"
+                              >
+                                <Icon name="Printer" className="h-3 w-3" /> {T.imprimer}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1033,20 +1073,37 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</
                             <span>{METHOD_LABELS[p.method] ?? p.method}</span>
                             {p.note && <span className="italic">· {p.note}</span>}
                           </div>
-                          <button
-                            onClick={() => printReceipt({
-                              building,
-                              residentName: row?.ownerName ?? "—",
-                              lot: row?.ref ?? "—",
-                              amount: p.amount,
-                              method: p.method,
-                              date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
-                              receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
-                            })}
-                            className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink"
-                          >
-                            <Icon name="Printer" className="h-3 w-3" /> {T.payHeaders.recu}
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleSendReceipt({
+                                building,
+                                residentName: row?.ownerName ?? "—",
+                                lot: row?.ref ?? "—",
+                                amount: p.amount,
+                                method: p.method,
+                                date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
+                                receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
+                              }, p.charge_id ?? undefined, row?.profileId)}
+                              disabled={sendingReceipt}
+                              className="inline-flex items-center gap-1 rounded-md border border-palier-200 bg-palier-50 px-2 py-1 text-[11px] font-medium text-palier-700 hover:bg-palier-100 disabled:opacity-50"
+                            >
+                              <Icon name="Send" className="h-3 w-3" /> {T.envoyerRecu}
+                            </button>
+                            <button
+                              onClick={() => printReceipt({
+                                building,
+                                residentName: row?.ownerName ?? "—",
+                                lot: row?.ref ?? "—",
+                                amount: p.amount,
+                                method: p.method,
+                                date: new Date(p.created_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "long", year: "numeric" }),
+                                receiptId: `P-${p.id.slice(0, 8).toUpperCase()}`,
+                              })}
+                              className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink"
+                            >
+                              <Icon name="Printer" className="h-3 w-3" /> {T.payHeaders.recu}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1349,6 +1406,9 @@ ${info.chargeDueDate ? `<div class="r"><span class="l">${esc(T.printEcheance)}</
             <div className="mt-4 flex gap-3">
               <button onClick={() => setReceiptInfo(null)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
                 {C.close}
+              </button>
+              <button onClick={() => handleSendReceipt(receiptInfo, receiptInfo.chargeId, receiptInfo.profileId)} disabled={sendingReceipt} className="flex-1 rounded-xl border border-palier-200 bg-palier-50 py-2.5 text-[13px] font-semibold text-palier-700 hover:bg-palier-100 disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
+                <Icon name="Send" className="h-3.5 w-3.5" /> {T.receiptModal.sendReceipt}
               </button>
               <button onClick={() => printReceipt(receiptInfo)} className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 inline-flex items-center justify-center gap-1.5">
                 <Icon name="Printer" className="h-3.5 w-3.5" /> {T.receiptModal.printReceipt}

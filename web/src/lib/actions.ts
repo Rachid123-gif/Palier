@@ -177,7 +177,7 @@ export async function exportMyData() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COMPTE — Suppression (droit à l'effacement — Art. 8 Loi 09-08)
+   COMPTE — Suppression (droit à l'effacement — Loi 09-08)
    Anonymise l'identité, conserve les données comptables (Décret 2.23.700)
    ═══════════════════════════════════════════════════════════════ */
 
@@ -754,6 +754,106 @@ export async function addResident(input: {
   return {};
 }
 
+/** Import bulk residents */
+export async function importResidents(input: {
+  buildingId: string;
+  residents: { name: string; phone: string; unit: string; role: "owner" | "tenant" }[];
+  sendSms: boolean;
+}): Promise<{ imported: number; errors: { index: number; name: string; error: string }[] }> {
+  await requireAuth({ role: "syndic", buildingId: input.buildingId });
+
+  if (!input.residents.length || input.residents.length > 500) {
+    return { imported: 0, errors: [{ index: 0, name: "", error: "invalid_count" }] };
+  }
+
+  const { data: building } = await supabaseAdmin
+    .from("buildings")
+    .select("name")
+    .eq("id", input.buildingId)
+    .single();
+  const buildingName = building?.name ?? "votre résidence";
+
+  const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
+  const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let imported = 0;
+  const errors: { index: number; name: string; error: string }[] = [];
+
+  for (let i = 0; i < input.residents.length; i++) {
+    const r = input.residents[i];
+    try {
+      const name = r.name?.trim();
+      const phone = r.phone?.trim();
+      const unit = r.unit?.trim().toUpperCase();
+      const role = r.role;
+
+      if (!name || !phone || !unit || !role) {
+        errors.push({ index: i, name: name || "", error: "missing_fields" });
+        continue;
+      }
+
+      // Find or create unit
+      let { data: unitRow } = await supabaseAdmin
+        .from("units")
+        .select("id")
+        .eq("building_id", input.buildingId)
+        .eq("ref", unit)
+        .single();
+
+      if (!unitRow) {
+        const { data: created, error: createErr } = await supabaseAdmin
+          .from("units")
+          .insert({ building_id: input.buildingId, ref: unit })
+          .select("id")
+          .single();
+        if (createErr || !created) { errors.push({ index: i, name, error: "unit_error" }); continue; }
+        unitRow = created;
+      }
+
+      // Create profile
+      const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+      const { data: profile, error: profileErr } = await supabaseAdmin
+        .from("profiles")
+        .insert({ full_name: name, phone, avatar_color: avatarColor, city: "casablanca" })
+        .select("id")
+        .single();
+      if (profileErr || !profile) { errors.push({ index: i, name, error: "profile_error" }); continue; }
+
+      // Create membership
+      const { error: memberErr } = await supabaseAdmin
+        .from("memberships")
+        .insert({ building_id: input.buildingId, profile_id: profile.id, unit_id: unitRow.id, role });
+      if (memberErr) { errors.push({ index: i, name, error: "membership_error" }); continue; }
+
+      // Generate access code
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      const code = "RES-" + Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+      await supabaseAdmin.from("access_codes").insert({
+        building_id: input.buildingId,
+        code,
+        role: "resident",
+        label: `${unit} – ${name}`,
+        used_by: profile.id,
+      });
+
+      // Send SMS if enabled
+      if (input.sendSms) {
+        try {
+          await sendSMS(phone, `Bienvenue sur Palier ! Voici votre code d'accès pour la résidence ${buildingName} : ${code}`);
+        } catch {
+          // SMS failure doesn't block the import
+        }
+      }
+
+      imported++;
+    } catch {
+      errors.push({ index: i, name: r.name || "", error: "unknown" });
+    }
+  }
+
+  return { imported, errors };
+}
+
 /** Régénérer le code d'accès d'un résident (invalide l'ancien) */
 export async function regenerateResidentCode(profileId: string): Promise<{ error?: string }> {
   const session = await requireAuth({ role: "syndic" });
@@ -1088,12 +1188,78 @@ export async function syndicRecordPayment(input: {
     }
   }
 
+  // Auto-send receipt if enabled
+  const { data: bSettings } = await supabaseAdmin
+    .from("building_settings")
+    .select("auto_receipt_enabled")
+    .eq("building_id", v.buildingId)
+    .maybeSingle();
+  if ((bSettings as any)?.auto_receipt_enabled) {
+    // Find unit members and send receipt notification
+    const { data: chargeUnit2 } = await supabaseAdmin
+      .from("charges")
+      .select("unit_id")
+      .eq("id", v.chargeId)
+      .single();
+    if (chargeUnit2?.unit_id) {
+      const { data: unitMembers2 } = await supabaseAdmin
+        .from("memberships")
+        .select("profile_id")
+        .eq("unit_id", chargeUnit2.unit_id)
+        .eq("status", "active");
+      if (unitMembers2?.length) {
+        const pids = unitMembers2.map((m: any) => m.profile_id).filter(Boolean);
+        const receiptBody = `Reçu P-${payment.id.slice(0, 8).toUpperCase()} — ${new Intl.NumberFormat("fr-MA").format(v.amount)} MAD (${v.method}) pour "${charge.label}".`;
+        await notifyProfiles(pids, "Reçu de paiement", receiptBody, "charge", { buildingId: v.buildingId, eventType: "receipt_sent" });
+      }
+    }
+  }
+
   return {
     paymentId: payment.id,
     createdAt: payment.created_at,
     chargeLabel: charge.label,
     chargeDueDate: charge.due_date,
   };
+}
+
+/** Envoyer un reçu de paiement manuellement au résident */
+export async function sendReceiptNotification(input: {
+  buildingId: string;
+  profileId?: string;
+  chargeId?: string;
+  receiptId: string;
+  residentName: string;
+  amount: number;
+  method: string;
+  chargeLabel?: string;
+}) {
+  await requireAuth({ role: "syndic", buildingId: input.buildingId });
+
+  // Find which profiles to notify
+  let profileIds: string[] = [];
+  if (input.profileId) {
+    profileIds = [input.profileId];
+  } else if (input.chargeId) {
+    const { data: charge } = await supabaseAdmin
+      .from("charges")
+      .select("unit_id")
+      .eq("id", input.chargeId)
+      .single();
+    if (charge?.unit_id) {
+      const { data: members } = await supabaseAdmin
+        .from("memberships")
+        .select("profile_id")
+        .eq("unit_id", charge.unit_id)
+        .eq("status", "active");
+      profileIds = (members ?? []).map((m: any) => m.profile_id).filter(Boolean);
+    }
+  }
+  if (!profileIds.length) return { error: "no_recipient" };
+
+  const receiptBody = `Reçu ${input.receiptId} — ${new Intl.NumberFormat("fr-MA").format(input.amount)} MAD (${input.method})${input.chargeLabel ? ` pour "${input.chargeLabel}"` : ""}.`;
+  await notifyProfiles(profileIds, "Reçu de paiement", receiptBody, "charge", { buildingId: input.buildingId, eventType: "receipt_sent" });
+  return { ok: true };
 }
 
 /** Récupérer l'historique des paiements d'une charge */
@@ -1869,6 +2035,53 @@ export async function updateMandate(id: string, input: Record<string, unknown>) 
 export async function deleteMandate(id: string) {
   const session = await requireAuth({ role: "syndic" });
   return supabaseAdmin.from("syndic_mandates").delete().eq("id", id).eq("building_id", session.buildingId);
+}
+
+/** Demande de changement de syndic — enregistrée dans feedback pour traitement par l'équipe Palier */
+export async function requestSyndicTransfer(input: {
+  buildingId: string;
+  newSyndicName: string;
+  newSyndicPhone: string;
+  reason?: string;
+}) {
+  const session = await requireAuth({ role: "syndic", buildingId: input.buildingId });
+
+  // Validate phone
+  const phoneRegex = /^(\+?\d{9,15}|0\d{9})$/;
+  if (!phoneRegex.test(input.newSyndicPhone)) return { error: "invalid_phone" };
+
+  // Get current syndic info
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name, phone")
+    .eq("id", session.profileId)
+    .single();
+
+  const { data: building } = await supabaseAdmin
+    .from("buildings")
+    .select("name")
+    .eq("id", input.buildingId)
+    .single();
+
+  // Insert as feedback entry for admin review
+  await supabaseAdmin.from("feedback").insert({
+    building_id: input.buildingId,
+    type: "syndic_transfer",
+    message: [
+      `Demande de changement de syndic`,
+      `Immeuble : ${building?.name ?? input.buildingId}`,
+      `Syndic actuel : ${profile?.full_name ?? "—"} (${profile?.phone ?? "—"})`,
+      `Nouveau syndic : ${input.newSyndicName} (${input.newSyndicPhone})`,
+      input.reason ? `Motif : ${input.reason}` : "",
+    ].filter(Boolean).join("\n"),
+    sender_name: profile?.full_name ?? "Syndic",
+    sender_phone: profile?.phone ?? null,
+    contact_preference: "phone",
+    building_name: building?.name ?? "—",
+    sender_role: "syndic",
+  });
+
+  return { ok: true };
 }
 
 /* ═══════════════════════════════════════════════════════════════

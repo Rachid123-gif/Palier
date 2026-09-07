@@ -63,7 +63,12 @@ export interface BuildingSettings {
   charge_categories?: string[] | null;
   voisinage_categories?: string[] | null;
   budget_categories?: string[] | null;
+  document_categories?: string[] | null;
   relance_message?: string | null;
+  auto_relance_enabled?: boolean | null;
+  auto_relance_delay_days?: number | null;
+  auto_relance_frequency_days?: number | null;
+  auto_receipt_enabled?: boolean | null;
 }
 
 export interface SyndicData {
@@ -357,7 +362,12 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       charge_categories: setRes.data.charge_categories ?? null,
       voisinage_categories: setRes.data.voisinage_categories ?? null,
       budget_categories: setRes.data.budget_categories ?? null,
+      document_categories: setRes.data.document_categories ?? null,
       relance_message: setRes.data.relance_message ?? null,
+      auto_relance_enabled: setRes.data.auto_relance_enabled ?? null,
+      auto_relance_delay_days: setRes.data.auto_relance_delay_days ?? null,
+      auto_relance_frequency_days: setRes.data.auto_relance_frequency_days ?? null,
+      auto_receipt_enabled: setRes.data.auto_receipt_enabled ?? null,
     } : null,
   };
 }

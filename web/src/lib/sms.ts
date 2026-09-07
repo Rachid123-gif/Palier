@@ -1,45 +1,13 @@
 /**
  * SMS sending utility for OTP codes.
  *
- * Supports multiple providers via SMS_PROVIDER env var:
- * - "twilio" — Twilio SMS API
- * - "infobip" — Infobip SMS API
+ * Uses Infobip SMS API.
  *
- * Required env vars per provider:
- *   Twilio:  SMS_PROVIDER=twilio, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
- *   Infobip: SMS_PROVIDER=infobip, INFOBIP_API_KEY, INFOBIP_BASE_URL, INFOBIP_SENDER
+ * Required env vars:
+ *   INFOBIP_API_KEY, INFOBIP_BASE_URL, INFOBIP_SENDER
  *
  * If SMS_PROVIDER is not set, SMS sending is skipped (dev mode).
  */
-
-const provider = process.env.SMS_PROVIDER; // "twilio" | "infobip" | undefined
-
-async function sendViaTwilio(to: string, message: string): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID!;
-  const token = process.env.TWILIO_AUTH_TOKEN!;
-  const from = process.env.TWILIO_FROM_NUMBER!;
-
-  // Moroccan numbers: 06/07/05 → +212 6/7/5
-  const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;
-
-  const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ From: from, To: intlNumber, Body: message }),
-    }
-  );
-
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("[SMS/Twilio] Failed:", res.status, err);
-    throw new Error("sms_send_failed");
-  }
-}
 
 async function sendViaInfobip(to: string, message: string): Promise<void> {
   const apiKey = process.env.INFOBIP_API_KEY!;
@@ -69,7 +37,7 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
 
 /**
  * Send an SMS message. Returns silently in dev mode if no provider configured.
- * Throws "sms_send_failed" in production if no provider is configured, or on provider error.
+ * Throws "sms_send_failed" in production if not configured, or on provider error.
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
   if (process.env.SKIP_SMS === "1") {
@@ -80,18 +48,13 @@ export async function sendSMS(to: string, message: string): Promise<void> {
     return;
   }
 
-  if (!provider) {
+  if (!process.env.INFOBIP_API_KEY) {
     if (process.env.NODE_ENV !== "production") {
       console.log("[SMS/DEV] → [REDACTED]");
       return;
     }
-    // In production, refuse to silently skip SMS
     throw new Error("sms_send_failed");
   }
 
-  if (provider === "twilio") return sendViaTwilio(to, message);
-  if (provider === "infobip") return sendViaInfobip(to, message);
-
-  console.error(`[SMS] Unknown provider: ${provider}`);
-  throw new Error("sms_provider_unknown");
+  return sendViaInfobip(to, message);
 }

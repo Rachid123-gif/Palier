@@ -20,18 +20,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const role = req.nextUrl.searchParams.get("role") as "resident" | "syndic" | null;
-  if (role !== "resident" && role !== "syndic") {
+  const role = req.nextUrl.searchParams.get("role") as "resident" | "syndic" | "admin" | null;
+  if (role !== "resident" && role !== "syndic" && role !== "admin") {
     return NextResponse.json(
-      { error: "Pass ?role=resident or ?role=syndic" },
+      { error: "Pass ?role=resident, ?role=syndic, or ?role=admin" },
       { status: 400 },
     );
   }
 
+  // Use real UUIDs from the database for dev login
+  const DEV_ACCOUNTS = {
+    syndic: {
+      profileId: "d2ec9a6f-467b-4dd8-a3c7-ed986dcb124e",
+      buildingId: "cf91105e-753c-4c2b-a821-8a9235154e43",
+      unitId: null,
+    },
+    resident: {
+      profileId: "eab18530-659e-4f53-b2d0-0dfe27da7992",
+      buildingId: "cf91105e-753c-4c2b-a821-8a9235154e43",
+      unitId: "d28f9612-c171-4f17-95f9-c13336b42635",
+    },
+  };
+
+  if (role === "admin") {
+    const session: SessionData = {
+      profileId: null,
+      buildingId: "admin",
+      unitId: null,
+      role: "admin",
+    };
+    const token = await encodeSession(session);
+    const res = NextResponse.redirect(new URL("/admin", req.url));
+    res.cookies.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+    res.cookies.set("palier_beta", "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
+    return res;
+  }
+
+  const account = DEV_ACCOUNTS[role];
   const session: SessionData = {
-    profileId: "00000000-0000-0000-0000-0000000000a1",
-    buildingId: "00000000-0000-0000-0000-0000000000b1",
-    unitId: role === "resident" ? "00000000-0000-0000-0000-0000000000c1" : null,
+    profileId: account.profileId,
+    buildingId: account.buildingId,
+    unitId: account.unitId,
     role,
   };
 
@@ -40,5 +69,7 @@ export async function GET(req: NextRequest) {
     new URL(role === "syndic" ? "/syndic" : "/", req.url),
   );
   res.cookies.set(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+  // Also set beta cookie to bypass beta gate in dev
+  res.cookies.set("palier_beta", "1", { path: "/", maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
   return res;
 }

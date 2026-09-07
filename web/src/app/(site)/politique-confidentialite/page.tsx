@@ -96,7 +96,7 @@ export default function PolitiqueConfidentialitePage() {
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">4. Base légale</h2>
             <p>
               Le traitement de vos données repose sur l&apos;exécution du contrat de service liant l&apos;utilisateur à Palier,
-              conformément à l&apos;article 3 de la <strong>Loi n° 09-08</strong> relative à la protection des personnes
+              conformément à l&apos;article 4 de la <strong>Loi n° 09-08</strong> relative à la protection des personnes
               physiques à l&apos;égard du traitement des données à caractère personnel.
             </p>
             <p className="mt-2">
@@ -111,8 +111,8 @@ export default function PolitiqueConfidentialitePage() {
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">5. Sous-traitants et services tiers</h2>
             <p>Nous faisons appel aux sous-traitants et services suivants pour le fonctionnement de la plateforme :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li><strong>Supabase</strong> (AWS, Europe / États-Unis) — hébergement de la base de données, authentification et stockage de fichiers</li>
-              <li><strong>Twilio / Infobip</strong> (États-Unis / Europe) — envoi de SMS pour les codes de vérification (OTP)</li>
+              <li><strong>Supabase</strong> (AWS, région eu-west-3, Paris, France) — hébergement de la base de données, authentification et stockage de fichiers</li>
+              <li><strong>Infobip</strong> (Europe) — envoi de SMS pour les codes de vérification (OTP)</li>
               <li><strong>Google Places API</strong> (États-Unis) — recherche de prestataires de services locaux. Les requêtes de recherche sont envoyées à Google ; aucune donnée personnelle n&apos;est transmise</li>
               <li><strong>Service Web Push</strong> (navigateur) — acheminement des notifications push via les serveurs de votre navigateur (Google pour Chrome, Mozilla pour Firefox, Apple pour Safari)</li>
             </ul>
@@ -122,7 +122,7 @@ export default function PolitiqueConfidentialitePage() {
           <section>
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">6. Transferts internationaux de données</h2>
             <p>
-              Certains de nos sous-traitants (Supabase, Twilio, Google) sont situés en dehors du Maroc,
+              Certains de nos sous-traitants (Supabase, Infobip, Google) sont situés en dehors du Maroc,
               notamment aux États-Unis et en Europe. Ces transferts sont encadrés par des clauses contractuelles
               garantissant un niveau de protection adéquat, conformément aux articles 43 et 44 de la <strong>Loi 09-08</strong>.
             </p>
@@ -150,12 +150,12 @@ export default function PolitiqueConfidentialitePage() {
           {/* 8. Vos droits */}
           <section>
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">8. Vos droits</h2>
-            <p>Conformément aux articles 7, 8, 9 et 12 de la Loi 09-08, vous disposez des droits suivants :</p>
+            <p>Conformément à la Loi 09-08, vous disposez des droits suivants :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li><strong>Droit d&apos;accès</strong> (art. 7) — obtenir une copie de vos données personnelles (export disponible depuis votre profil)</li>
-              <li><strong>Droit de rectification</strong> (art. 9) — corriger des données inexactes ou incomplètes</li>
+              <li><strong>Droit de rectification</strong> (art. 8) — corriger des données inexactes ou incomplètes</li>
+              <li><strong>Droit d&apos;opposition</strong> (art. 9) — vous opposer au traitement de vos données pour des motifs légitimes</li>
               <li><strong>Droit de suppression</strong> — demander l&apos;effacement de vos données (suppression disponible depuis votre profil)</li>
-              <li><strong>Droit d&apos;opposition</strong> (art. 12) — vous opposer au traitement de vos données pour des motifs légitimes</li>
             </ul>
             <p className="mt-2">
               L&apos;export et la suppression de compte sont accessibles directement depuis votre profil dans l&apos;application.
@@ -230,6 +230,19 @@ export default function PolitiqueConfidentialitePage() {
               Aucun cookie publicitaire ou de traçage n&apos;est utilisé. Ces cookies et données de stockage local
               sont strictement nécessaires au fonctionnement de l&apos;application et ne nécessitent pas de consentement
               préalable.
+            </p>
+          </section>
+
+          {/* 12. Références juridiques */}
+          <section>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">12. Références juridiques</h2>
+            <p>
+              Les lois marocaines citées dans la présente politique et dans l&apos;application sont fournies
+              <strong> à titre purement informatif</strong> et ne constituent en aucun cas un conseil juridique.
+            </p>
+            <p className="mt-2">
+              Palier ne garantit pas l&apos;exactitude, l&apos;exhaustivité ou l&apos;actualité de ces références.
+              L&apos;utilisateur est invité à consulter un professionnel du droit pour toute question juridique.
             </p>
           </section>
         </div>

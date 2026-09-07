@@ -79,22 +79,19 @@ export default function SitePage() {
 
       {/* ═══ Hero ═══ */}
       <section className="overflow-hidden bg-white">
-        <div className="mx-auto max-w-6xl px-5 pt-20 pb-20 sm:px-8 sm:pt-28 sm:pb-28 lg:pt-32 lg:pb-32">
-          <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-12">
+        <div className="mx-auto max-w-6xl px-5 pt-14 pb-10 sm:px-8 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-10">
             <div className="text-center lg:text-left">
-              <h1 className="text-[38px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[52px] lg:text-[60px]">
+              <h1 className="text-[36px] font-extrabold leading-[1.08] tracking-tight text-[#111815] sm:text-[48px] lg:text-[56px]">
                 Votre résidence,<br />
                 <span className="text-[#0B7A57]">enfin bien gérée.</span>
               </h1>
               <p className="mx-auto mt-6 max-w-[420px] text-[16px] leading-relaxed text-[#6b7280] sm:text-[18px] lg:mx-0">
                 Charges, incidents, voisinage. Tout ce qu'il faut pour que votre résidence fonctionne, enfin sur une seule plateforme.
               </p>
-              <Link href="/bienvenue" className="mt-9 inline-flex items-center gap-2.5 rounded-xl bg-[#0B7A57] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#096b4b]">
-                Accéder à mon espace
-              </Link>
-              <div className="mt-6 flex items-center justify-center lg:justify-start">
-                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#111815]">
-                  Vous êtes syndic ? Accédez à votre espace <Icon name="ArrowRight" className="h-4 w-4" />
+              <div className="mt-9 flex items-center justify-center lg:justify-start">
+                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-2 text-[17px] font-semibold text-[#0B7A57] transition-colors hover:text-[#096b4b] sm:text-[18px]">
+                  Vous êtes syndic ? Accédez à votre espace <Icon name="ArrowRight" className="h-5 w-5" />
                 </Link>
               </div>
             </div>
@@ -224,6 +221,62 @@ export default function SitePage() {
         </div>
       </section>
 
+      {/* ═══ Comptabilité — Décret 2.23.700 ═══ */}
+      <section className="bg-[#f4f5f2]">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-[#0B7A57]">Comptabilité</p>
+              <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-[#111815] sm:text-[34px]">
+                Annexes comptables conformes au Décret 2.23.700
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#6b7280] sm:text-[16px]">
+                Depuis janvier 2026, chaque syndic doit produire les annexes comptables imposées par le Décret 2.23.700. Palier les génère automatiquement — zéro Excel, zéro erreur.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "12 annexes générées automatiquement en PDF",
+                  "Adapté à la taille de votre copropriété (petit, moyen, grand)",
+                  "Prêt pour l'assemblée générale en un clic",
+                  "Plan comptable normalisé des syndicats (PCSI)",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14px] leading-relaxed text-[#374151]">
+                    <Icon name="Check" className="mt-0.5 h-4 w-4 shrink-0 text-[#0B7A57]" strokeWidth={3} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="mx-auto w-full max-w-md lg:mx-0 lg:ml-auto">
+              <div className="space-y-3">
+                {[
+                  { tier: "Grand", seuil: "≥ 500 000 MAD / an", annexes: "Annexes 3 à 10", count: "8 documents", color: "bg-[#0B7A57]" },
+                  { tier: "Moyen", seuil: "200 000 – 500 000 MAD / an", annexes: "Annexes 10, 11, 12", count: "3 documents", color: "bg-[#0B7A57]/80" },
+                  { tier: "Petit", seuil: "≤ 200 000 MAD / an", annexes: "Annexes 10, 13-1, 13-2", count: "3 documents", color: "bg-[#0B7A57]/60" },
+                ].map((t) => (
+                  <div key={t.tier} className="flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.color} text-[13px] font-bold text-white`}>
+                      {t.tier[0]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-bold text-[#111815]">{t.tier}</p>
+                      <p className="text-[12px] text-[#6b7280]">{t.seuil}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[13px] font-semibold text-[#0B7A57]">{t.count}</p>
+                      <p className="text-[11px] text-[#6b7280]">{t.annexes}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-center text-[12px] text-[#6b7280]">
+                + Annexe 10 (suivi des contributions) obligatoire pour tous les régimes
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ Plus de fonctionnalités ═══ */}
       <section className="bg-[#111815]">
         <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
@@ -236,7 +289,6 @@ export default function SitePage() {
               { icon: "Banknote", title: "Charges & paiements", desc: "Consultez vos charges, leur détail, les échéances. Recevez vos reçus de paiement numériques." },
               { icon: "FileText", title: "Documents", desc: "PV d'assemblées, règlement de copropriété, contrats d'assurance. Tout accessible à tout moment." },
               { icon: "CalendarDays", title: "Assemblées générales", desc: "Convocations, ordre du jour, votes pondérés par tantièmes depuis votre téléphone, comptes-rendus." },
-              { icon: "Receipt", title: "Comptabilité légale", desc: "Annexes comptables générées automatiquement, conformes au Décret 2.23.700. Plus besoin d'Excel." },
               { icon: "Shield", title: "Conformité & assurance", desc: "Mandat syndic, règlement, assurances avec alertes d'expiration. Tout est suivi automatiquement." },
             ].map((f) => (
               <div key={f.title} className="flex gap-4">

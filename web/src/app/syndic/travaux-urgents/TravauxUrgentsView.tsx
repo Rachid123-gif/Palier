@@ -594,7 +594,7 @@ function DeclareModal({
           </span>
           <div>
             <h2 className="text-[16px] font-semibold text-ink">{T.declare.title}</h2>
-            <p className="text-[12px] text-ink-soft">Art. 26 Loi 18-00</p>
+            <p className="text-[12px] text-ink-soft">{T.declare.title}</p>
           </div>
         </div>
         <button onClick={onClose} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">

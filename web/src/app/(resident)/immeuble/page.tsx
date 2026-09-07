@@ -12,7 +12,7 @@ import { useLang } from "@/lib/LangProvider";
 const LEDGER_LIMIT = 3;
 
 export default function ImmeubleScreen() {
-  const { building, buildingKpis, ledger, incidents, gardien, welcomeMessage, insurancePolicies, mandate, coproprieteRule, budgetSummary, urgentWorks } = useData();
+  const { building, buildingKpis, ledger, incidents, gardien, gardienNuit, hasTwoGardiens, welcomeMessage, insurancePolicies, mandate, coproprieteRule, budgetSummary, urgentWorks } = useData();
   const { lang, i, isAr } = useLang();
   const T = i.immeuble;
   const [ledgerCount, setLedgerCount] = useState(LEDGER_LIMIT);
@@ -252,7 +252,7 @@ export default function ImmeubleScreen() {
         )}
 
         {/* ═══════ Infos immeuble (gardien, assurance, etc.) ═══════ */}
-        {(gardien || welcomeMessage || insurancePolicies.length > 0 || mandate || coproprieteRule || budgetSummary || urgentWorks.length > 0) && (
+        {(gardien || gardienNuit || welcomeMessage || insurancePolicies.length > 0 || mandate || coproprieteRule || budgetSummary || urgentWorks.length > 0) && (
           <>
             <hr className="border-palier-100" />
 
@@ -263,44 +263,57 @@ export default function ImmeubleScreen() {
               </div>
             )}
 
-            {gardien && (
-              <div className="card space-y-2 p-4">
+            {(gardien || gardienNuit) && (
+              <div className="card space-y-3 p-4">
                 <div className="flex items-center gap-2">
                   <Icon name="UserCheck" className="h-4 w-4 text-palier-600" />
-                  <h3 className="text-[14px] font-bold text-ink">{T.gardien}</h3>
+                  <h3 className="text-[14px] font-bold text-ink">{hasTwoGardiens ? T.gardiens : T.gardien}</h3>
                 </div>
-                <p className="text-[13px] font-semibold text-ink">{gardien.name}</p>
-                {gardien.phone && (
-                  <a href={`tel:${gardien.phone}`} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
-                    <Icon name="Phone" className="h-3.5 w-3.5" /> {gardien.phone}
-                  </a>
-                )}
-                {gardien.horaires && Object.keys(gardien.horaires).length > 0 && (
-                  <div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.horaires}</p>
-                    <div className="space-y-0.5">
-                      {Object.entries(gardien.horaires).map(([key, h]) => {
-                        const dayLabel = /^\d$/.test(key) ? (T.days?.[parseInt(key)] ?? key) : key;
-                        return (
-                          <div key={key} className="flex items-center justify-between text-[12px]">
-                            <span className="text-ink-soft capitalize">{dayLabel}</span>
-                            <span className="font-medium text-ink">{h.repos ? T.repos : `${h.de} – ${h.a}`}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+
+                {[
+                  ...(gardien ? [{ g: gardien, label: hasTwoGardiens ? T.gardienJour : null, icon: "Sun" as const, color: "text-amber-500" }] : []),
+                  ...(gardienNuit && hasTwoGardiens ? [{ g: gardienNuit, label: T.gardienNuit, icon: "Moon" as const, color: "text-indigo-500" }] : []),
+                ].map(({ g, label, icon, color }, idx) => (
+                  <div key={idx} className={`space-y-2 ${idx > 0 ? "border-t border-black/[0.06] pt-3" : ""}`}>
+                    {label && (
+                      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-ink">
+                        <Icon name={icon} className={`h-3.5 w-3.5 ${color}`} /> {label}
+                      </p>
+                    )}
+                    <p className="text-[13px] font-semibold text-ink">{g.name}</p>
+                    {g.phone && (
+                      <a href={`tel:${g.phone}`} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600">
+                        <Icon name="Phone" className="h-3.5 w-3.5" /> {g.phone}
+                      </a>
+                    )}
+                    {g.horaires && Object.keys(g.horaires).length > 0 && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.horaires}</p>
+                        <div className="space-y-0.5">
+                          {Object.entries(g.horaires).map(([key, h]) => {
+                            const dayLabel = /^\d$/.test(key) ? (T.days?.[parseInt(key)] ?? key) : key;
+                            return (
+                              <div key={key} className="flex items-center justify-between text-[12px]">
+                                <span className="text-ink-soft capitalize">{dayLabel}</span>
+                                <span className="font-medium text-ink">{h.repos ? T.repos : `${h.de} – ${h.a}`}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {g.taches && g.taches.length > 0 && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.taches}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {g.taches.map((t) => (
+                            <span key={t} className="rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-medium text-palier-700">{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-                {gardien.taches && gardien.taches.length > 0 && (
-                  <div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{T.taches}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {gardien.taches.map((t) => (
-                        <span key={t} className="rounded-full bg-palier-50 px-2.5 py-1 text-[11px] font-medium text-palier-700">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             )}
 

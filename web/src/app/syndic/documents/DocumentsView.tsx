@@ -10,12 +10,12 @@ type Doc = { id: string; title: string; type: string; date: string; size: string
 
 const catMeta = new Map<string, { value: string; label: string; icon: string; tint: string; color: string }>();
 
-export function DocumentsView({ documents: initial, buildingId }: { documents: Doc[]; buildingId: string }) {
+export function DocumentsView({ documents: initial, buildingId, documentCategories }: { documents: Doc[]; buildingId: string; documentCategories: string[] | null }) {
   const { i, lang } = useLang();
   const T = i.syndic.documents;
   const C = i.syndic.common;
 
-  const DOC_CATEGORIES = [
+  const BASE_CATEGORIES = [
     { value: "pv", label: T.cats.pv, icon: "FileText", tint: "bg-palier-100", color: "text-palier-600" },
     { value: "reglement", label: T.cats.reglement, icon: "Scale", tint: "bg-amber-100", color: "text-amber-600" },
     { value: "contrat", label: T.cats.contrat, icon: "Handshake", tint: "bg-blue-100", color: "text-blue-600" },
@@ -25,10 +25,18 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
     { value: "autre", label: T.cats.autre, icon: "File", tint: "bg-sand", color: "text-ink-soft" },
   ] as const;
 
+  // Merge base categories with custom ones from settings
+  const baseValues = new Set<string>(BASE_CATEGORIES.map((c) => c.value));
+  const customCats = (documentCategories ?? [])
+    .filter((c) => !baseValues.has(c.toLowerCase().replace(/\s+/g, "_")))
+    .map((c) => ({ value: c, label: c, icon: "Tag" as const, tint: "bg-violet-100", color: "text-violet-600" }));
+
+  const DOC_CATEGORIES = [...BASE_CATEGORIES, ...customCats];
+
   const localCatMeta = new Map(DOC_CATEGORIES.map((c) => [c.value, c]));
 
   function getCat(type: string) {
-    return localCatMeta.get(type as typeof DOC_CATEGORIES[number]["value"]) ?? localCatMeta.get("autre")!;
+    return localCatMeta.get(type) ?? localCatMeta.get("autre")!;
   }
 
   const [docs, setDocs] = useState(initial);
@@ -133,7 +141,10 @@ export function DocumentsView({ documents: initial, buildingId }: { documents: D
       <div className="mb-3 flex items-start gap-2 rounded-xl border border-black/[0.06] bg-cream-card px-4 py-3">
         <Icon name="Info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-soft" />
         <p className="text-[12px] text-ink-soft">
-          {T.info}
+          {T.info}{" "}{T.catNote}{" "}
+          <a href="/syndic/parametres" className="font-medium text-palier-700 hover:text-palier-800 underline underline-offset-2">
+            {T.catNoteLink}
+          </a>
         </p>
       </div>
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-palier-200 bg-palier-50 px-4 py-3">

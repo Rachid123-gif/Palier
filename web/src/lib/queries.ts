@@ -22,6 +22,8 @@ export interface AppData {
   assembly: Assembly | null;
   assemblies: Assembly[];
   gardien: { name: string; phone: string; horaires: Record<string, { de: string; a: string; repos: boolean }>; taches: string[] } | null;
+  gardienNuit: { name: string; phone: string; horaires: Record<string, { de: string; a: string; repos: boolean }>; taches: string[] } | null;
+  hasTwoGardiens: boolean;
   welcomeMessage: string;
   insurancePolicies: { insurer: string; coverageType: string; startDate: string; endDate: string; policyNumber?: string; fileUrl?: string; premiumAmount?: number; notes?: string }[];
   mandate: { syndicName: string; syndicType: string; mandateEnd: string; electedAt: string; deputyName?: string; contractUrl?: string } | null;
@@ -228,6 +230,8 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
       status: a.status ?? "upcoming",
     })),
     gardien: settingsRes.data?.gardien ?? null,
+    gardienNuit: settingsRes.data?.gardien_nuit ?? null,
+    hasTwoGardiens: settingsRes.data?.has_two_gardiens ?? false,
     welcomeMessage: settingsRes.data?.welcome_message ?? "",
     insurancePolicies: (insurRes.data ?? []).map((p: any) => ({
       insurer: p.insurer, coverageType: p.coverage_type,

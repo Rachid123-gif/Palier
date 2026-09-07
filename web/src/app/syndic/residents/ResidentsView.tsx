@@ -3,7 +3,7 @@ import { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
-import { addResident, updateResident, deactivateResident, reactivateResident, regenerateResidentCode } from "@/lib/actions";
+import { addResident, updateResident, deactivateResident, reactivateResident, regenerateResidentCode, importResidents } from "@/lib/actions";
 import { useLang } from "@/lib/LangProvider";
 
 
@@ -40,7 +40,7 @@ export function ResidentsView({
   const [roleFilter, setRoleFilter] = useState<"all" | "owner" | "tenant">("all");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
   const [page, setPage] = useState(0);
-  const [modal, setModal] = useState<"add" | "edit" | "delete" | null>(null);
+  const [modal, setModal] = useState<"add" | "edit" | "delete" | "import" | null>(null);
   const [addForm, setAddForm] = useState({ name: "", phone: "", unit: "", role: "owner" as "owner" | "tenant" });
   const [addSuccess, setAddSuccess] = useState(false);
   const [editTarget, setEditTarget] = useState<Resident | null>(null);
@@ -55,6 +55,14 @@ export function ResidentsView({
   const [codeTarget, setCodeTarget] = useState<Resident | null>(null);
   const [codeSuccess, setCodeSuccess] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
+
+  // Import state
+  type ImportRow = { name: string; phone: string; unit: string; role: "owner" | "tenant"; valid: boolean; error?: string };
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importStep, setImportStep] = useState<"upload" | "preview" | "importing" | "done">("upload");
+  const [importSendSms, setImportSendSms] = useState(true);
+  const [importResult, setImportResult] = useState<{ imported: number; errors: { index: number; name: string; error: string }[] } | null>(null);
+  const [importError, setImportError] = useState("");
 
   const activeResidents = localResidents.filter((r) => (r.status ?? "active") === "active");
   const inactiveResidents = localResidents.filter((r) => (r.status ?? "active") === "inactive");
@@ -88,6 +96,108 @@ export function ResidentsView({
     if (digits.startsWith("06") || digits.startsWith("07") || digits.startsWith("05")) return "+212" + digits.slice(1);
     if (digits.startsWith("00212")) return "+" + digits.slice(2);
     return digits;
+  }
+
+  function openImport() {
+    setImportRows([]);
+    setImportStep("upload");
+    setImportSendSms(true);
+    setImportResult(null);
+    setImportError("");
+    setModal("import");
+  }
+
+  async function handleImportFile(file: File) {
+    setImportError("");
+    try {
+      const XLSX = (await import("xlsx"));
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      if (!raw.length) { setImportError(T.importModal.errorEmpty); return; }
+      if (raw.length > 500) { setImportError(T.importModal.errorTooMany); return; }
+
+      // Map column headers (French / Arabic / English)
+      const colMap: Record<string, string> = {
+        lot: "unit", nom: "name", name: "name", téléphone: "phone", telephone: "phone", phone: "phone",
+        rôle: "role", role: "role", الشقة: "unit", الاسم: "name", الهاتف: "phone", الدور: "role",
+      };
+
+      const headers = Object.keys(raw[0]).map((h) => h.trim().toLowerCase());
+      const mapped: Record<string, string> = {};
+      for (const h of headers) {
+        const key = colMap[h];
+        if (key) mapped[key] = Object.keys(raw[0]).find((k) => k.trim().toLowerCase() === h) || h;
+      }
+
+      if (!mapped.unit || !mapped.name || !mapped.phone || !mapped.role) {
+        setImportError(T.importModal.errorMissingCols);
+        return;
+      }
+
+      const roleMap: Record<string, "owner" | "tenant"> = {
+        propriétaire: "owner", proprietaire: "owner", owner: "owner", مالك: "owner",
+        locataire: "tenant", tenant: "tenant", مستأجر: "tenant",
+      };
+
+      const phoneRegex = /^(\+?\d{9,15}|0\d{9})$/;
+      const existingPhones = new Set(localResidents.map((r) => r.phone));
+
+      const rows: ImportRow[] = raw
+        .filter((r) => String(r[mapped.name] || "").trim())
+        .map((r) => {
+          const name = String(r[mapped.name] || "").trim();
+          const rawPhone = String(r[mapped.phone] || "").trim();
+          const phone = normalizePhone(rawPhone.replace(/[\s.\-]/g, ""));
+          const unit = String(r[mapped.unit] || "").trim().toUpperCase();
+          const rawRole = String(r[mapped.role] || "").trim().toLowerCase();
+          const role = roleMap[rawRole] || "owner";
+
+          let valid = true;
+          let error: string | undefined;
+
+          if (!name) { valid = false; error = "Nom manquant"; }
+          else if (!phone || !phoneRegex.test(phone.replace("+", ""))) { valid = false; error = "Téléphone invalide"; }
+          else if (!unit) { valid = false; error = "Lot manquant"; }
+          else if (existingPhones.has(phone)) { valid = false; error = "Doublon"; }
+
+          return { name, phone, unit, role, valid, error };
+        });
+
+      if (!rows.length) { setImportError(T.importModal.errorEmpty); return; }
+
+      setImportRows(rows);
+      setImportStep("preview");
+    } catch {
+      setImportError(T.errors.genericError);
+    }
+  }
+
+  function handleConfirmImport() {
+    const validRows = importRows.filter((r) => r.valid);
+    if (!validRows.length) return;
+    setImportStep("importing");
+    startTransition(async () => {
+      const result = await importResidents({
+        buildingId,
+        residents: validRows.map(({ name, phone, unit, role }) => ({ name, phone, unit, role })),
+        sendSms: importSendSms,
+      });
+      setImportResult(result);
+      setImportStep("done");
+      if (result.imported > 0) router.refresh();
+    });
+  }
+
+  function downloadTemplate() {
+    const header = "Lot,Nom,Téléphone,Rôle";
+    const csv = header;
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "modele-residents.csv"; a.click();
+    URL.revokeObjectURL(url);
   }
 
   function exportCSV() {
@@ -217,6 +327,9 @@ export function ResidentsView({
           <div className="flex gap-2">
             <button onClick={exportCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
               <Icon name="Download" className="h-3.5 w-3.5" /> {C.export}
+            </button>
+            <button onClick={openImport} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand/50">
+              <Icon name="Upload" className="h-3.5 w-3.5" /> {T.importBtn}
             </button>
             <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-palier-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-palier-700">
               <Icon name="Plus" className="h-3.5 w-3.5" /> {T.addResident}
@@ -753,6 +866,123 @@ export function ResidentsView({
               </button>
             </div>
           ) : null}
+        </Overlay>
+      )}
+
+      {/* Import modal */}
+      {modal === "import" && (
+        <Overlay onClose={() => setModal(null)} wide>
+          <div className="mb-5 flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-palier-100">
+                <Icon name="Upload" className="h-5 w-5 text-palier-600" />
+              </span>
+              <div>
+                <h2 className="text-[16px] font-semibold text-ink">{T.importModal.title}</h2>
+                <p className="text-[12px] text-ink-soft">{T.importModal.subtitle}</p>
+              </div>
+            </div>
+            <button onClick={() => setModal(null)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+              <Icon name="X" className="h-4 w-4" />
+            </button>
+          </div>
+
+          {importStep === "upload" && (
+            <div>
+              <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-black/[0.1] bg-sand/30 px-6 py-10 transition-colors hover:border-palier-400 hover:bg-palier-50/30">
+                <Icon name="FileSpreadsheet" className="h-8 w-8 text-ink-faint" />
+                <p className="text-[13px] text-ink-soft">{T.importModal.dropzone}</p>
+                <p className="text-[11px] text-ink-faint">{T.importModal.formats}</p>
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
+              </label>
+              <button onClick={downloadTemplate} className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-palier-600 hover:text-palier-700">
+                <Icon name="Download" className="h-3.5 w-3.5" /> {T.importModal.template}
+              </button>
+              {importError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{importError}</div>
+              )}
+            </div>
+          )}
+
+          {importStep === "preview" && (
+            <div>
+              <p className="mb-3 text-[13px] font-medium text-ink">{T.importModal.preview} — {T.importModal.rowCount(importRows.length)}</p>
+              <div className="max-h-[300px] overflow-y-auto rounded-xl border border-black/[0.06]">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-black/[0.06] bg-sand/40">
+                      <th className="px-3 py-2 text-start font-semibold text-ink-soft">{T.importModal.columns.lot}</th>
+                      <th className="px-3 py-2 text-start font-semibold text-ink-soft">{T.importModal.columns.name}</th>
+                      <th className="px-3 py-2 text-start font-semibold text-ink-soft">{T.importModal.columns.phone}</th>
+                      <th className="px-3 py-2 text-start font-semibold text-ink-soft">{T.importModal.columns.role}</th>
+                      <th className="px-3 py-2 text-start font-semibold text-ink-soft"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importRows.map((r, i) => (
+                      <tr key={i} className={`border-b border-black/[0.04] ${!r.valid ? "bg-red-50/50" : ""}`}>
+                        <td className="px-3 py-2 text-ink">{r.unit}</td>
+                        <td className="px-3 py-2 text-ink">{r.name}</td>
+                        <td className="px-3 py-2 text-ink" dir="ltr">{r.phone}</td>
+                        <td className="px-3 py-2 text-ink">{r.role === "owner" ? T.roles.owner : T.roles.tenant}</td>
+                        <td className="px-3 py-2">
+                          {r.valid ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{T.importModal.valid}</span>
+                          ) : (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700" title={r.error}>{r.error}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <label className="mt-4 flex items-center gap-2">
+                <input type="checkbox" checked={importSendSms} onChange={(e) => setImportSendSms(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-palier-600" />
+                <span className="text-[12px] text-ink">{T.importModal.sendSms}</span>
+              </label>
+              <p className="mt-1 text-[11px] text-ink-faint">{T.importModal.sendSmsHint}</p>
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => setImportStep("upload")} className="flex-1 rounded-lg border border-black/[0.08] bg-white py-2.5 text-[13px] font-medium text-ink hover:bg-sand/50">
+                  {C.cancel}
+                </button>
+                <button onClick={handleConfirmImport} disabled={!importRows.some((r) => r.valid) || isPending} className="flex-1 rounded-lg bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
+                  {T.importModal.confirmBtn} ({importRows.filter((r) => r.valid).length})
+                </button>
+              </div>
+            </div>
+          )}
+
+          {importStep === "importing" && (
+            <div className="py-8 text-center">
+              <Icon name="LoaderCircle" className="mx-auto h-6 w-6 animate-spin text-ink-faint" />
+              <p className="mt-2 text-[13px] text-ink-soft">{T.importModal.importing}</p>
+            </div>
+          )}
+
+          {importStep === "done" && importResult && (
+            <div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                  <Icon name="Check" className="h-5 w-5 text-emerald-700" />
+                </span>
+                <p className="mt-3 text-[14px] font-semibold text-emerald-800">{T.importModal.success}</p>
+                <p className="mt-2 text-[12px] text-ink-soft">
+                  {T.importModal.resultSummary(importResult.imported, importResult.errors.length)}
+                </p>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="mt-3 max-h-[120px] overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3">
+                  {importResult.errors.map((e, i) => (
+                    <p key={i} className="text-[11px] text-red-700">Ligne {e.index + 1} ({e.name}) : {e.error}</p>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setModal(null)} className="mt-4 w-full rounded-lg bg-palier-600 py-2.5 text-[13px] font-medium text-white hover:bg-palier-700">
+                {T.importModal.done}
+              </button>
+            </div>
+          )}
         </Overlay>
       )}
 

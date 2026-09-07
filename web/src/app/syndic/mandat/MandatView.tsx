@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/syndic/ui";
 import { Icon } from "@/components/ui/Icon";
 import { longDate, mad } from "@/lib/format";
-import { createMandate, updateMandate, deleteMandate, uploadFileAction } from "@/lib/actions";
+import { createMandate, updateMandate, deleteMandate, uploadFileAction, requestSyndicTransfer } from "@/lib/actions";
 import { useLang } from "@/lib/LangProvider";
 import type { SyndicMandate } from "@/lib/types";
 
@@ -39,7 +39,15 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
   // Modals
   const [showForm, setShowForm] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Transfer request state
+  const [transferName, setTransferName] = useState("");
+  const [transferPhone, setTransferPhone] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferPending, setTransferPending] = useState(false);
+  const [transferSent, setTransferSent] = useState(false);
 
   // Form state
   const [fName, setFName] = useState(mandate?.syndicName ?? "");
@@ -251,9 +259,12 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
             )}
 
             {/* Actions */}
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button onClick={openForm} className="rounded-lg border border-black/[0.08] px-3.5 py-2 text-[13px] font-medium text-ink hover:bg-sand/50">
                 {C.modify}
+              </button>
+              <button onClick={() => { setShowTransfer(true); setTransferName(""); setTransferPhone(""); setTransferReason(""); setTransferSent(false); }} className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[13px] font-medium text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1.5">
+                <Icon name="RefreshCw" className="h-3.5 w-3.5" /> {T.transfer.btn}
               </button>
               <button onClick={() => setShowDelete(true)} className="rounded-lg border border-red-200 px-3.5 py-2 text-[13px] font-medium text-red-600 hover:bg-red-50">
                 {C.delete}
@@ -373,6 +384,87 @@ export function MandatView({ mandate: initialMandate, buildingId }: { mandate: S
                 {C.delete}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer syndic request modal */}
+      {showTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30" onClick={() => { if (!transferSent) setShowTransfer(false); }}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-cream-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            {transferSent ? (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                    <Icon name="CircleCheck" className="h-5 w-5 text-emerald-600" />
+                  </span>
+                  <div>
+                    <h2 className="text-[16px] font-semibold text-ink">{T.transfer.successTitle}</h2>
+                    <p className="text-[12px] text-ink-soft">{T.transfer.successMsg}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowTransfer(false)} className="w-full rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700">
+                  {C.close}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+                      <Icon name="RefreshCw" className="h-5 w-5 text-amber-600" />
+                    </span>
+                    <div>
+                      <h2 className="text-[16px] font-semibold text-ink">{T.transfer.title}</h2>
+                      <p className="text-[12px] text-ink-soft">{T.transfer.desc}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowTransfer(false)} className="rounded-md p-1 text-ink-faint hover:bg-palier-50 hover:text-ink">
+                    <Icon name="X" className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mb-4 rounded-xl bg-palier-50 border border-palier-200 p-3">
+                  <div className="flex items-start gap-2">
+                    <Icon name="ShieldCheck" className="mt-0.5 h-4 w-4 shrink-0 text-palier-600" />
+                    <p className="text-[12px] text-palier-800">{T.transfer.securityNote}</p>
+                  </div>
+                </div>
+
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!transferName.trim() || !transferPhone.trim() || transferPending) return;
+                  setTransferPending(true);
+                  try {
+                    const res = await requestSyndicTransfer({ buildingId, newSyndicName: transferName.trim(), newSyndicPhone: transferPhone.trim(), reason: transferReason.trim() || undefined });
+                    if (res?.error) { flash(T.transfer.error); }
+                    else { setTransferSent(true); }
+                  } catch { flash(T.transfer.error); }
+                  setTransferPending(false);
+                }} className="space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.transfer.newSyndicName}</label>
+                    <input type="text" required value={transferName} onChange={(e) => setTransferName(e.target.value)} placeholder={T.transfer.newSyndicPlaceholder} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.transfer.newSyndicPhone}</label>
+                    <input type="tel" required dir="ltr" value={transferPhone} onChange={(e) => setTransferPhone(e.target.value)} placeholder={T.transfer.newSyndicPhonePlaceholder} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{T.transfer.reason}</label>
+                    <textarea value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder={T.transfer.reasonPlaceholder} rows={2} className={`${inputCls} h-auto py-2`} />
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button type="button" onClick={() => setShowTransfer(false)} className="flex-1 rounded-xl border border-black/[0.08] py-2.5 text-[13px] font-semibold text-ink hover:bg-sand/50">
+                      {C.cancel}
+                    </button>
+                    <button type="submit" disabled={transferPending || !transferName.trim() || !transferPhone.trim()} className="flex-1 rounded-xl bg-palier-600 py-2.5 text-[13px] font-semibold text-white hover:bg-palier-700 disabled:opacity-50">
+                      {transferPending ? T.transfer.confirming : T.transfer.confirm}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -351,7 +351,7 @@ export function generateAnnexe6PDF(
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ANNEXE 7 — Suivi du fonds de réserve (art. 37bis)
+   ANNEXE 7 — Suivi du fonds de réserve
    Colonnes: Date | Libellé | Entrée | Sortie | Solde cumulé
    ═══════════════════════════════════════════════════════════ */
 
@@ -362,7 +362,7 @@ export function generateAnnexe7PDF(rows: Annexe7Row[], solde: number, buildingNa
   // Legal note
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.text("Article 37bis de la Loi 18-00 — Minimum 5% du budget annuel", 17, y);
+  doc.text("Minimum 5% du budget annuel recommandé", 17, y);
   doc.setTextColor(20, 32, 29);
   y += 8;
 

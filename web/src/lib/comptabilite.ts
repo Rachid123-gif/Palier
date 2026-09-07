@@ -94,7 +94,7 @@ export const ANNEXES: AnnexeRequirement[] = [
   { id: "4", label: "Compte de gestion général", description: "Produits et charges par code comptable — Réalisé N + Budget N+1", tiers: ["tier3"] },
   { id: "5", label: "Comparaison budgétaire", description: "Budget N-1, N, Réalisé N, Prévision N+1, Écart valeur et %", tiers: ["tier3"] },
   { id: "6", label: "Travaux non courants", description: "Voté (date AG), payé, réalisé, solde, réalisé non payé", tiers: ["tier3"] },
-  { id: "7", label: "Suivi du fonds de réserve", description: "Mouvements chronologiques du fonds (art. 37bis Loi 18-00)", tiers: ["tier3"] },
+  { id: "7", label: "Suivi du fonds de réserve", description: "Mouvements chronologiques du fonds de réserve", tiers: ["tier3"] },
   { id: "8", label: "Suivi des emprunts", description: "Date, prêteur, montant initial, remboursements, solde restant", tiers: ["tier3"] },
   { id: "9", label: "Inventaire des immobilisations", description: "Nature, fournisseur, mise en service, valeur d'acquisition", tiers: ["tier3"] },
   // Toutes catégories — Annexe 10

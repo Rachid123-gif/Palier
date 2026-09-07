@@ -33,8 +33,8 @@ export default function ConditionsUtilisationPage() {
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">1. Objet</h2>
             <p>
               Les présentes conditions générales d&apos;utilisation (ci-après « CGU ») régissent l&apos;accès et l&apos;utilisation
-              de la plateforme <strong>Palier</strong>, accessible via application mobile (App Store et Google Play)
-              et via navigateur web, ci-après « le Service ».
+              de la plateforme <strong>Palier</strong>, accessible via navigateur web (application web progressive),
+              ci-après « le Service ».
             </p>
             <p className="mt-2">
               Palier est une plateforme numérique de gestion de copropriété destinée aux résidents et aux syndics au Maroc.
@@ -49,9 +49,8 @@ export default function ConditionsUtilisationPage() {
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">2. Éditeur du service</h2>
             <p>Le Service est édité par :</p>
             <ul className="mt-2 list-none space-y-1 pl-0">
-              <li><strong>Nom :</strong> [Nom complet de l&apos;éditeur — à compléter]</li>
-              <li><strong>Adresse :</strong> [Adresse complète — à compléter]</li>
-              <li><strong>Téléphone :</strong> [Numéro — à compléter]</li>
+              <li><strong>Nom :</strong> Rachid IDRISSI</li>
+              <li><strong>Téléphone :</strong> +212 661-087205</li>
               <li><strong>Email :</strong> <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a></li>
             </ul>
             <p className="mt-2 text-[13px] text-[#6b7280]">
@@ -66,8 +65,8 @@ export default function ConditionsUtilisationPage() {
           <section>
             <h2 className="mb-2 text-[18px] font-bold text-[#111815]">3. Acceptation des CGU</h2>
             <p>
-              En cochant la case « J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité »
-              lors de la première connexion, l&apos;utilisateur accepte les présentes CGU dans leur intégralité.
+              En cochant la case d&apos;acceptation des conditions d&apos;utilisation et de la politique de confidentialité
+              lors de l&apos;inscription ou de la première connexion, l&apos;utilisateur accepte les présentes CGU dans leur intégralité.
               Cette acceptation constitue un contrat électronique valide conformément à la <strong>Loi 53-05</strong>.
             </p>
             <p className="mt-2">
@@ -283,8 +282,8 @@ export default function ConditionsUtilisationPage() {
               à des fins commerciales.
             </p>
             <p className="mt-2">
-              Conformément aux articles 7, 8 et 9 de la Loi 09-08, chaque utilisateur dispose d&apos;un droit
-              d&apos;accès, de rectification et d&apos;opposition sur ses données personnelles. Ces droits peuvent être
+              Conformément à la Loi 09-08, chaque utilisateur dispose d&apos;un droit
+              d&apos;accès (art. 7), de rectification (art. 8) et d&apos;opposition (art. 9) sur ses données personnelles. Ces droits peuvent être
               exercés depuis la page « Mon profil » (export de données, suppression de compte) ou par email
               à <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a>.
             </p>
@@ -363,7 +362,7 @@ export default function ConditionsUtilisationPage() {
               à notre{" "}
               <Link href="/politique-confidentialite" className="text-[#0B7A57] underline">politique de confidentialité</Link>.
               Les données comptables (charges, paiements) sont conservées conformément aux obligations légales
-              (Loi 9-88, Décret 2.23.700 — durée minimale de 6 ans).
+              (Loi 9-88, Décret 2.23.700 — durée minimale de 10 ans).
             </p>
 
             <p className="mt-3 font-semibold text-[#111815]">Désactivation par le syndic :</p>
@@ -438,9 +437,26 @@ export default function ConditionsUtilisationPage() {
             </ul>
           </section>
 
-          {/* ── 23. Dispositions générales ── */}
+          {/* ── 23. Références juridiques ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">23. Dispositions générales</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">23. Références juridiques</h2>
+            <p>
+              Les lois marocaines citées dans l&apos;application et dans les présentes CGU sont fournies
+              <strong> à titre purement informatif</strong> et ne constituent en aucun cas un conseil juridique.
+            </p>
+            <p className="mt-2">
+              Palier ne garantit pas l&apos;exactitude, l&apos;exhaustivité ou l&apos;actualité de ces références.
+              L&apos;utilisateur est invité à consulter un professionnel du droit pour toute question juridique.
+            </p>
+            <p className="mt-2">
+              En aucun cas l&apos;éditeur ne pourra être tenu responsable d&apos;une erreur, omission ou
+              interprétation inexacte d&apos;un texte de loi affiché dans l&apos;application.
+            </p>
+          </section>
+
+          {/* ── 24. Dispositions générales ── */}
+          <section>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">24. Dispositions générales</h2>
             <p>
               Si l&apos;une des clauses des présentes CGU est déclarée nulle ou inapplicable, les autres clauses
               restent en vigueur (clause de divisibilité).
@@ -453,9 +469,9 @@ export default function ConditionsUtilisationPage() {
             </p>
           </section>
 
-          {/* ── 24. Contact ── */}
+          {/* ── 25. Contact ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">24. Contact</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">25. Contact</h2>
             <p>
               Pour toute question relative aux présentes CGU, aux données personnelles ou au fonctionnement
               du Service, vous pouvez contacter l&apos;éditeur par email
