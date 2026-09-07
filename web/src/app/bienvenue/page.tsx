@@ -245,13 +245,22 @@ function BienvenueContent() {
 
   const [role, setRole] = useState<"resident" | "syndic" | null>(null);
 
+  // Detect desktop — residents can only log in on mobile
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const mobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    setIsDesktop(!mobile);
+  }, []);
+
   // Deep-link: ?role=syndic skips role selection, keeps lang + welcome
   const [roleFromUrl] = useState(() => searchParams.get("role"));
   useEffect(() => {
-    if (roleFromUrl === "syndic") {
+    if (roleFromUrl === "syndic" || isDesktop) {
       setRole("syndic");
     }
-  }, [roleFromUrl]);
+  }, [roleFromUrl, isDesktop]);
 
   // Clear expired session cookie when redirected from inactive membership
   useEffect(() => {
@@ -347,13 +356,15 @@ function BienvenueContent() {
 
   function nextSlide() {
     if (slide < i.slides.length - 1) setSlide(slide + 1);
-    else if (roleFromUrl === "syndic") setStep("syndic-choice");
+    else if (roleFromUrl === "syndic" || isDesktop) setStep("syndic-choice");
     else setStep("role");
   }
 
   function pickRole(r: "resident" | "syndic") {
-    setRole(r);
-    if (r === "syndic") {
+    // Sur desktop, forcer syndic
+    const finalRole = isDesktop ? "syndic" : r;
+    setRole(finalRole);
+    if (finalRole === "syndic") {
       setStep("syndic-choice");
     } else {
       setStep("code");
@@ -716,7 +727,7 @@ function BienvenueContent() {
 
           {slide === 0 && (
             <button
-              onClick={() => roleFromUrl === "syndic" ? setStep("syndic-choice") : setStep("role")}
+              onClick={() => (roleFromUrl === "syndic" || isDesktop) ? setStep("syndic-choice") : setStep("role")}
               className="tap mt-3 w-full py-2 text-center text-[13px] font-semibold text-ink-faint"
             >
               {i.skip}
@@ -727,7 +738,12 @@ function BienvenueContent() {
     );
   }
 
-  // ─── SÉLECTION DU RÔLE ──────────────────────────────────
+  // ─── SÉLECTION DU RÔLE (mobile uniquement) ──────────────
+  // Sur desktop, on force le flux syndic — pas de sélection de rôle
+  if (step === "role" && isDesktop) {
+    setStep("syndic-choice");
+    setRole("syndic");
+  }
   if (step === "role") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
