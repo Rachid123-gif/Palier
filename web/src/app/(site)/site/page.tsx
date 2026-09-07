@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
 import { Icon } from "@/components/ui/Icon";
 import { CopyEmail } from "@/components/ui/CopyEmail";
+import { InstallButton } from "@/components/ui/InstallButton";
 
 export const metadata = {
   title: "Palier | La plateforme des copropriétés marocaines",
@@ -89,8 +90,9 @@ export default function SitePage() {
               <p className="mx-auto mt-6 max-w-[420px] text-[16px] leading-relaxed text-[#6b7280] sm:text-[18px] lg:mx-0">
                 Charges, incidents, voisinage. Tout ce qu'il faut pour que votre résidence fonctionne, enfin sur une seule plateforme.
               </p>
-              <div className="mt-9 flex items-center justify-center lg:justify-start">
-                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-2 text-[17px] font-semibold text-[#0B7A57] transition-colors hover:text-[#096b4b] sm:text-[18px]">
+              <div className="mt-9 flex flex-col items-center gap-4 lg:items-start">
+                <InstallButton />
+                <Link href="/bienvenue?role=syndic" className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#0B7A57] transition-colors hover:text-[#096b4b] sm:text-[16px]">
                   Vous êtes syndic ? Accédez à votre espace <Icon name="ArrowRight" className="h-5 w-5" />
                 </Link>
               </div>
