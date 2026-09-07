@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
@@ -579,38 +579,41 @@ function BienvenueContent() {
   );
 
   // Browser history — permet au bouton "back" du navigateur de revenir à l'étape précédente
-  const stepHistory: Record<string, string> = {
-    welcome: "lang",
-    role: "welcome",
-    "syndic-choice": roleFromUrl === "syndic" ? "welcome" : "role",
-    activate: "syndic-choice",
-    code: role === "syndic" ? "syndic-choice" : "role",
-    register: "syndic-choice",
-    "register-otp": "register",
-    recover: "code",
-    "recover-otp": "recover",
-  };
+  const isPopNav = useRef(false);
 
   useEffect(() => {
-    if (step !== "lang") {
-      window.history.pushState({ step }, "", "/bienvenue");
+    if (step === "lang") return;
+    if (isPopNav.current) {
+      isPopNav.current = false;
+      return;
     }
+    window.history.pushState({ step }, "", "/bienvenue");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   useEffect(() => {
-    function onPopState(e: PopStateEvent) {
-      if (e.state?.step) {
-        setStep(e.state.step);
-      } else {
-        const prev = stepHistory[step];
-        if (prev) setStep(prev as typeof step);
-      }
+    const prevStepMap: Record<string, string> = {
+      welcome: "lang",
+      role: "welcome",
+      "syndic-choice": roleFromUrl === "syndic" ? "welcome" : "role",
+      activate: "syndic-choice",
+      code: role === "syndic" ? "syndic-choice" : "role",
+      register: "syndic-choice",
+      "register-otp": "register",
+      recover: "code",
+      "recover-otp": "recover",
+    };
+
+    function onPopState() {
+      isPopNav.current = true;
+      setStep((current) => {
+        const prev = prevStepMap[current];
+        return (prev ?? "lang") as typeof current;
+      });
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, role, roleFromUrl]);
+  }, [role, roleFromUrl]);
 
   // ─── LANGUAGE SELECTION ─────────────────────────────────
   if (step === "lang") {
@@ -669,8 +672,9 @@ function BienvenueContent() {
         <StatusBar />
 
         {/* Top bar : logo + langue */}
+        {desktopLogo}
         <div className="flex items-center justify-between px-6 pt-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:invisible">
             <LogoMark size={36} />
             <Wordmark />
           </div>
