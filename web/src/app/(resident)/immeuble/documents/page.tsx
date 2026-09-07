@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { shortDate } from "@/lib/format";
 import { useData } from "@/lib/DataProvider";
@@ -12,7 +11,6 @@ export default function DocumentsScreen() {
 
   return (
     <div className="animate-[fade_0.4s_ease] pb-4">
-      <StatusBar />
       <header className="flex items-center gap-3 px-5 pb-2 pt-3">
         <Link href="/immeuble" className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
           <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />

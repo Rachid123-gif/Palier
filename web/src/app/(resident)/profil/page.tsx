@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { Icon } from "@/components/ui/Icon";
 import { FeedbackCard } from "@/components/resident/FeedbackCard";
 import { FeedbackHistory } from "@/components/ui/FeedbackHistory";
@@ -122,7 +121,6 @@ export default function ProfilPage() {
 
   return (
     <div className="animate-[fade_0.4s_ease]">
-      <StatusBar />
 
       {/* Header */}
       <header className="flex items-center gap-3 px-5 pb-2 pt-3">

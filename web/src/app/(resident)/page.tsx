@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark } from "@/components/brand/Logo";
@@ -30,7 +29,6 @@ export default function HomeScreen() {
 
   return (
     <div className="animate-[fade_0.4s_ease]">
-      <StatusBar />
 
       {/* Header */}
       <header className="flex items-center justify-between px-5 pb-2 pt-3">

@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { ScreenHeader } from "@/components/resident/ScreenHeader";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/primitives";
@@ -89,7 +88,6 @@ export default function ChargesScreen() {
 
   return (
     <div className="animate-[fade_0.4s_ease]">
-      <StatusBar />
       <ScreenHeader title={T.title} isAr={isAr} />
 
       <div className="space-y-5 px-4">

@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { mad, num, shortDate, longDate } from "@/lib/format";
@@ -64,7 +63,6 @@ export default function ImmeubleScreen() {
 
   return (
     <div className="animate-[fade_0.4s_ease]">
-      <StatusBar />
 
       <header className="flex items-start justify-between px-5 pb-2 pt-3">
         <div className="flex items-center gap-3">

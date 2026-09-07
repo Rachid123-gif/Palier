@@ -1,6 +1,5 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { LetterAvatar } from "@/components/ui/Avatar";
@@ -235,7 +234,6 @@ export default function ServicesScreen() {
 
   return (
     <div className="animate-[fade_0.4s_ease]">
-      <StatusBar />
       <header className="flex items-end justify-between px-5 pb-2 pt-3">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-faint">{T.label}</p>
