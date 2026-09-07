@@ -58,6 +58,7 @@ export async function middleware(request: NextRequest) {
     betaEnabled &&
     !hasBetaCookie &&
     !session &&
+    pathname !== "/" &&
     pathname !== "/bienvenue" &&
     pathname !== "/site" &&
     pathname !== "/conditions-utilisation" &&
