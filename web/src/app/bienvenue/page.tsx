@@ -553,11 +553,11 @@ function BienvenueContent() {
   const resolvedCity = regCity === "__other__" ? regCityCustom.trim() : regCity;
   const regFormValid = regName.trim() && regPhone.trim() && regBuilding.trim() && resolvedCity && regLots && regConsent;
 
-  // Bouton de langue (coin haut droit)
+  // Bouton de langue (coin haut droit — fixé en haut à droite sur desktop)
   const langBtn = (
     <button
       onClick={() => { const next = i.langSwitch; setLang(next); localStorage.setItem("palier_lang", next); setCodeError(""); setRegError(""); }}
-      className="tap flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-soft shadow-sm"
+      className="tap flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-soft shadow-sm sm:fixed sm:top-5 sm:right-5 sm:z-50"
     >
       <Icon name="Globe" className="h-3.5 w-3.5" />
       {lang === "fr" ? <span style={{ fontFamily: "var(--font-cairo), sans-serif" }}>{i.langLabel}</span> : i.langLabel}
@@ -565,7 +565,7 @@ function BienvenueContent() {
   );
 
   const backBtn = (onBack: () => void) => (
-    <button onClick={onBack} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card">
+    <button onClick={onBack} className="tap flex h-9 w-9 items-center justify-center rounded-full bg-cream-card text-ink shadow-card sm:hidden">
       <Icon name={isAr ? "ChevronRight" : "ChevronLeft"} className="h-5 w-5" />
     </button>
   );
