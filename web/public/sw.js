@@ -1,10 +1,10 @@
 /// <reference lib="webworker" />
 
 // Cache version — bump this on each deployment to bust stale caches
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_NAME = `palier-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
-  "/",
+  "/bienvenue",
   "/manifest.webmanifest",
   "/icon.svg",
 ];
@@ -46,7 +46,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/bienvenue")))
     );
     return;
   }

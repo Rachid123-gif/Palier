@@ -3,7 +3,6 @@ import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { LogoMark, Wordmark } from "@/components/brand/Logo";
-import { StatusBar } from "@/components/resident/StatusBar";
 import { loginWithCode, requestSyndicRegistrationOtp, completeSyndicRegistration, requestRecoveryOtp, verifyRecoveryOtp, validateBetaCode } from "@/lib/auth";
 
 
@@ -630,7 +629,7 @@ function BienvenueContent() {
   if (step === "lang") {
     return (
       <div className="flex h-full flex-col">
-        <StatusBar />
+
 
         <div className="flex flex-1 flex-col items-center justify-center px-6">
           <LogoMark size={56} />
@@ -680,7 +679,7 @@ function BienvenueContent() {
     const s = i.slides[slide];
     return (
       <div className={`flex h-full flex-col ${isAr ? "direction-rtl" : ""}`} dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         {/* Top bar : logo + langue */}
         {desktopLogo}
@@ -747,7 +746,7 @@ function BienvenueContent() {
   if (step === "role") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("welcome"); setSlide(i.slides.length - 1); })}
@@ -801,7 +800,7 @@ function BienvenueContent() {
   if (step === "syndic-choice") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep(roleFromUrl === "syndic" ? "welcome" : "role"))}
@@ -892,7 +891,7 @@ function BienvenueContent() {
 
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("syndic-choice"); setActBeta(""); setActError(""); })}
@@ -952,7 +951,7 @@ function BienvenueContent() {
   if (step === "register") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep("syndic-choice"))}
@@ -1102,7 +1101,7 @@ function BienvenueContent() {
     const maskedPhone = regPhone.trim().replace(/(\d{2})\d{4}(\d{4})/, "$1****$2");
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("register"); setRegOtp(""); setRegOtpError(""); })}
@@ -1174,7 +1173,7 @@ function BienvenueContent() {
   if (step === "register-success") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-palier-100">
@@ -1216,7 +1215,7 @@ function BienvenueContent() {
   if (step === "code") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep(role === "syndic" ? "syndic-choice" : "role"))}
@@ -1307,7 +1306,7 @@ function BienvenueContent() {
   if (step === "recover-success") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
@@ -1358,7 +1357,7 @@ function BienvenueContent() {
   if (step === "recover") {
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep("code"))}
@@ -1413,7 +1412,7 @@ function BienvenueContent() {
     const maskedPhone = recoverPhone.trim().replace(/(\d{2})\d{4}(\d{4})/, "$1****$2");
     return (
       <div className="flex h-full flex-col" dir={isAr ? "rtl" : "ltr"}>
-        <StatusBar />
+
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("recover"); setOtp(""); setOtpError(""); })}
