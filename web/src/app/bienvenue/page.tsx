@@ -570,13 +570,47 @@ function BienvenueContent() {
     </button>
   );
 
-  // Logo fixé en haut à gauche sur desktop (remplace le bouton retour caché)
+  // Logo fixé en haut à gauche sur desktop
   const desktopLogo = (
-    <div className="hidden sm:flex items-center gap-2">
+    <div className="hidden sm:fixed sm:left-5 sm:top-5 sm:z-50 sm:flex items-center gap-2">
       <LogoMark size={32} />
       <Wordmark />
     </div>
   );
+
+  // Browser history — permet au bouton "back" du navigateur de revenir à l'étape précédente
+  const stepHistory: Record<string, string> = {
+    welcome: "lang",
+    role: "welcome",
+    "syndic-choice": roleFromUrl === "syndic" ? "welcome" : "role",
+    activate: "syndic-choice",
+    code: role === "syndic" ? "syndic-choice" : "role",
+    register: "syndic-choice",
+    "register-otp": "register",
+    recover: "code",
+    "recover-otp": "recover",
+  };
+
+  useEffect(() => {
+    if (step !== "lang") {
+      window.history.pushState({ step }, "", "/bienvenue");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      if (e.state?.step) {
+        setStep(e.state.step);
+      } else {
+        const prev = stepHistory[step];
+        if (prev) setStep(prev as typeof step);
+      }
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, role, roleFromUrl]);
 
   // ─── LANGUAGE SELECTION ─────────────────────────────────
   if (step === "lang") {
