@@ -49,7 +49,7 @@ export async function adminLogin(
   const adminPhone = process.env.ADMIN_PHONE;
   if (!adminPhone) return { ok: false, error: "not_configured" };
 
-  if (!timingSafeEqual(secret.trim(), expected)) {
+  if (!timingSafeEqual(secret.trim(), expected.trim())) {
     return { ok: false, error: "invalid_secret" };
   }
 
