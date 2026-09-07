@@ -570,6 +570,14 @@ function BienvenueContent() {
     </button>
   );
 
+  // Logo fixé en haut à gauche sur desktop (remplace le bouton retour caché)
+  const desktopLogo = (
+    <div className="hidden sm:flex items-center gap-2">
+      <LogoMark size={32} />
+      <Wordmark />
+    </div>
+  );
+
   // ─── LANGUAGE SELECTION ─────────────────────────────────
   if (step === "lang") {
     return (
@@ -689,6 +697,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("welcome"); setSlide(i.slides.length - 1); })}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -742,6 +751,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep(roleFromUrl === "syndic" ? "welcome" : "role"))}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -832,6 +842,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("syndic-choice"); setActBeta(""); setActError(""); })}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -891,6 +902,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep("syndic-choice"))}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -1040,6 +1052,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("register"); setRegOtp(""); setRegOtpError(""); })}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -1153,6 +1166,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep(role === "syndic" ? "syndic-choice" : "role"))}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -1294,6 +1308,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => setStep("code"))}
+          {desktopLogo}
           {langBtn}
         </div>
 
@@ -1348,6 +1363,7 @@ function BienvenueContent() {
 
         <div className="flex items-center justify-between px-6 pt-6">
           {backBtn(() => { setStep("recover"); setOtp(""); setOtpError(""); })}
+          {desktopLogo}
           {langBtn}
         </div>
 
