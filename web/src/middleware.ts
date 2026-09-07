@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
     pathname !== "/sw.js" &&
     pathname !== "/manifest.webmanifest"
   ) {
-    return NextResponse.redirect(new URL("/bienvenue", request.url));
+    return NextResponse.redirect(new URL("/site", request.url));
   }
 
   // Admin routes — block on production domain (only accessible via Vercel deployment URL)
