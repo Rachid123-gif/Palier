@@ -2357,6 +2357,15 @@ export async function markNotificationsRead(notificationIds: string[]) {
     .eq("profile_id", session.profileId);
 }
 
+export async function deleteNotification(notificationId: string) {
+  const session = await requireAuth();
+  await supabaseAdmin
+    .from("notifications")
+    .delete()
+    .eq("id", notificationId)
+    .eq("profile_id", session.profileId);
+}
+
 export async function fetchNotifications(): Promise<{ id: string; title: string; body: string; created_at: string; kind: string; read: boolean }[]> {
   const session = await requireAuth();
   const { data } = await supabaseAdmin

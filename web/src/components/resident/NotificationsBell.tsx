@@ -6,7 +6,7 @@ import { useDataSafe } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
-import { markNotificationsRead, fetchNotifications } from "@/lib/actions";
+import { markNotificationsRead, fetchNotifications, deleteNotification } from "@/lib/actions";
 import { NOTIF_KIND_TO_PREF } from "@/lib/types";
 
 type Notif = { id: string; title: string; body: string; created_at: string; kind: string; read: boolean };
@@ -147,7 +147,15 @@ export function NotificationsBell({ dark = false, profileId: profileIdProp }: { 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm ${isRead ? "font-medium text-ink" : "font-bold text-ink"}`}>{n.title}</p>
-                      {!isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-palier-600" />}
+                      <button
+                        onClick={async () => {
+                          setPolledNotifs((prev) => (prev ?? rawNotifs).filter((x) => x.id !== n.id));
+                          await deleteNotification(n.id);
+                        }}
+                        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-faint hover:bg-ink-faint/10 hover:text-ink-soft"
+                      >
+                        <Icon name="X" className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
                     </div>
                     <p className="text-[13px] text-ink-soft">{n.body}</p>
                     <p className="mt-0.5 text-[11px] text-ink-faint">{timeAgo(n.created_at, lang)}</p>
