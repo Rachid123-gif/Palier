@@ -2380,8 +2380,17 @@ export async function submitFeedback(input: {
   senderRole?: string;
   attachmentUrl?: string | null;
 }) {
+  console.log("[FEEDBACK] input:", JSON.stringify(input, null, 2));
   const session = await requireAuth({ buildingId: input.buildingId });
-  const v = validate(submitFeedbackSchema, input);
+  console.log("[FEEDBACK] session profileId:", session.profileId);
+  let v;
+  try {
+    v = validate(submitFeedbackSchema, input);
+  } catch (e) {
+    console.error("[FEEDBACK] validation error:", e);
+    throw e;
+  }
+  console.log("[FEEDBACK] validated:", JSON.stringify(v, null, 2));
   const { error } = await supabaseAdmin.from("feedback").insert({
     building_id: v.buildingId,
     profile_id: session.profileId,
@@ -2395,7 +2404,11 @@ export async function submitFeedback(input: {
     sender_role: v.senderRole ?? "syndic",
     attachment_url: v.attachmentUrl ?? null,
   });
-  if (error) throw new Error("submit_feedback_failed");
+  if (error) {
+    console.error("[FEEDBACK] supabase insert error:", JSON.stringify(error));
+    throw new Error("submit_feedback_failed");
+  }
+  console.log("[FEEDBACK] success");
 }
 
 /* ═══════════════════════════════════════════════════════════════
