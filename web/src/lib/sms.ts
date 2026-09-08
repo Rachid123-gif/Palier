@@ -33,31 +33,37 @@ async function sendViaWhatsApp(to: string, code: string): Promise<void> {
 
   const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;
 
-  console.log("[WhatsApp/Infobip] Sending to:", intlNumber.slice(0, 7) + "***", "code:", code.slice(0, 4) + "***");
+  const url = `${baseUrl}/whatsapp/1/message/template`;
+  const payload = {
+    messages: [
+      {
+        from: sender,
+        to: intlNumber,
+        content: {
+          templateName: "authentication",
+          templateData: {
+            body: {
+              placeholders: [code],
+            },
+          },
+          language: "fr",
+        },
+      },
+    ],
+  };
 
-  const res = await fetch(`${baseUrl}/whatsapp/1/message/template`, {
+  console.log("[WhatsApp/Infobip] Sending to:", intlNumber.slice(0, 7) + "***", "code:", code.slice(0, 4) + "***");
+  console.log("[WhatsApp/Infobip] URL:", url);
+  console.log("[WhatsApp/Infobip] Sender:", sender);
+  console.log("[WhatsApp/Infobip] Payload:", JSON.stringify(payload, null, 2));
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `App ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      messages: [
-        {
-          from: sender,
-          to: intlNumber,
-          content: {
-            templateName: "authentication",
-            templateData: {
-              body: {
-                placeholders: [code],
-              },
-            },
-            language: "fr",
-          },
-        },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
 
   const body = await res.text();
@@ -76,6 +82,15 @@ async function sendViaWhatsApp(to: string, code: string): Promise<void> {
  * Throws "sms_send_failed" in production on failure.
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
+  console.log("[sendSMS] Called with to:", to.slice(0, 4) + "***", "message:", message.slice(0, 30) + "...");
+  console.log("[sendSMS] ENV check:", {
+    hasApiKey: !!process.env.INFOBIP_API_KEY,
+    hasBaseUrl: !!process.env.INFOBIP_BASE_URL,
+    hasSender: !!process.env.INFOBIP_WA_SENDER,
+    skipSms: process.env.SKIP_SMS,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
   if (process.env.SKIP_SMS === "1") {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SKIP_SMS must not be set in production");
@@ -98,5 +113,6 @@ export async function sendSMS(to: string, message: string): Promise<void> {
     throw new Error("sms_send_failed");
   }
 
+  console.log("[sendSMS] Extracted code:", code.slice(0, 4) + "***", "→ sending via WhatsApp");
   return sendViaWhatsApp(to, code);
 }
