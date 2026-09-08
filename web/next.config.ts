@@ -13,7 +13,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   devIndicators: false,
   productionBrowserSourceMaps: false,
-  serverActions: { bodySizeLimit: "5mb" },
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
