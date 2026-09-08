@@ -93,8 +93,10 @@ export function ResidentsView({
 
   function normalizePhone(raw: string): string {
     const digits = raw.replace(/\s/g, "");
-    if (digits.startsWith("06") || digits.startsWith("07") || digits.startsWith("05")) return "+212" + digits.slice(1);
-    if (digits.startsWith("00212")) return "+" + digits.slice(2);
+    // Always store in local format: 0612345678
+    if (digits.startsWith("+212")) return "0" + digits.slice(4);
+    if (digits.startsWith("00212")) return "0" + digits.slice(5);
+    if (digits.startsWith("212") && digits.length === 12) return "0" + digits.slice(3);
     return digits;
   }
 

@@ -54,6 +54,15 @@ function validate<T>(schema: { parse: (data: unknown) => T }, data: unknown): T 
   return schema.parse(data);
 }
 
+/** Normalize phone to local format: 0XXXXXXXXX */
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\s/g, "");
+  if (digits.startsWith("+212")) return "0" + digits.slice(4);
+  if (digits.startsWith("00212")) return "0" + digits.slice(5);
+  if (digits.startsWith("212") && digits.length === 12) return "0" + digits.slice(3);
+  return digits;
+}
+
 /**
  * Require an authenticated session. Optionally enforce role and/or buildingId.
  * Throws if unauthorized — server action returns error to client.
@@ -674,7 +683,7 @@ export async function addResident(input: {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   let v;
   try {
-    v = validate(addResidentSchema, input);
+    v = validate(addResidentSchema, { ...input, phone: normalizePhone(input.phone) });
   } catch {
     return { error: "validation_error" };
   }
@@ -816,7 +825,7 @@ export async function importResidents(input: {
     const r = input.residents[i];
     try {
       const name = r.name?.trim();
-      const phone = r.phone?.trim();
+      const phone = normalizePhone(r.phone?.trim() || "");
       const unit = r.unit?.trim().toUpperCase();
       const role = r.role;
 
@@ -1525,7 +1534,7 @@ export async function updateResident(input: {
   unit?: string;
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
-  const v = validate(updateResidentSchema, input);
+  const v = validate(updateResidentSchema, { ...input, phone: normalizePhone(input.phone) });
   await supabaseAdmin.from("profiles").update({ full_name: v.name, phone: v.phone }).eq("id", v.profileId);
   await supabaseAdmin.from("memberships").update({ role: v.role }).eq("profile_id", v.profileId).eq("building_id", v.buildingId);
 
