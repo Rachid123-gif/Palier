@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      console.error("[Places API] Error:", res.status);
+      const errBody = await res.text();
+      console.error("[Places API] Error:", res.status, errBody);
       return NextResponse.json({ error: "places_api_error" }, { status: 502 });
     }
 
