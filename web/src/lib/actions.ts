@@ -584,7 +584,19 @@ export async function fetchMyLikes(buildingId: string): Promise<string[]> {
 
 export async function updateProfile(input: { name: string; phone: string }) {
   const session = await requireAuth();
-  const v = validate(updateProfileSchema, input);
+  const v = validate(updateProfileSchema, { ...input, phone: normalizePhone(input.phone) });
+
+  // Check if phone is taken by another profile
+  if (v.phone) {
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("phone", v.phone)
+      .neq("id", session.profileId!)
+      .single();
+    if (existing) throw new Error("phone_taken");
+  }
+
   const { error } = await supabaseAdmin
     .from("profiles")
     .update({ full_name: v.name, phone: v.phone })
@@ -1535,6 +1547,16 @@ export async function updateResident(input: {
 }) {
   await requireAuth({ role: "syndic", buildingId: input.buildingId });
   const v = validate(updateResidentSchema, { ...input, phone: normalizePhone(input.phone) });
+
+  // Check if phone is taken by another profile
+  const { data: phoneTaken } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("phone", v.phone)
+    .neq("id", v.profileId)
+    .single();
+  if (phoneTaken) return { error: "phone_already_exists" };
+
   await supabaseAdmin.from("profiles").update({ full_name: v.name, phone: v.phone }).eq("id", v.profileId);
   await supabaseAdmin.from("memberships").update({ role: v.role }).eq("profile_id", v.profileId).eq("building_id", v.buildingId);
 
