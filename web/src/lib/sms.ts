@@ -1,41 +1,39 @@
 /**
- * OTP sending utility.
+ * OTP / code sending utility.
  *
  * Uses Infobip WhatsApp API (authentication template).
- * Falls back to SMS if WhatsApp fails.
  *
  * Required env vars:
  *   INFOBIP_API_KEY, INFOBIP_BASE_URL
- *   INFOBIP_WA_SENDER — WhatsApp sender number (e.g. "447860088970")
+ *   INFOBIP_WA_SENDER — WhatsApp sender number
  */
 
 /**
- * Extract OTP code from a message string.
- * Matches 4-8 digit sequences.
+ * Extract a code from a message string.
+ * Matches OTP digits (4-8) or alphanumeric codes with prefix (e.g. SYN-AB3K7P, BETA-XY12ZW34).
  */
-function extractOtp(message: string): string | null {
-  const match = message.match(/\b(\d{4,8})\b/);
-  return match ? match[1] : null;
+function extractCode(message: string): string | null {
+  // Match prefixed codes like BETA-XXXXXXXX or SYN-XXXXXX
+  const prefixed = message.match(/\b([A-Z]+-[A-Z0-9]{4,10})\b/);
+  if (prefixed) return prefixed[1];
+  // Match pure digit OTP (4-8 digits)
+  const digits = message.match(/\b(\d{4,8})\b/);
+  if (digits) return digits[1];
+  return null;
 }
 
 /**
- * Send OTP via Infobip WhatsApp authentication template.
+ * Send a code via Infobip WhatsApp authentication template.
  */
-async function sendViaWhatsApp(to: string, message: string): Promise<void> {
+async function sendViaWhatsApp(to: string, code: string): Promise<void> {
   const apiKey = process.env.INFOBIP_API_KEY!;
   const rawBase = process.env.INFOBIP_BASE_URL!;
   const baseUrl = rawBase.startsWith("http") ? rawBase : `https://${rawBase}`;
   const sender = process.env.INFOBIP_WA_SENDER ?? "447860088970";
 
   const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;
-  const otp = extractOtp(message);
 
-  if (!otp) {
-    console.error("[WhatsApp/Infobip] No OTP found in message, falling back to SMS");
-    return sendViaSMS(to, message);
-  }
-
-  console.log("[WhatsApp/Infobip] Sending to:", intlNumber.slice(0, 7) + "***");
+  console.log("[WhatsApp/Infobip] Sending to:", intlNumber.slice(0, 7) + "***", "code:", code.slice(0, 4) + "***");
 
   const res = await fetch(`${baseUrl}/whatsapp/1/message/template`, {
     method: "POST",
@@ -52,7 +50,7 @@ async function sendViaWhatsApp(to: string, message: string): Promise<void> {
             templateName: "authentication",
             templateData: {
               body: {
-                placeholders: [otp],
+                placeholders: [code],
               },
             },
             language: "fr",
@@ -66,47 +64,16 @@ async function sendViaWhatsApp(to: string, message: string): Promise<void> {
   console.log("[WhatsApp/Infobip] Response:", res.status, body);
 
   if (!res.ok) {
-    console.error("[WhatsApp/Infobip] Failed:", res.status, body, "— falling back to SMS");
-    return sendViaSMS(to, message);
-  }
-}
-
-/**
- * Fallback: send via Infobip SMS API.
- */
-async function sendViaSMS(to: string, message: string): Promise<void> {
-  const apiKey = process.env.INFOBIP_API_KEY!;
-  const rawBase = process.env.INFOBIP_BASE_URL!;
-  const baseUrl = rawBase.startsWith("http") ? rawBase : `https://${rawBase}`;
-  const sender = process.env.INFOBIP_SENDER ?? "Palier";
-
-  const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;
-  console.log("[SMS/Infobip] Fallback sending to:", intlNumber.slice(0, 7) + "***");
-
-  const res = await fetch(`${baseUrl}/sms/2/text/advanced`, {
-    method: "POST",
-    headers: {
-      Authorization: `App ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messages: [{ from: sender, destinations: [{ to: intlNumber }], text: message }],
-    }),
-  });
-
-  const body = await res.text();
-  console.log("[SMS/Infobip] Response:", res.status, body);
-
-  if (!res.ok) {
-    console.error("[SMS/Infobip] Failed:", res.status, body);
+    console.error("[WhatsApp/Infobip] Failed:", res.status, body);
     throw new Error("sms_send_failed");
   }
 }
 
 /**
- * Send an OTP message. Uses WhatsApp first, falls back to SMS.
+ * Send a message containing a code via WhatsApp.
+ * Extracts the code from the message and sends it via the authentication template.
  * Returns silently in dev mode if no provider configured.
- * Throws "sms_send_failed" in production if both channels fail.
+ * Throws "sms_send_failed" in production on failure.
  */
 export async function sendSMS(to: string, message: string): Promise<void> {
   if (process.env.SKIP_SMS === "1") {
@@ -125,5 +92,11 @@ export async function sendSMS(to: string, message: string): Promise<void> {
     throw new Error("sms_send_failed");
   }
 
-  return sendViaWhatsApp(to, message);
+  const code = extractCode(message);
+  if (!code) {
+    console.error("[WhatsApp/Infobip] No code found in message:", message.slice(0, 50));
+    throw new Error("sms_send_failed");
+  }
+
+  return sendViaWhatsApp(to, code);
 }

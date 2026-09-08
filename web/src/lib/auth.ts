@@ -518,14 +518,12 @@ export async function approveSyndicRequest(
     })
     .eq("id", requestId);
 
-  // Send SMS with both codes
+  // Send WhatsApp with both codes (2 separate messages)
   try {
-    await sendSMS(
-      req.phone,
-      `Palier — accès approuvé !\nCode beta : ${betaCode}\nCode d'accès : ${accessCode}\nConnectez-vous sur palier.ma`,
-    );
+    await sendSMS(req.phone, `Votre code beta Palier : ${betaCode}`);
+    await sendSMS(req.phone, `Votre code d'accès Palier : ${accessCode}`);
   } catch (e) {
-    console.error("[approveSyndicRequest] SMS failed:", e);
+    console.error("[approveSyndicRequest] WhatsApp failed:", e);
   }
 
   return { ok: true, betaCode, accessCode };
