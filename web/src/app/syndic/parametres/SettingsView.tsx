@@ -215,9 +215,8 @@ export function SettingsView({
   const [newVoisinageCat, setNewVoisinageCat] = useState("");
   const [newBudgetCat, setNewBudgetCat] = useState("");
   const [newDocumentCat, setNewDocumentCat] = useState("");
-  const [serviceCats, setServiceCats] = useState<{ label: string; query: string }[]>(settings?.service_categories ?? []);
-  const [newServiceLabel, setNewServiceLabel] = useState("");
-  const [newServiceQuery, setNewServiceQuery] = useState("");
+  const [serviceCats, setServiceCats] = useState<string[]>((settings?.service_categories ?? []).map((c: { label: string }) => c.label));
+  const [newServiceCat, setNewServiceCat] = useState("");
 
   // ── Access codes ──
   const [codePhone, setCodePhone] = useState("");
@@ -280,7 +279,7 @@ export function SettingsView({
         voisinage_categories: voisinageCats,
         budget_categories: budgetCats,
         document_categories: documentCats,
-        service_categories: serviceCats,
+        service_categories: serviceCats.map((c) => ({ label: c, query: c })),
         relance_message: relanceMsg || undefined,
         auto_relance_enabled: autoRelanceEnabled,
         auto_relance_delay_days: autoRelanceDelay,
@@ -914,25 +913,19 @@ export function SettingsView({
                 onRemove={(i) => removeCat(documentCats, setDocumentCats, i)}
               />
 
-              {/* Service categories (label + query) */}
-              <ServiceCategoryBlock
+              {/* Service categories */}
+              <CategoryBlock
+                icon="Search"
+                iconTint="bg-pink-100"
+                iconColor="text-pink-600"
                 title={T.categories.services}
                 desc={T.categories.servicesDesc}
-                queryHint={T.categories.servicesQueryHint}
                 items={serviceCats}
-                newLabel={newServiceLabel}
-                setNewLabel={setNewServiceLabel}
-                newQuery={newServiceQuery}
-                setNewQuery={setNewServiceQuery}
-                onAdd={() => {
-                  const l = newServiceLabel.trim();
-                  const q = newServiceQuery.trim();
-                  if (!l || !q || serviceCats.some((c) => c.label === l)) return;
-                  setServiceCats([...serviceCats, { label: l, query: q }]);
-                  setNewServiceLabel("");
-                  setNewServiceQuery("");
-                }}
-                onRemove={(i) => setServiceCats(serviceCats.filter((_, idx) => idx !== i))}
+                newValue={newServiceCat}
+                setNewValue={setNewServiceCat}
+                placeholder="Ex: Plomberie, Électricien, Ménage…"
+                onAdd={() => addCat(serviceCats, setServiceCats, newServiceCat, setNewServiceCat)}
+                onRemove={(i) => removeCat(serviceCats, setServiceCats, i)}
               />
             </>
           )}
@@ -1588,75 +1581,3 @@ function CategoryBlock({
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Service Category Block — label + query Google Places
-   ═══════════════════════════════════════════════════════════ */
-
-function ServiceCategoryBlock({
-  title, desc, queryHint, items, newLabel, setNewLabel, newQuery, setNewQuery, onAdd, onRemove,
-}: {
-  title: string; desc: string; queryHint: string;
-  items: { label: string; query: string }[];
-  newLabel: string; setNewLabel: (v: string) => void;
-  newQuery: string; setNewQuery: (v: string) => void;
-  onAdd: () => void; onRemove: (i: number) => void;
-}) {
-  const { i } = useLang();
-  const C = i.syndic.common;
-  const T = i.syndic.settings;
-  return (
-    <Card>
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-100">
-          <Icon name="Search" className="h-4 w-4 text-pink-600" />
-        </div>
-        <div>
-          <h2 className="text-[14px] font-semibold text-ink">{title}</h2>
-          <p className="text-[12px] text-ink-soft">{desc}</p>
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {items.map((cat, idx) => (
-          <span key={cat.label} className="inline-flex items-center gap-1 rounded-lg border border-black/[0.06] bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink">
-            {cat.label}
-            <span className="text-[10px] text-ink-faint">({cat.query})</span>
-            <button onClick={() => onRemove(idx)} className="ml-0.5 rounded p-0.5 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-500">
-              <Icon name="X" className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-        {items.length === 0 && (
-          <p className="text-[12px] text-ink-soft">{T.categories.noCategory}</p>
-        )}
-      </div>
-
-      {/* Add new */}
-      <div className="flex gap-2">
-        <input
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onAdd()}
-          placeholder="Ex: Plomberie"
-          className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
-        />
-        <input
-          value={newQuery}
-          onChange={(e) => setNewQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onAdd()}
-          placeholder={`${queryHint}: plombier`}
-          className="h-9 flex-1 rounded-lg border border-black/[0.08] bg-white px-3 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-palier-400 focus:ring-1 focus:ring-palier-400"
-        />
-        <button
-          onClick={onAdd}
-          disabled={!newLabel.trim() || !newQuery.trim()}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-palier-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-palier-700 disabled:opacity-40"
-        >
-          <Icon name="Plus" className="h-3.5 w-3.5" />
-          {C.add}
-        </button>
-      </div>
-    </Card>
-  );
-}
