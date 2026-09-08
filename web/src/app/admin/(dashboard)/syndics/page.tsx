@@ -14,7 +14,7 @@ export default function SyndicsPage() {
     let list = syndics;
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((s) => s.name.toLowerCase().includes(q) || s.buildings.some((b) => b.name.toLowerCase().includes(q) || b.city.toLowerCase().includes(q)));
+      list = list.filter((s) => s.name.toLowerCase().includes(q) || s.phone.includes(q) || s.buildings.some((b) => b.name.toLowerCase().includes(q) || b.city.toLowerCase().includes(q)));
     }
     list = [...list].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name);
@@ -52,6 +52,7 @@ export default function SyndicsPage() {
             <thead>
               <tr className="border-b border-[var(--a-border)] text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--a-text-5)]">
                 <th className="px-4 py-3">Syndic</th>
+                <th className="px-4 py-3">Téléphone</th>
                 <th className="px-4 py-3">Immeubles</th>
                 <th className="px-4 py-3 text-center">Nb immeubles</th>
                 <th className="px-4 py-3">Inscrit le</th>
@@ -61,6 +62,7 @@ export default function SyndicsPage() {
               {filtered.map((s) => (
                 <tr key={s.profileId} className="transition-colors hover:bg-[var(--a-hover)]">
                   <td className="px-4 py-3 font-medium text-[var(--a-text)]">{s.name || "—"}</td>
+                  <td className="px-4 py-3 text-[var(--a-text-3)]" dir="ltr">{s.phone || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {s.buildings.map((b) => (
@@ -96,7 +98,8 @@ export default function SyndicsPage() {
                 ))}
               </div>
             )}
-            <p className="mt-2 text-[11px] text-[var(--a-text-5)]">Inscrit le {shortDate(s.createdAt, "fr")}</p>
+            <p className="mt-2 text-[12px] text-[var(--a-text-3)]" dir="ltr">{s.phone || "—"}</p>
+            <p className="mt-1 text-[11px] text-[var(--a-text-5)]">Inscrit le {shortDate(s.createdAt, "fr")}</p>
           </div>
         ))}
         {filtered.length === 0 && <p className="py-8 text-center text-[13px] text-[var(--a-text-5)]">Aucun syndic trouvé</p>}

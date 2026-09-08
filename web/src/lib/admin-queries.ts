@@ -13,6 +13,7 @@ export interface AdminBuilding {
 export interface AdminSyndic {
   profileId: string;
   name: string;
+  phone: string;
   buildings: { id: string; name: string; city: string }[];
   createdAt: string;
 }
@@ -91,7 +92,7 @@ export async function fetchAdminData(): Promise<AdminData> {
   if (syndicProfileIds.length > 0) {
     const { data: syndicProfiles } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, created_at")
+      .select("id, full_name, phone, created_at")
       .in("id", syndicProfileIds);
     const profileMap = new Map((syndicProfiles ?? []).map((p) => [p.id, p]));
     for (const [profileId, buildingIds] of syndicMemberships) {
@@ -100,6 +101,7 @@ export async function fetchAdminData(): Promise<AdminData> {
       adminSyndics.push({
         profileId,
         name: p.full_name ?? "",
+        phone: p.phone ?? "",
         buildings: buildingIds.map((bid) => buildingMap.get(bid) ?? { id: bid, name: "—", city: "" }),
         createdAt: p.created_at,
       });
