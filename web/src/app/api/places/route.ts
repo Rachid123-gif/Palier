@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.googleMapsUri,places.businessStatus,places.photos",
+        "Referer": "https://palier.ma/",
       },
       body: JSON.stringify({
         textQuery,
