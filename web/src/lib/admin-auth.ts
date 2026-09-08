@@ -49,6 +49,15 @@ export async function adminLogin(
   const adminPhone = process.env.ADMIN_PHONE;
   if (!adminPhone) return { ok: false, error: "not_configured" };
 
+  // DEBUG — temporary log to diagnose login issue
+  console.log("[ADMIN-LOGIN-DEBUG]", {
+    inputLen: secret.trim().length,
+    expectedLen: expected.trim().length,
+    inputFirst3: secret.trim().slice(0, 3),
+    expectedFirst3: expected.trim().slice(0, 3),
+    match: secret.trim() === expected.trim(),
+  });
+
   if (!timingSafeEqual(secret.trim(), expected.trim())) {
     return { ok: false, error: "invalid_secret" };
   }
