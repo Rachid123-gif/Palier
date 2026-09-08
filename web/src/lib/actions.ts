@@ -697,28 +697,55 @@ export async function addResident(input: {
     unit = created;
   }
 
-  // Check if phone already exists — block completely
+  // Check if phone already exists
+  let profile: { id: string } | null = null;
   const { data: existing } = await supabaseAdmin
     .from("profiles")
     .select("id")
     .eq("phone", v.phone)
     .single();
 
-  if (existing) return { error: "phone_already_exists" };
+  if (existing) {
+    // Allow only if this person is the syndic of THIS building (adding themselves as resident)
+    const { data: syndicMember } = await supabaseAdmin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", existing.id)
+      .eq("building_id", v.buildingId)
+      .eq("role", "syndic")
+      .eq("status", "active")
+      .single();
 
-  const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
-  const avatarColor = colors[Math.floor(Math.random() * colors.length)];
-  const { data: profile, error: profileErr } = await supabaseAdmin
-    .from("profiles")
-    .insert({
-      full_name: v.name,
-      phone: v.phone,
-      avatar_color: avatarColor,
-      city: "casablanca",
-    })
-    .select("id")
-    .single();
-  if (profileErr || !profile) return { error: "profile_error" };
+    if (!syndicMember) return { error: "phone_already_exists" };
+
+    // Check not already a resident in this building
+    const { data: residentMember } = await supabaseAdmin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", existing.id)
+      .eq("building_id", v.buildingId)
+      .neq("role", "syndic")
+      .single();
+
+    if (residentMember) return { error: "phone_already_exists" };
+
+    profile = existing;
+  } else {
+    const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
+    const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+    const { data: created, error: profileErr } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        full_name: v.name,
+        phone: v.phone,
+        avatar_color: avatarColor,
+        city: "casablanca",
+      })
+      .select("id")
+      .single();
+    if (profileErr || !created) return { error: "profile_error" };
+    profile = created;
+  }
 
   const { error: memberErr } = await supabaseAdmin
     .from("memberships")
@@ -816,22 +843,45 @@ export async function importResidents(input: {
         unitRow = created;
       }
 
-      // Check if phone already exists — block completely
+      // Check if phone already exists
+      let profile: { id: string } | null = null;
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
         .select("id")
         .eq("phone", phone)
         .single();
 
-      if (existingProfile) { errors.push({ index: i, name, error: "phone_already_exists" }); continue; }
-
-      const avatarColor = colors[Math.floor(Math.random() * colors.length)];
-      const { data: profile, error: profileErr } = await supabaseAdmin
-        .from("profiles")
-        .insert({ full_name: name, phone, avatar_color: avatarColor, city: "casablanca" })
-        .select("id")
-        .single();
-      if (profileErr || !profile) { errors.push({ index: i, name, error: "profile_error" }); continue; }
+      if (existingProfile) {
+        // Allow only if this person is the syndic of THIS building
+        const { data: syndicMember } = await supabaseAdmin
+          .from("memberships")
+          .select("id")
+          .eq("profile_id", existingProfile.id)
+          .eq("building_id", input.buildingId)
+          .eq("role", "syndic")
+          .eq("status", "active")
+          .single();
+        if (!syndicMember) { errors.push({ index: i, name, error: "phone_already_exists" }); continue; }
+        // Check not already a resident
+        const { data: residentMember } = await supabaseAdmin
+          .from("memberships")
+          .select("id")
+          .eq("profile_id", existingProfile.id)
+          .eq("building_id", input.buildingId)
+          .neq("role", "syndic")
+          .single();
+        if (residentMember) { errors.push({ index: i, name, error: "phone_already_exists" }); continue; }
+        profile = existingProfile;
+      } else {
+        const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+        const { data: created, error: profileErr } = await supabaseAdmin
+          .from("profiles")
+          .insert({ full_name: name, phone, avatar_color: avatarColor, city: "casablanca" })
+          .select("id")
+          .single();
+        if (profileErr || !created) { errors.push({ index: i, name, error: "profile_error" }); continue; }
+        profile = created;
+      }
 
       // Create membership
       const { error: memberErr } = await supabaseAdmin
