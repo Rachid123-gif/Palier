@@ -64,6 +64,7 @@ export interface BuildingSettings {
   voisinage_categories?: string[] | null;
   budget_categories?: string[] | null;
   document_categories?: string[] | null;
+  service_categories?: { label: string; query: string }[] | null;
   relance_message?: string | null;
   auto_relance_enabled?: boolean | null;
   auto_relance_delay_days?: number | null;
@@ -363,6 +364,7 @@ export async function fetchSyndicData(buildingId: string): Promise<SyndicData> {
       voisinage_categories: setRes.data.voisinage_categories ?? null,
       budget_categories: setRes.data.budget_categories ?? null,
       document_categories: setRes.data.document_categories ?? null,
+      service_categories: Array.isArray(setRes.data.service_categories) ? setRes.data.service_categories : null,
       relance_message: setRes.data.relance_message ?? null,
       auto_relance_enabled: setRes.data.auto_relance_enabled ?? null,
       auto_relance_delay_days: setRes.data.auto_relance_delay_days ?? null,

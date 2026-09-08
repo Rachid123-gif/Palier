@@ -28,7 +28,7 @@ type GooglePlace = {
   open: boolean;
 };
 
-const PLACE_CATEGORIES = [
+const DEFAULT_PLACE_CATEGORIES = [
   { key: "plomberie", label: "Plomberie", query: "plombier" },
   { key: "electricite", label: "Électricité", query: "électricien" },
   { key: "menage", label: "Ménage", query: "service ménage nettoyage" },
@@ -42,11 +42,23 @@ const PLACE_CATEGORIES = [
 ];
 
 export default function ServicesScreen() {
-  const { posts, currentUser, buildingId, profileId } = useData();
+  const { posts, currentUser, buildingId, profileId, serviceCategories } = useData();
   const { lang, i } = useLang();
   const T = i.services;
   const router = useRouter();
   const isInactive = currentUser.membershipStatus === "inactive";
+
+  // Build place categories: use syndic-configured ones if available, else defaults
+  const PLACE_CATEGORIES = useMemo(() => {
+    if (serviceCategories && serviceCategories.length > 0) {
+      return serviceCategories.map((c) => ({
+        key: c.label.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+        label: c.label,
+        query: c.query,
+      }));
+    }
+    return DEFAULT_PLACE_CATEGORIES;
+  }, [serviceCategories]);
 
   const [tab, setTab] = useState<Tab>("recos");
   const [activeCat, setActiveCat] = useState<string | null>(null);
@@ -68,7 +80,7 @@ export default function ServicesScreen() {
   const [demandeText, setDemandeText] = useState("");
 
   // Google Places state
-  const [placeCat, setPlaceCat] = useState(PLACE_CATEGORIES[0].key);
+  const [placeCat, setPlaceCat] = useState("");
   const [places, setPlaces] = useState<GooglePlace[]>([]);
   const [placesLoading, setPlacesLoading] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
@@ -103,7 +115,7 @@ export default function ServicesScreen() {
     } finally {
       setPlacesLoading(false);
     }
-  }, [currentUser.cityName]);
+  }, [currentUser.cityName, PLACE_CATEGORIES]);
 
   // Comments
   const [commentPost, setCommentPost] = useState<Post | null>(null);

@@ -1518,6 +1518,29 @@ export async function loadBuildingSettings(buildingId: string) {
   return data;
 }
 
+/** Modifier le nom de la résidence et/ou du syndic */
+export async function updateBuildingInfo(
+  buildingId: string,
+  data: { buildingName?: string; syndicName?: string },
+): Promise<{ ok: true } | { error: string }> {
+  await requireAuth({ role: "syndic", buildingId });
+  const updates: Record<string, string> = {};
+  if (data.buildingName?.trim()) updates.name = data.buildingName.trim().slice(0, 200);
+  if (data.syndicName?.trim()) {
+    updates.syndic_name = data.syndicName.trim().slice(0, 200);
+    // Also update profile full_name
+    const session = await requireAuth({ role: "syndic", buildingId });
+    if (session.profileId) {
+      await supabaseAdmin.from("profiles").update({ full_name: data.syndicName.trim().slice(0, 200) }).eq("id", session.profileId);
+    }
+  }
+  if (Object.keys(updates).length === 0) return { error: "nothing_to_update" };
+  updates.updated_at = new Date().toISOString();
+  const { error } = await supabaseAdmin.from("buildings").update(updates).eq("id", buildingId);
+  if (error) return { error: "update_failed" };
+  return { ok: true };
+}
+
 /** Sauvegarder la configuration du bâtiment */
 export async function saveBuildingSettings(buildingId: string, settings: Record<string, unknown>) {
   await requireAuth({ role: "syndic", buildingId });

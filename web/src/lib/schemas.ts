@@ -255,6 +255,7 @@ export const saveBuildingSettingsSchema = z.object({
   voisinage_categories: z.array(shortString).optional(),
   budget_categories: z.array(shortString).optional(),
   document_categories: z.array(shortString).optional(),
+  service_categories: z.array(z.object({ label: shortString, query: shortString })).optional(),
   relance_message: safeString.optional(),
   auto_relance_enabled: z.boolean().optional(),
   auto_relance_delay_days: z.number().int().min(1).max(30).optional(),

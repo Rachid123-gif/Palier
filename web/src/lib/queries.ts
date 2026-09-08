@@ -35,6 +35,7 @@ export interface AppData {
   incidentCategories: string[] | null;
   voisinageCategories: string[] | null;
   chargeCategories: string[] | null;
+  serviceCategories: { label: string; query: string }[];
   /** Multi-building: all buildings user has access to */
   buildings: UserBuilding[];
 }
@@ -271,6 +272,7 @@ export async function fetchAppData(buildingId: string, profileId: string | null,
     incidentCategories: settingsRes.data?.incident_categories ?? null,
     voisinageCategories: settingsRes.data?.voisinage_categories ?? null,
     chargeCategories: settingsRes.data?.charge_categories ?? null,
+    serviceCategories: Array.isArray(settingsRes.data?.service_categories) ? settingsRes.data.service_categories : [],
     buildings: buildings ?? [],
   };
 }

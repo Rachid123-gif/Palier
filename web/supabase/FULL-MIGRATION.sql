@@ -723,6 +723,7 @@ ALTER TABLE building_settings ADD COLUMN IF NOT EXISTS gardien_phone VARCHAR(20)
 ALTER TABLE building_settings ADD COLUMN IF NOT EXISTS gardien_hours VARCHAR(200);
 ALTER TABLE building_settings ADD COLUMN IF NOT EXISTS gardien JSONB;
 ALTER TABLE building_settings ADD COLUMN IF NOT EXISTS notifications JSONB;
+ALTER TABLE building_settings ADD COLUMN IF NOT EXISTS service_categories JSONB DEFAULT '[]'::jsonb;
 
 
 -- ══════════════════════════════════════════════════════════════
