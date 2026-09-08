@@ -16,6 +16,7 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
   const sender = process.env.INFOBIP_SENDER ?? "Palier";
 
   const intlNumber = to.startsWith("+") ? to : `+212${to.slice(1)}`;
+  console.log("[SMS/Infobip] Sending to:", intlNumber.slice(0, 7) + "***");
 
   const res = await fetch(`${baseUrl}/sms/2/text/advanced`, {
     method: "POST",
@@ -28,9 +29,11 @@ async function sendViaInfobip(to: string, message: string): Promise<void> {
     }),
   });
 
+  const body = await res.text();
+  console.log("[SMS/Infobip] Response:", res.status, body);
+
   if (!res.ok) {
-    const err = await res.text();
-    console.error("[SMS/Infobip] Failed:", res.status, err);
+    console.error("[SMS/Infobip] Failed:", res.status, body);
     throw new Error("sms_send_failed");
   }
 }
