@@ -45,6 +45,12 @@ async function sendViaWhatsApp(to: string, code: string): Promise<void> {
             body: {
               placeholders: [code],
             },
+            buttons: [
+              {
+                type: "URL",
+                parameter: code,
+              },
+            ],
           },
           language: "fr",
         },
