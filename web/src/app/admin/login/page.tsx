@@ -78,7 +78,7 @@ export default function AdminLoginPage() {
         too_many_attempts: "Trop de tentatives. Recommencez.",
       };
       setError(msgs[res.error] ?? "Erreur de vérification");
-      if (res.error === "otp_expired" || res.error === "too_many_attempts") {
+      if (res.error === "too_many_attempts") {
         setTimeout(() => { setStep("secret"); setSecret(""); setOtp(""); setError(""); }, 2000);
       }
     }
@@ -157,13 +157,38 @@ export default function AdminLoginPage() {
             >
               {loading ? "Vérification…" : "Accéder au dashboard"}
             </button>
-            <button
-              type="button"
-              onClick={() => { setStep("secret"); setSecret(""); setOtp(""); setError(""); }}
-              className={`w-full py-2 text-[13px] font-medium ${isDark ? "text-white/40 hover:text-white/60" : "text-gray-400 hover:text-gray-600"}`}
-            >
-              Retour
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => { setStep("secret"); setSecret(""); setOtp(""); setError(""); }}
+                className={`py-2 text-[13px] font-medium ${isDark ? "text-white/40 hover:text-white/60" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                disabled={loading || (countdown !== null && countdown > 0)}
+                onClick={async () => {
+                  setLoading(true);
+                  setError("");
+                  setOtp("");
+                  const res = await adminLogin(secret);
+                  if (res.ok) {
+                    setOtpSentAt(Date.now());
+                  } else {
+                    const msgs: Record<string, string> = {
+                      too_many_attempts: "Trop de tentatives. Réessayez plus tard.",
+                      sms_failed: "Impossible d'envoyer le SMS.",
+                    };
+                    setError(msgs[res.error] ?? "Erreur lors du renvoi");
+                  }
+                  setLoading(false);
+                }}
+                className={`py-2 text-[13px] font-medium ${isDark ? "text-white/40 hover:text-white/60 disabled:text-white/20" : "text-gray-400 hover:text-gray-600 disabled:text-gray-300"}`}
+              >
+                Renvoyer le code
+              </button>
+            </div>
           </form>
         )}
       </div>
