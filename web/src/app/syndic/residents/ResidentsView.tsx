@@ -228,6 +228,7 @@ export function ResidentsView({
           profile_error: T.errors.profileError,
           membership_error: T.errors.membershipError,
           validation_error: T.errors.validationError,
+          phone_already_exists: T.errors.phoneAlreadyExists,
         };
         const errMsg = res.error.includes("invalid_format") || res.error.includes("Numéro invalide")
           ? msgs.validation_error
