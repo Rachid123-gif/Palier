@@ -697,40 +697,28 @@ export async function addResident(input: {
     unit = created;
   }
 
-  // Check if profile with this phone already exists
-  let profile: { id: string } | null = null;
+  // Check if phone already exists — block completely
   const { data: existing } = await supabaseAdmin
     .from("profiles")
     .select("id")
     .eq("phone", v.phone)
     .single();
 
-  if (existing) {
-    profile = existing;
-    // Check if already member of this building
-    const { data: existingMember } = await supabaseAdmin
-      .from("memberships")
-      .select("id")
-      .eq("profile_id", existing.id)
-      .eq("building_id", v.buildingId)
-      .single();
-    if (existingMember) return { error: "phone_already_exists" };
-  } else {
-    const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
-    const avatarColor = colors[Math.floor(Math.random() * colors.length)];
-    const { data: created, error: profileErr } = await supabaseAdmin
-      .from("profiles")
-      .insert({
-        full_name: v.name,
-        phone: v.phone,
-        avatar_color: avatarColor,
-        city: "casablanca",
-      })
-      .select("id")
-      .single();
-    if (profileErr || !created) return { error: "profile_error" };
-    profile = created;
-  }
+  if (existing) return { error: "phone_already_exists" };
+
+  const colors = ["#2c7766", "#2f74c0", "#d9961f", "#d6453f", "#8a9a4e", "#c5604f", "#45937e"];
+  const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+  const { data: profile, error: profileErr } = await supabaseAdmin
+    .from("profiles")
+    .insert({
+      full_name: v.name,
+      phone: v.phone,
+      avatar_color: avatarColor,
+      city: "casablanca",
+    })
+    .select("id")
+    .single();
+  if (profileErr || !profile) return { error: "profile_error" };
 
   const { error: memberErr } = await supabaseAdmin
     .from("memberships")
@@ -828,34 +816,22 @@ export async function importResidents(input: {
         unitRow = created;
       }
 
-      // Find or create profile
-      let profile: { id: string } | null = null;
+      // Check if phone already exists — block completely
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
         .select("id")
         .eq("phone", phone)
         .single();
 
-      if (existingProfile) {
-        // Check if already member of this building
-        const { data: existingMember } = await supabaseAdmin
-          .from("memberships")
-          .select("id")
-          .eq("profile_id", existingProfile.id)
-          .eq("building_id", input.buildingId)
-          .single();
-        if (existingMember) { errors.push({ index: i, name, error: "phone_already_exists" }); continue; }
-        profile = existingProfile;
-      } else {
-        const avatarColor = colors[Math.floor(Math.random() * colors.length)];
-        const { data: created, error: profileErr } = await supabaseAdmin
-          .from("profiles")
-          .insert({ full_name: name, phone, avatar_color: avatarColor, city: "casablanca" })
-          .select("id")
-          .single();
-        if (profileErr || !created) { errors.push({ index: i, name, error: "profile_error" }); continue; }
-        profile = created;
-      }
+      if (existingProfile) { errors.push({ index: i, name, error: "phone_already_exists" }); continue; }
+
+      const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+      const { data: profile, error: profileErr } = await supabaseAdmin
+        .from("profiles")
+        .insert({ full_name: name, phone, avatar_color: avatarColor, city: "casablanca" })
+        .select("id")
+        .single();
+      if (profileErr || !profile) { errors.push({ index: i, name, error: "profile_error" }); continue; }
 
       // Create membership
       const { error: memberErr } = await supabaseAdmin
