@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { NotificationsBell } from "@/components/resident/NotificationsBell";
 import { Icon } from "@/components/ui/Icon";
 import { LetterAvatar } from "@/components/ui/Avatar";
@@ -80,11 +80,18 @@ export default function ServicesScreen() {
   const [demandeText, setDemandeText] = useState("");
 
   // Google Places state
-  const [placeCat, setPlaceCat] = useState("");
+  const [placeCat, setPlaceCat] = useState(() => PLACE_CATEGORIES[0]?.key ?? "");
   const [places, setPlaces] = useState<GooglePlace[]>([]);
   const [placesLoading, setPlacesLoading] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
   const [placesSearched, setPlacesSearched] = useState(false);
+
+  // Sync placeCat when PLACE_CATEGORIES changes (e.g. syndic categories loaded)
+  useEffect(() => {
+    if (PLACE_CATEGORIES.length > 0 && !PLACE_CATEGORIES.find((c) => c.key === placeCat)) {
+      setPlaceCat(PLACE_CATEGORIES[0].key);
+    }
+  }, [PLACE_CATEGORIES]);
 
   // Edit/Delete state
   const [editPost, setEditPost] = useState<Post | null>(null);
@@ -274,7 +281,11 @@ export default function ServicesScreen() {
                 setTab(t.key);
                 setActiveCat(null);
                 setVisibleCount(POST_LIMIT);
-                if (t.key === "prestataires" && !placesSearched) searchPlaces(placeCat);
+                if (t.key === "prestataires" && !placesSearched) {
+                  const key = placeCat || PLACE_CATEGORIES[0]?.key || "";
+                  if (!placeCat && key) setPlaceCat(key);
+                  searchPlaces(key);
+                }
               }}
               className={`tap flex shrink-0 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14px] font-semibold transition-colors ${
                 tab === t.key
