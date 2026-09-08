@@ -106,8 +106,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // No session → redirect to landing page
+  // No session → redirect appropriately
   if (!session) {
+    if (pathname.startsWith("/admin")) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
     return NextResponse.redirect(new URL("/site", request.url));
   }
 
