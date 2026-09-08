@@ -234,16 +234,6 @@ export default function ProfilPage() {
               <p className="mt-0.5 text-[12px] text-ink-soft">{p.exportDesc}</p>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-sand/40 p-3">
-            <div className="text-center">
-              <p className="text-[18px] font-bold text-ink">{chargesHistory.length + charges.length}</p>
-              <p className="text-[11px] font-medium text-ink-soft">{p.exportCharges}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[18px] font-bold text-ink">{incidents.length}</p>
-              <p className="text-[11px] font-medium text-ink-soft">{p.exportIncidents}</p>
-            </div>
-          </div>
           <button
             disabled={exporting}
             onClick={async () => {
@@ -399,6 +389,7 @@ ${d.likes.length ? section(isAr ? "الإعجابات" : `Likes (${d.likes.lengt
 
       <Sheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title={p.supprimerCompte}>
         <p className="text-[14px] text-ink-soft">{p.supprimerCompteDesc}</p>
+        <p className="mt-2 text-[13px] font-medium text-amber-600">{p.supprimerExportWarning}</p>
         <div className="mt-4 flex gap-3">
           <button onClick={() => setDeleteOpen(false)}
             className="tap flex-1 rounded-full border border-palier-100 bg-white py-3 text-[13px] font-semibold text-ink-soft">
