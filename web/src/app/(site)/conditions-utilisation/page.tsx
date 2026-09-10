@@ -56,7 +56,7 @@ export default function ConditionsUtilisationPage() {
             <p className="mt-2 text-[13px] text-ink-faint">
               Hébergement et exécution : Vercel Inc., San Francisco, CA, États-Unis (réseau CDN mondial).
               Base de données et stockage : Supabase Inc. — données hébergées en Europe (région AWS eu-west-3, Paris, France).
-              Envoi de SMS : Infobip Ltd., Londres, Royaume-Uni.
+              Envoi de messages WhatsApp : Infobip Ltd., Londres, Royaume-Uni.
               Recherche de prestataires : Google Places API, Google LLC, Mountain View, CA, États-Unis.
             </p>
           </section>
@@ -87,7 +87,7 @@ export default function ConditionsUtilisationPage() {
               <li>Consultation et partage de documents de copropriété</li>
               <li>Comptabilité et transparence financière</li>
               <li>Gestion des résidents et de la résidence par le syndic</li>
-              <li>Notifications et communications (in-app, push, SMS)</li>
+              <li>Notifications et communications (in-app, push, WhatsApp)</li>
             </ul>
           </section>
 
@@ -111,16 +111,16 @@ export default function ConditionsUtilisationPage() {
             <p className="font-semibold text-ink">Pour les résidents :</p>
             <p className="mt-1">
               L&apos;accès se fait via un code d&apos;accès généré par le syndic via la plateforme
-              et envoyé directement par SMS au résident. Le syndic n&apos;a pas accès au code.
+              et envoyé directement par WhatsApp au résident. Le syndic n&apos;a pas accès au code.
               Ce code est personnel et confidentiel.
             </p>
 
             <p className="mt-3 font-semibold text-ink">Pour les syndics :</p>
             <p className="mt-1">
               L&apos;inscription se fait en remplissant un formulaire (nom, téléphone, nom de l&apos;immeuble, ville,
-              nombre de lots). Le numéro de téléphone est vérifié par un code OTP envoyé par SMS.
+              nombre de lots). Le numéro de téléphone est vérifié par un code OTP envoyé par WhatsApp.
               La demande est ensuite soumise à l&apos;administrateur de la plateforme pour validation.
-              Après approbation, le syndic reçoit ses codes d&apos;accès par SMS.
+              Après approbation, le syndic reçoit ses codes d&apos;accès par WhatsApp.
             </p>
 
             <p className="mt-3 font-semibold text-ink">Responsabilité de l&apos;utilisateur :</p>
@@ -128,7 +128,7 @@ export default function ConditionsUtilisationPage() {
               Chaque utilisateur est responsable de la confidentialité de son code d&apos;accès et de toute activité
               effectuée avec celui-ci. En cas de perte, le syndic peut récupérer son code via un OTP envoyé
               sur son numéro de téléphone enregistré. Pour les résidents, le syndic peut générer
-              un nouveau code qui sera envoyé directement par SMS au résident.
+              un nouveau code qui sera envoyé directement par WhatsApp au résident.
             </p>
           </section>
 
@@ -254,13 +254,9 @@ export default function ConditionsUtilisationPage() {
                 de l&apos;utilisateur. Ce consentement peut être retiré à tout moment depuis les paramètres du navigateur.
               </li>
               <li>
-                <strong>SMS</strong> : utilisés pour l&apos;envoi de codes de vérification (OTP) et de codes d&apos;accès
-                après approbation. Les SMS sont envoyés uniquement au numéro de téléphone fourni
-                lors de l&apos;inscription.
-              </li>
-              <li>
-                <strong>WhatsApp</strong> : le syndic peut envoyer des rappels de paiement via WhatsApp. Cette
-                fonctionnalité utilise un lien direct (aucune API WhatsApp n&apos;est intégrée).
+                <strong>WhatsApp</strong> : utilisé pour l&apos;envoi de codes de vérification (OTP), de codes d&apos;accès
+                après approbation, et de rappels de paiement par le syndic. Les messages sont envoyés
+                via l&apos;API Infobip uniquement au numéro de téléphone fourni lors de l&apos;inscription.
               </li>
             </ul>
             <p className="mt-2">
@@ -313,7 +309,7 @@ export default function ConditionsUtilisationPage() {
               <li>Des décisions prises par les utilisateurs ou les syndics sur la base des informations affichées</li>
               <li>De l&apos;exactitude des montants de charges, paiements ou écritures comptables saisis par le syndic</li>
               <li>De la qualité ou de la fiabilité des prestataires de services affichés</li>
-              <li>De l&apos;indisponibilité des services tiers (SMS, notifications push, recherche de prestataires)</li>
+              <li>De l&apos;indisponibilité des services tiers (WhatsApp, notifications push, recherche de prestataires)</li>
             </ul>
             <p className="mt-2">
               Conformément à l&apos;article 19 de la Loi 31-08, les limitations de responsabilité prévues dans les présentes

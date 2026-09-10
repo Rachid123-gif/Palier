@@ -87,7 +87,7 @@ export default function PolitiqueConfidentialitePage() {
               <li>Organisation des assemblées générales et enregistrement des votes</li>
               <li>Recherche de prestataires de services locaux</li>
               <li>Envoi de notifications (push, in-app) relatives à l&apos;activité de votre résidence</li>
-              <li>Envoi de SMS pour les codes de vérification (OTP) lors de la connexion</li>
+              <li>Envoi de messages WhatsApp pour les codes de vérification (OTP) et les codes d&apos;accès</li>
             </ul>
           </section>
 
@@ -112,7 +112,7 @@ export default function PolitiqueConfidentialitePage() {
             <p>Nous faisons appel aux sous-traitants et services suivants pour le fonctionnement de la plateforme :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li><strong>Supabase</strong> (AWS, région eu-west-3, Paris, France) — hébergement de la base de données, authentification et stockage de fichiers</li>
-              <li><strong>Infobip</strong> (Europe) — envoi de SMS pour les codes de vérification (OTP)</li>
+              <li><strong>Infobip</strong> (Europe) — envoi de messages WhatsApp pour les codes de vérification (OTP) et les codes d&apos;accès</li>
               <li><strong>Google Places API</strong> (États-Unis) — recherche de prestataires de services locaux. Les requêtes de recherche sont envoyées à Google ; aucune donnée personnelle n&apos;est transmise</li>
               <li><strong>Service Web Push</strong> (navigateur) — acheminement des notifications push via les serveurs de votre navigateur (Google pour Chrome, Mozilla pour Firefox, Apple pour Safari)</li>
             </ul>
