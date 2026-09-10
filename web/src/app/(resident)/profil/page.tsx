@@ -98,25 +98,36 @@ export default function ProfilPage() {
   async function togglePush() {
     if (pushToggling) return;
     setPushToggling(true);
-    console.log("[PUSH] togglePush called, pushEnabled:", pushEnabled, "profileId:", profileId);
+    const logs: string[] = [];
     try {
+      logs.push(`pushEnabled=${pushEnabled}`);
+      logs.push(`profileId=${profileId}`);
+      logs.push(`Notification_in_window=${"Notification" in window}`);
+      logs.push(`PushManager_in_window=${"PushManager" in window}`);
+      logs.push(`sw_in_navigator=${"serviceWorker" in navigator}`);
+      if ("Notification" in window) logs.push(`permission_before=${Notification.permission}`);
+
       if (pushEnabled) {
         const ok = await unsubscribeFromPush(profileId ?? "");
-        console.log("[PUSH] unsubscribe result:", ok);
+        logs.push(`unsubscribe=${ok}`);
         setPushEnabled(false);
       } else {
-        console.log("[PUSH] requesting permission...");
         const perm = await Notification.requestPermission();
-        console.log("[PUSH] permission result:", perm);
+        logs.push(`permission_after=${perm}`);
         if (perm === "granted") {
           const ok = await subscribeToPush(profileId ?? "");
-          console.log("[PUSH] subscribe result:", ok);
+          logs.push(`subscribe=${ok}`);
           if (ok) setPushEnabled(true);
+          else logs.push("subscribe_returned_false");
+        } else {
+          logs.push("permission_not_granted");
         }
       }
     } catch (e) {
-      console.error("[PUSH] error:", e);
+      logs.push(`error=${e instanceof Error ? e.message : String(e)}`);
     }
+    // Send logs to server so they appear in Vercel
+    fetch("/api/debug-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "push-toggle", logs }) }).catch(() => {});
     setPushToggling(false);
   }
 
