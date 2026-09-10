@@ -241,11 +241,15 @@ export default function ProfilPage() {
                 </button>
               </div>
               {pushDenied && (
-                <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                  <Icon name="TriangleAlert" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                  <p className="text-[11px] text-amber-800">
-                    Les notifications ont été bloquées. Pour les réactiver, allez dans <b>Paramètres &gt; Applications &gt; Chrome &gt; Notifications</b> et autorisez les notifications pour ce site.
-                  </p>
+                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Icon name="TriangleAlert" className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    <p className="text-[11px] font-semibold text-amber-800">Les notifications sont bloquées. Pour les réactiver :</p>
+                  </div>
+                  <ol className="mt-1.5 list-inside list-decimal space-y-1 text-[11px] text-amber-800">
+                    <li>Ouvrez <b>Paramètres &gt; Applications &gt; Chrome &gt; Notifications</b> et activez les notifications</li>
+                    <li>Ouvrez <b>Chrome &gt; palier.ma &gt; cadenas (🔒) &gt; Notifications &gt; Autoriser</b></li>
+                  </ol>
                 </div>
               )}
             </div>
