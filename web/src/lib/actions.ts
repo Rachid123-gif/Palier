@@ -337,10 +337,14 @@ export async function createPostSyndic(input: {
     pinned: input.pinned ?? false,
   }).select("id").single();
   // Notify all active residents
-  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
+  const { data: memberships, error: memErr } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
+  console.log("[NOTIF-DEBUG] createPostSyndic — memberships query:", { count: memberships?.length, error: memErr, buildingId: v.buildingId });
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
+    console.log("[NOTIF-DEBUG] profileIds to notify:", profileIds);
     await notifyProfiles(profileIds, "Nouvelle annonce", v.title || v.body.slice(0, 60), "post", { buildingId: v.buildingId, eventType: "post_new" });
+  } else {
+    console.log("[NOTIF-DEBUG] no resident memberships found — skipping notification");
   }
   return { data: post, error };
 }
@@ -2523,31 +2527,33 @@ async function notifyProfiles(
   kind: string,
   options?: { buildingId?: string; eventType?: string },
 ) {
-  if (!profileIds.length) return;
+  console.log("[NOTIF-DEBUG] notifyProfiles called:", { profileIds, title, kind, options });
+  if (!profileIds.length) { console.log("[NOTIF-DEBUG] no profileIds — skipping"); return; }
 
   // Check building-level notification settings (syndic configuration)
   if (options?.buildingId) {
-    const { data: bSettings } = await supabaseAdmin
+    const { data: bSettings, error: bErr } = await supabaseAdmin
       .from("building_settings")
       .select("notifications")
       .eq("building_id", options.buildingId)
       .single();
+    console.log("[NOTIF-DEBUG] building_settings:", { data: bSettings, error: bErr });
     const notifSettings = (bSettings as any)?.notifications;
     if (notifSettings) {
       // Master in-app toggle
-      if (notifSettings.inapp_enabled === false) return;
+      if (notifSettings.inapp_enabled === false) { console.log("[NOTIF-DEBUG] BLOCKED: inapp_enabled is false"); return; }
       // Per-event toggle
-      if (options.eventType && notifSettings.events?.[options.eventType] === false) return;
+      if (options.eventType && notifSettings.events?.[options.eventType] === false) { console.log("[NOTIF-DEBUG] BLOCKED: event", options.eventType, "is disabled"); return; }
       // Quiet hours — suppress push (still insert in-app notification)
       const qh = notifSettings.quiet_hours;
       if (qh?.enabled && qh.from && qh.to) {
         const now = new Date();
         const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         const inQuiet = qh.from <= qh.to
-          ? hhmm >= qh.from && hhmm < qh.to        // e.g. 08:00 → 18:00
-          : hhmm >= qh.from || hhmm < qh.to;       // e.g. 22:00 → 07:00 (overnight)
+          ? hhmm >= qh.from && hhmm < qh.to
+          : hhmm >= qh.from || hhmm < qh.to;
         if (inQuiet) {
-          // Still create in-app notifications but skip push
+          console.log("[NOTIF-DEBUG] quiet hours active — skip push but keep in-app");
           options = { ...options, _skipPush: true } as any;
         }
       }
@@ -2557,20 +2563,23 @@ async function notifyProfiles(
   // Filter by resident notification preferences
   let filteredIds = profileIds;
   const prefKey = kindToPrefKey[kind];
+  console.log("[NOTIF-DEBUG] prefKey:", prefKey, "kind:", kind);
   if (prefKey) {
-    const { data: profiles } = await supabaseAdmin
+    const { data: profiles, error: profErr } = await supabaseAdmin
       .from("profiles")
       .select("id, notification_prefs")
       .in("id", profileIds);
+    console.log("[NOTIF-DEBUG] profiles query:", { count: profiles?.length, error: profErr, profiles });
     filteredIds = (profiles ?? [])
       .filter((p: any) => {
         const prefs = p.notification_prefs;
         return !prefs || prefs[prefKey] !== false;
       })
       .map((p: any) => p.id);
+    console.log("[NOTIF-DEBUG] filteredIds after pref filter:", filteredIds);
   }
 
-  if (!filteredIds.length) return;
+  if (!filteredIds.length) { console.log("[NOTIF-DEBUG] no filteredIds — skipping"); return; }
 
   const notifications = filteredIds.map((pid) => ({
     profile_id: pid,
@@ -2578,8 +2587,10 @@ async function notifyProfiles(
     body,
     kind,
   }));
-  await supabaseAdmin.from("notifications").insert(notifications);
+  const { error: insertErr } = await supabaseAdmin.from("notifications").insert(notifications);
+  console.log("[NOTIF-DEBUG] insert notifications:", { count: notifications.length, error: insertErr });
   if (!(options as any)?._skipPush) {
+    console.log("[NOTIF-DEBUG] triggering push for:", filteredIds);
     await triggerPush(filteredIds, title, body);
   }
   // Cleanup: delete read notifications older than 90 days (fire-and-forget)
