@@ -84,50 +84,41 @@ export default function ProfilPage() {
   /* ── Push notification toggle ── */
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushToggling, setPushToggling] = useState(false);
+  const [pushDenied, setPushDenied] = useState(false);
+  const [pushUnsupported, setPushUnsupported] = useState(false);
 
   useEffect(() => {
-    console.log("[PUSH] Notification in window:", "Notification" in window);
-    console.log("[PUSH] PushManager in window:", "PushManager" in window);
-    console.log("[PUSH] serviceWorker in navigator:", "serviceWorker" in navigator);
-    if (typeof window !== "undefined" && "Notification" in window) {
-      console.log("[PUSH] current permission:", Notification.permission);
-      setPushEnabled(Notification.permission === "granted");
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
+      setPushUnsupported(true);
+      return;
     }
+    if (Notification.permission === "granted") setPushEnabled(true);
+    if (Notification.permission === "denied") setPushDenied(true);
   }, []);
 
   async function togglePush() {
-    if (pushToggling) return;
+    if (pushToggling || pushUnsupported) return;
     setPushToggling(true);
-    const logs: string[] = [];
     try {
-      logs.push(`pushEnabled=${pushEnabled}`);
-      logs.push(`profileId=${profileId}`);
-      logs.push(`Notification_in_window=${"Notification" in window}`);
-      logs.push(`PushManager_in_window=${"PushManager" in window}`);
-      logs.push(`sw_in_navigator=${"serviceWorker" in navigator}`);
-      if ("Notification" in window) logs.push(`permission_before=${Notification.permission}`);
-
       if (pushEnabled) {
-        const ok = await unsubscribeFromPush(profileId ?? "");
-        logs.push(`unsubscribe=${ok}`);
+        await unsubscribeFromPush(profileId ?? "");
         setPushEnabled(false);
       } else {
+        if (Notification.permission === "denied") {
+          setPushDenied(true);
+          setPushToggling(false);
+          return;
+        }
         const perm = await Notification.requestPermission();
-        logs.push(`permission_after=${perm}`);
         if (perm === "granted") {
           const ok = await subscribeToPush(profileId ?? "");
-          logs.push(`subscribe=${ok}`);
           if (ok) setPushEnabled(true);
-          else logs.push("subscribe_returned_false");
-        } else {
-          logs.push("permission_not_granted");
+        } else if (perm === "denied") {
+          setPushDenied(true);
         }
       }
-    } catch (e) {
-      logs.push(`error=${e instanceof Error ? e.message : String(e)}`);
-    }
-    // Send logs to server so they appear in Vercel
-    fetch("/api/debug-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "push-toggle", logs }) }).catch(() => {});
+    } catch { /* silent */ }
     setPushToggling(false);
   }
 
@@ -221,22 +212,34 @@ export default function ProfilPage() {
             </div>
           ))}
           {/* Push notification toggle */}
-          <div className="flex items-center gap-3.5 px-4 py-3.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-50">
-              <Icon name="BellRing" className="h-4 w-4 text-palier-600" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-ink">Notifications push</p>
-              <p className="text-[11px] text-ink-faint">Recevoir des alertes même quand l&apos;app est fermée</p>
+          {!pushUnsupported && (
+            <div className="px-4 py-3.5">
+              <div className="flex items-center gap-3.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-palier-50">
+                  <Icon name="BellRing" className="h-4 w-4 text-palier-600" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-ink">Notifications push</p>
+                  <p className="text-[11px] text-ink-faint">Recevoir des alertes même quand l&apos;app est fermée</p>
+                </div>
+                <button
+                  onClick={togglePush}
+                  disabled={pushToggling || pushDenied}
+                  className={`relative h-7 w-12 rounded-full transition-colors ${pushEnabled ? "bg-palier-600" : "bg-black/10"} ${pushToggling || pushDenied ? "opacity-50" : ""}`}
+                >
+                  <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${pushEnabled ? "start-[22px]" : "start-0.5"}`} />
+                </button>
+              </div>
+              {pushDenied && (
+                <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <Icon name="TriangleAlert" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <p className="text-[11px] text-amber-800">
+                    Les notifications ont été bloquées. Pour les réactiver, allez dans <b>Paramètres &gt; Applications &gt; Chrome &gt; Notifications</b> et autorisez les notifications pour ce site.
+                  </p>
+                </div>
+              )}
             </div>
-            <button
-              onClick={togglePush}
-              disabled={pushToggling}
-              className={`relative h-7 w-12 rounded-full transition-colors ${pushEnabled ? "bg-palier-600" : "bg-black/10"} ${pushToggling ? "opacity-50" : ""}`}
-            >
-              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${pushEnabled ? "start-[22px]" : "start-0.5"}`} />
-            </button>
-          </div>
+          )}
         </div>
 
         {/* ═══════ Apparence ═══════ */}
