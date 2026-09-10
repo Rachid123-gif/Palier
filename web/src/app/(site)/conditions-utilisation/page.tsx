@@ -8,9 +8,9 @@ export const metadata = {
 
 export default function ConditionsUtilisationPage() {
   return (
-    <div className="min-h-dvh antialiased" style={{ color: "#111815", colorScheme: "light" } as React.CSSProperties}>
+    <div className="min-h-dvh bg-cream antialiased">
       {/* ═══ Header ═══ */}
-      <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-cream-card/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-3 sm:px-8">
           <Link href="/site" className="flex items-center gap-2">
             <LogoMark size={28} />
@@ -21,16 +21,16 @@ export default function ConditionsUtilisationPage() {
 
       {/* ═══ Content ═══ */}
       <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
-        <h1 className="text-[28px] font-extrabold tracking-tight text-[#111815] sm:text-[36px]">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-ink sm:text-[36px]">
           Conditions générales d&apos;utilisation
         </h1>
-        <p className="mt-2 text-[14px] text-[#6b7280]">Dernière mise à jour : septembre 2026</p>
+        <p className="mt-2 text-[14px] text-ink-faint">Dernière mise à jour : septembre 2026</p>
 
-        <div className="mt-10 space-y-8 text-[15px] leading-relaxed text-[#374151]">
+        <div className="mt-10 space-y-8 text-[15px] leading-relaxed text-ink-soft">
 
           {/* ── 1. Objet ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">1. Objet</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">1. Objet</h2>
             <p>
               Les présentes conditions générales d&apos;utilisation (ci-après « CGU ») régissent l&apos;accès et l&apos;utilisation
               de la plateforme <strong>Palier</strong>, accessible via navigateur web (application web progressive),
@@ -46,14 +46,14 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 2. Éditeur du service ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">2. Éditeur du service</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">2. Éditeur du service</h2>
             <p>Le Service est édité par :</p>
             <ul className="mt-2 list-none space-y-1 pl-0">
               <li><strong>Nom :</strong> Rachid IDRISSI</li>
               <li><strong>Téléphone :</strong> +212 661-087205</li>
-              <li><strong>Email :</strong> <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a></li>
+              <li><strong>Email :</strong> <a href="mailto:contact@palier.ma" className="text-palier-600 underline">contact@palier.ma</a></li>
             </ul>
-            <p className="mt-2 text-[13px] text-[#6b7280]">
+            <p className="mt-2 text-[13px] text-ink-faint">
               Hébergement et exécution : Vercel Inc., San Francisco, CA, États-Unis (réseau CDN mondial).
               Base de données et stockage : Supabase Inc. — données hébergées en Europe (région AWS eu-west-3, Paris, France).
               Envoi de SMS : Infobip Ltd., Londres, Royaume-Uni.
@@ -63,7 +63,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 3. Acceptation des CGU ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">3. Acceptation des CGU</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">3. Acceptation des CGU</h2>
             <p>
               En cochant la case d&apos;acceptation des conditions d&apos;utilisation et de la politique de confidentialité
               lors de l&apos;inscription ou de la première connexion, l&apos;utilisateur accepte les présentes CGU dans leur intégralité.
@@ -76,7 +76,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 4. Description du service ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">4. Description du service</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">4. Description du service</h2>
             <p>Palier propose notamment les fonctionnalités suivantes :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>Gestion et suivi des charges de copropriété et des paiements</li>
@@ -93,7 +93,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 5. Gratuité du service ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">5. Gratuité du service</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">5. Gratuité du service</h2>
             <p>
               Le Service est actuellement proposé à titre <strong>gratuit</strong>. Aucun frais n&apos;est facturé
               aux résidents ni aux syndics pour l&apos;utilisation de la plateforme.
@@ -107,15 +107,15 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 6. Inscription et accès ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">6. Inscription et accès</h2>
-            <p className="font-semibold text-[#111815]">Pour les résidents :</p>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">6. Inscription et accès</h2>
+            <p className="font-semibold text-ink">Pour les résidents :</p>
             <p className="mt-1">
               L&apos;accès se fait via un code d&apos;accès généré par le syndic via la plateforme
               et envoyé directement par SMS au résident. Le syndic n&apos;a pas accès au code.
               Ce code est personnel et confidentiel.
             </p>
 
-            <p className="mt-3 font-semibold text-[#111815]">Pour les syndics :</p>
+            <p className="mt-3 font-semibold text-ink">Pour les syndics :</p>
             <p className="mt-1">
               L&apos;inscription se fait en remplissant un formulaire (nom, téléphone, nom de l&apos;immeuble, ville,
               nombre de lots). Le numéro de téléphone est vérifié par un code OTP envoyé par SMS.
@@ -123,7 +123,7 @@ export default function ConditionsUtilisationPage() {
               Après approbation, le syndic reçoit ses codes d&apos;accès par SMS.
             </p>
 
-            <p className="mt-3 font-semibold text-[#111815]">Responsabilité de l&apos;utilisateur :</p>
+            <p className="mt-3 font-semibold text-ink">Responsabilité de l&apos;utilisateur :</p>
             <p className="mt-1">
               Chaque utilisateur est responsable de la confidentialité de son code d&apos;accès et de toute activité
               effectuée avec celui-ci. En cas de perte, le syndic peut récupérer son code via un OTP envoyé
@@ -134,7 +134,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 7. Rôles et responsabilités ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">7. Rôles et responsabilités</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">7. Rôles et responsabilités</h2>
             <p>
               La plateforme distingue deux rôles principaux, chacun avec des droits et responsabilités distincts :
             </p>
@@ -158,7 +158,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 8. Obligations de l'utilisateur ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">8. Obligations de l&apos;utilisateur</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">8. Obligations de l&apos;utilisateur</h2>
             <p>L&apos;utilisateur s&apos;engage à :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>Fournir des informations exactes et à jour</li>
@@ -173,7 +173,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 9. Obligations de l'éditeur ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">9. Obligations de l&apos;éditeur</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">9. Obligations de l&apos;éditeur</h2>
             <p>L&apos;éditeur s&apos;engage à :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>Mettre en œuvre les moyens raisonnables pour assurer la disponibilité et le bon fonctionnement du Service</li>
@@ -187,7 +187,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 10. Contenu et fichiers ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">10. Contenu et fichiers uploadés</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">10. Contenu et fichiers uploadés</h2>
             <p>
               Les publications, commentaires, photos et documents partagés sur Palier sont sous la responsabilité
               de leur auteur. Le syndic de la copropriété assure la modération du contenu au sein de sa résidence.
@@ -206,7 +206,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 11. Assemblées générales et votes ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">11. Assemblées générales et votes</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">11. Assemblées générales et votes</h2>
             <p>
               Palier permet l&apos;organisation d&apos;assemblées générales ordinaires et extraordinaires, et le vote
               sur les résolutions proposées. Chaque utilisateur ne peut voter qu&apos;une seule fois par résolution.
@@ -225,7 +225,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 12. Services et recommandations ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">12. Services et recommandations</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">12. Services et recommandations</h2>
             <p>
               Palier permet aux résidents de recommander des prestataires de services (plombier, électricien, etc.)
               et de rechercher des prestataires via l&apos;annuaire intégré. La recherche de prestataires
@@ -242,7 +242,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 13. Communications et notifications ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">13. Communications et notifications</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">13. Communications et notifications</h2>
             <p>Palier utilise les canaux de communication suivants :</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>
@@ -270,7 +270,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 14. Données personnelles ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">14. Données personnelles</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">14. Données personnelles</h2>
             <p>
               La collecte et le traitement des données personnelles sont régis par la{" "}
               <strong>Loi 09-08</strong> relative à la protection des personnes physiques à l&apos;égard du traitement
@@ -285,18 +285,18 @@ export default function ConditionsUtilisationPage() {
               Conformément à la Loi 09-08, chaque utilisateur dispose d&apos;un droit
               d&apos;accès (art. 7), de rectification (art. 8) et d&apos;opposition (art. 9) sur ses données personnelles. Ces droits peuvent être
               exercés depuis la page « Mon profil » (export de données, suppression de compte) ou par email
-              à <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a>.
+              à <a href="mailto:contact@palier.ma" className="text-palier-600 underline">contact@palier.ma</a>.
             </p>
             <p className="mt-2">
               Pour plus de détails sur les données collectées, les durées de conservation, les mesures
               de sécurité et les transferts internationaux, consultez notre{" "}
-              <Link href="/politique-confidentialite" className="text-[#0B7A57] underline">politique de confidentialité</Link>.
+              <Link href="/politique-confidentialite" className="text-palier-600 underline">politique de confidentialité</Link>.
             </p>
           </section>
 
           {/* ── 15. Responsabilité ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">15. Responsabilité et limites</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">15. Responsabilité et limites</h2>
             <p>
               Palier met en œuvre les moyens raisonnables pour assurer le bon fonctionnement du Service.
               Toutefois, Palier ne garantit pas une disponibilité ininterrompue de la plateforme et ne saurait
@@ -323,7 +323,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 16. Support et signalement ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">16. Support et signalement</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">16. Support et signalement</h2>
             <p>
               En cas de problème technique, de suggestion d&apos;amélioration ou de toute autre remarque,
               l&apos;utilisateur peut soumettre un signalement directement depuis l&apos;application via la
@@ -340,7 +340,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 17. Propriété intellectuelle ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">17. Propriété intellectuelle</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">17. Propriété intellectuelle</h2>
             <p>
               Le contenu, le design, le code source et les éléments graphiques de Palier sont protégés par le droit
               de la propriété intellectuelle. Toute reproduction, copie ou utilisation non autorisée est interdite.
@@ -349,23 +349,23 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 18. Durée et résiliation ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">18. Durée et résiliation</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">18. Durée et résiliation</h2>
             <p>
               Les présentes CGU sont conclues pour une <strong>durée indéterminée</strong> à compter de l&apos;acceptation
               par l&apos;utilisateur.
             </p>
 
-            <p className="mt-3 font-semibold text-[#111815]">Résiliation par l&apos;utilisateur :</p>
+            <p className="mt-3 font-semibold text-ink">Résiliation par l&apos;utilisateur :</p>
             <p className="mt-1">
               L&apos;utilisateur peut supprimer son compte à tout moment depuis son profil, sans justification
               et sans frais. Lors de la suppression, les données personnelles sont anonymisées conformément
               à notre{" "}
-              <Link href="/politique-confidentialite" className="text-[#0B7A57] underline">politique de confidentialité</Link>.
+              <Link href="/politique-confidentialite" className="text-palier-600 underline">politique de confidentialité</Link>.
               Les données comptables (charges, paiements) sont conservées conformément aux obligations légales
               (Loi 9-88, Décret 2.23.700 — durée minimale de 10 ans).
             </p>
 
-            <p className="mt-3 font-semibold text-[#111815]">Désactivation par le syndic :</p>
+            <p className="mt-3 font-semibold text-ink">Désactivation par le syndic :</p>
             <p className="mt-1">
               Le syndic peut désactiver le compte d&apos;un résident dans le cadre de la gestion de la copropriété
               (départ, changement de propriétaire, etc.). L&apos;utilisateur concerné en est informé lors de sa
@@ -375,7 +375,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 19. Droit de rétractation ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">19. Droit de rétractation</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">19. Droit de rétractation</h2>
             <p>
               Conformément à l&apos;article 36 de la <strong>Loi 31-08</strong> relative à la protection du consommateur,
               l&apos;utilisateur dispose d&apos;un délai de <strong>sept (7) jours</strong> à compter de l&apos;acceptation
@@ -384,13 +384,13 @@ export default function ConditionsUtilisationPage() {
             <p className="mt-2">
               Pour exercer ce droit, l&apos;utilisateur peut supprimer son compte depuis son profil ou
               contacter l&apos;éditeur par email
-              à <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a>.
+              à <a href="mailto:contact@palier.ma" className="text-palier-600 underline">contact@palier.ma</a>.
             </p>
           </section>
 
           {/* ── 20. Modification des CGU ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">20. Modification des CGU</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">20. Modification des CGU</h2>
             <p>
               L&apos;éditeur se réserve le droit de modifier les présentes CGU. En cas de modification substantielle,
               les utilisateurs en seront informés au moins <strong>trente (30) jours</strong> avant
@@ -405,11 +405,11 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 21. Médiation et règlement des litiges ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">21. Médiation et règlement des litiges</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">21. Médiation et règlement des litiges</h2>
             <p>
               En cas de différend relatif à l&apos;utilisation du Service, l&apos;utilisateur est invité à contacter
               l&apos;éditeur par email
-              à <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a>{" "}
+              à <a href="mailto:contact@palier.ma" className="text-palier-600 underline">contact@palier.ma</a>{" "}
               afin de rechercher une solution amiable.
             </p>
             <p className="mt-2">
@@ -424,7 +424,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 22. Droit applicable ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">22. Droit applicable</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">22. Droit applicable</h2>
             <p>
               Les présentes CGU sont régies par le droit marocain, notamment :
             </p>
@@ -439,7 +439,7 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 23. Références juridiques ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">23. Références juridiques</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">23. Références juridiques</h2>
             <p>
               Les lois marocaines citées dans l&apos;application et dans les présentes CGU sont fournies
               <strong> à titre purement informatif</strong> et ne constituent en aucun cas un conseil juridique.
@@ -456,14 +456,14 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 24. Dispositions générales ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">24. Dispositions générales</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">24. Dispositions générales</h2>
             <p>
               Si l&apos;une des clauses des présentes CGU est déclarée nulle ou inapplicable, les autres clauses
               restent en vigueur (clause de divisibilité).
             </p>
             <p className="mt-2">
               Les présentes CGU, ainsi que la{" "}
-              <Link href="/politique-confidentialite" className="text-[#0B7A57] underline">politique de confidentialité</Link>,
+              <Link href="/politique-confidentialite" className="text-palier-600 underline">politique de confidentialité</Link>,
               constituent l&apos;intégralité de l&apos;accord entre l&apos;utilisateur et l&apos;éditeur concernant l&apos;utilisation
               du Service.
             </p>
@@ -471,11 +471,11 @@ export default function ConditionsUtilisationPage() {
 
           {/* ── 25. Contact ── */}
           <section>
-            <h2 className="mb-2 text-[18px] font-bold text-[#111815]">25. Contact</h2>
+            <h2 className="mb-2 text-[18px] font-bold text-ink">25. Contact</h2>
             <p>
               Pour toute question relative aux présentes CGU, aux données personnelles ou au fonctionnement
               du Service, vous pouvez contacter l&apos;éditeur par email
-              à <a href="mailto:contact@palier.ma" className="text-[#0B7A57] underline">contact@palier.ma</a> ou
+              à <a href="mailto:contact@palier.ma" className="text-palier-600 underline">contact@palier.ma</a> ou
               via la fonctionnalité « Votre avis » intégrée à l&apos;application (voir section 16).
             </p>
           </section>
@@ -483,8 +483,8 @@ export default function ConditionsUtilisationPage() {
       </main>
 
       {/* ═══ Footer ═══ */}
-      <footer className="border-t border-black/[0.06] bg-[#f4f5f2] py-8">
-        <div className="mx-auto max-w-3xl px-5 text-center text-[12px] text-[#6b7280] sm:px-8">
+      <footer className="border-t border-black/[0.06] bg-sand py-8">
+        <div className="mx-auto max-w-3xl px-5 text-center text-[12px] text-ink-faint sm:px-8">
           © {new Date().getFullYear()} Palier. Tous droits réservés.
         </div>
       </footer>
