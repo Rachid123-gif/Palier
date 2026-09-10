@@ -86,7 +86,11 @@ export default function ProfilPage() {
   const [pushToggling, setPushToggling] = useState(false);
 
   useEffect(() => {
+    console.log("[PUSH] Notification in window:", "Notification" in window);
+    console.log("[PUSH] PushManager in window:", "PushManager" in window);
+    console.log("[PUSH] serviceWorker in navigator:", "serviceWorker" in navigator);
     if (typeof window !== "undefined" && "Notification" in window) {
+      console.log("[PUSH] current permission:", Notification.permission);
       setPushEnabled(Notification.permission === "granted");
     }
   }, []);
@@ -94,18 +98,25 @@ export default function ProfilPage() {
   async function togglePush() {
     if (pushToggling) return;
     setPushToggling(true);
+    console.log("[PUSH] togglePush called, pushEnabled:", pushEnabled, "profileId:", profileId);
     try {
       if (pushEnabled) {
-        await unsubscribeFromPush(profileId ?? "");
+        const ok = await unsubscribeFromPush(profileId ?? "");
+        console.log("[PUSH] unsubscribe result:", ok);
         setPushEnabled(false);
       } else {
+        console.log("[PUSH] requesting permission...");
         const perm = await Notification.requestPermission();
+        console.log("[PUSH] permission result:", perm);
         if (perm === "granted") {
-          await subscribeToPush(profileId ?? "");
-          setPushEnabled(true);
+          const ok = await subscribeToPush(profileId ?? "");
+          console.log("[PUSH] subscribe result:", ok);
+          if (ok) setPushEnabled(true);
         }
       }
-    } catch { /* silent */ }
+    } catch (e) {
+      console.error("[PUSH] error:", e);
+    }
     setPushToggling(false);
   }
 
