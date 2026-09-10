@@ -337,7 +337,7 @@ export async function createPostSyndic(input: {
     pinned: input.pinned ?? false,
   }).select("id").single();
   // Notify all active residents
-  const { data: memberships, error: memErr } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
+  const { data: memberships, error: memErr } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").neq("role", "syndic");
   console.log("[NOTIF-DEBUG] createPostSyndic — memberships query:", { count: memberships?.length, error: memErr, buildingId: v.buildingId });
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
@@ -2331,7 +2331,7 @@ export async function insertDocument(input: {
   }).select().single();
   if (error) throw new Error("insert_document_failed");
   // Notify all active residents
-  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").eq("role", "resident");
+  const { data: memberships } = await supabaseAdmin.from("memberships").select("profile_id").eq("building_id", v.buildingId).eq("status", "active").neq("role", "syndic");
   if (memberships?.length) {
     const profileIds = memberships.map((m: any) => m.profile_id).filter(Boolean);
     await notifyProfiles(profileIds, "Nouveau document", v.title, "document", { buildingId: v.buildingId });
