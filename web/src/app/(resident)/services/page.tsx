@@ -31,9 +31,9 @@ type GooglePlace = {
 const DEFAULT_PLACE_CATEGORIES = [
   { key: "plomberie", label: "Plomberie", query: "plombier" },
   { key: "electricite", label: "Électricité", query: "électricien" },
-  { key: "menage", label: "Ménage", query: "service ménage nettoyage" },
-  { key: "climatisation", label: "Climatisation", query: "climatisation réparation" },
-  { key: "peinture", label: "Peinture", query: "peintre bâtiment" },
+  { key: "menage", label: "Ménage", query: "ménage nettoyage maison" },
+  { key: "climatisation", label: "Climatisation", query: "climatisation installation réparation" },
+  { key: "peinture", label: "Peinture", query: "peintre en bâtiment" },
   { key: "serrurerie", label: "Serrurerie", query: "serrurier" },
   { key: "jardinage", label: "Jardinage", query: "jardinier paysagiste" },
   { key: "demenagement", label: "Déménagement", query: "déménagement" },

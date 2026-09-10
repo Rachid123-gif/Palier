@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const textQuery = `${query} ${city} Maroc`;
+    const textQuery = `${query} à domicile ${city} Maroc`;
 
     const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
       method: "POST",
