@@ -65,22 +65,28 @@ export default function SignalerScreen() {
 
   async function submit() {
     setSubmitting(true);
-    const reporter = currentUser.name.split(" ")[0] + " " + (currentUser.name.split(" ")[1]?.[0] ?? "") + ".";
-    let imageUrl: string | undefined;
-    if (photo) {
-      const fd = new FormData();
-      fd.append("file", photo);
-      const { uploadFileAction } = await import("@/lib/actions");
-      const result = await uploadFileAction(fd);
-      if (result.url) imageUrl = result.url;
+    try {
+      const reporter = currentUser.name.split(" ")[0] + " " + (currentUser.name.split(" ")[1]?.[0] ?? "") + ".";
+      let imageUrl: string | undefined;
+      if (photo) {
+        const fd = new FormData();
+        fd.append("file", photo);
+        const { uploadFileAction } = await import("@/lib/actions");
+        const result = await uploadFileAction(fd);
+        if (result.error) console.error("[INCIDENT] upload error:", result.error);
+        if (result.url) imageUrl = result.url;
+      }
+      await createIncident({ buildingId: buildingId!, unitId: unitId!, category: finalCat, title, details, urgency: urg as Urgency, reporter, imageUrl });
+      setToast(true);
+      setCat(""); setCustomCat(""); setTitle(""); setDetails(""); setUrg("normal");
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhoto(null); setPhotoPreview(null);
+      router.refresh();
+    } catch (e) {
+      console.error("[INCIDENT] submit error:", e);
+    } finally {
+      setSubmitting(false);
     }
-    await createIncident({ buildingId: buildingId!, unitId: unitId!, category: finalCat, title, details, urgency: urg as Urgency, reporter, imageUrl });
-    setToast(true);
-    setCat(""); setCustomCat(""); setTitle(""); setDetails(""); setUrg("normal");
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhoto(null); setPhotoPreview(null);
-    setSubmitting(false);
-    router.refresh();
   }
 
   async function openIncident(inc: typeof incidents[0]) {
