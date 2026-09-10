@@ -87,31 +87,41 @@ export default function ProfilPage() {
   const [pushDenied, setPushDenied] = useState(false);
   const [pushUnsupported, setPushUnsupported] = useState(false);
 
+  const pushSupported = typeof window !== "undefined" && "Notification" in window && "PushManager" in window && "serviceWorker" in navigator;
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
-      setPushUnsupported(true);
-      return;
-    }
+    if (!pushSupported) { setPushUnsupported(true); return; }
     if (Notification.permission === "granted") setPushEnabled(true);
     if (Notification.permission === "denied") setPushDenied(true);
-  }, []);
+  }, [pushSupported]);
 
   async function togglePush() {
-    if (pushToggling || pushUnsupported) return;
+    if (pushToggling || !pushSupported) return;
+
+    // Re-check permission live (user may have changed it in Chrome settings)
+    const currentPerm = Notification.permission;
+    if (currentPerm === "granted" && !pushEnabled) {
+      // Permission was re-granted externally, just subscribe
+      setPushToggling(true);
+      setPushDenied(false);
+      try {
+        const ok = await subscribeToPush(profileId ?? "");
+        if (ok) setPushEnabled(true);
+      } catch { /* silent */ }
+      setPushToggling(false);
+      return;
+    }
+
     setPushToggling(true);
     try {
       if (pushEnabled) {
         await unsubscribeFromPush(profileId ?? "");
         setPushEnabled(false);
       } else {
-        if (Notification.permission === "denied") {
-          setPushDenied(true);
-          setPushToggling(false);
-          return;
-        }
+        // Try requesting — even if previously denied, user may have reset in Chrome
         const perm = await Notification.requestPermission();
         if (perm === "granted") {
+          setPushDenied(false);
           const ok = await subscribeToPush(profileId ?? "");
           if (ok) setPushEnabled(true);
         } else if (perm === "denied") {
@@ -224,8 +234,8 @@ export default function ProfilPage() {
                 </div>
                 <button
                   onClick={togglePush}
-                  disabled={pushToggling || pushDenied}
-                  className={`relative h-7 w-12 rounded-full transition-colors ${pushEnabled ? "bg-palier-600" : "bg-black/10"} ${pushToggling || pushDenied ? "opacity-50" : ""}`}
+                  disabled={pushToggling}
+                  className={`relative h-7 w-12 rounded-full transition-colors ${pushEnabled ? "bg-palier-600" : "bg-black/10"} ${pushToggling ? "opacity-50" : ""}`}
                 >
                   <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${pushEnabled ? "start-[22px]" : "start-0.5"}`} />
                 </button>
