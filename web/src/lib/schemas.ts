@@ -18,7 +18,7 @@ export const createIncidentSchema = z.object({
   unitId: uuid,
   category: shortString,
   title: shortString,
-  details: safeString,
+  details: z.string().max(2000).trim().default(""),
   urgency: z.enum(["low", "normal", "urgent"]),
   reporter: shortString,
   imageUrl: z.string().url().optional(),
