@@ -6,7 +6,7 @@ import { useDataSafe } from "@/lib/DataProvider";
 import { useLang } from "@/lib/LangProvider";
 import { timeAgo } from "@/lib/format";
 import { requestNotificationPermission, subscribeToPush } from "@/lib/push";
-import { markNotificationsRead, fetchNotifications, deleteNotification } from "@/lib/actions";
+import { markNotificationsRead, fetchNotifications, deleteNotification, clearAllNotifications } from "@/lib/actions";
 import { NOTIF_KIND_TO_PREF } from "@/lib/types";
 
 type Notif = { id: string; title: string; body: string; created_at: string; kind: string; read: boolean };
@@ -136,6 +136,16 @@ export function NotificationsBell({ dark = false, profileId: profileIdProp }: { 
       <Sheet open={open} onClose={() => setOpen(false)} title={i.notifications}>
         {notifications.length > 0 ? (
           <div className="space-y-2">
+            <button
+              onClick={async () => {
+                setPolledNotifs([]);
+                await clearAllNotifications();
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-ink-faint/10 py-2 text-[13px] font-medium text-ink-soft hover:bg-ink-faint/20"
+            >
+              <Icon name="Trash2" className="h-3.5 w-3.5" strokeWidth={2.2} />
+              {lang === "ar" ? "مسح الكل" : "Tout effacer"}
+            </button>
             {notifications.map((n) => {
               const k = kindIcon[n.kind] ?? kindIcon.post;
               const isRead = readIds.has(n.id);
