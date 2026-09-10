@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
     pathname !== "/sw.js" &&
     pathname !== "/manifest.webmanifest"
   ) {
-    return NextResponse.redirect(new URL("/site", request.url));
+    return NextResponse.redirect(new URL("/bienvenue", request.url));
   }
 
   // Admin routes — block on production domain (only accessible via Vercel deployment URL)
@@ -111,7 +111,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
-    return NextResponse.redirect(new URL("/site", request.url));
+    return NextResponse.redirect(new URL("/bienvenue", request.url));
   }
 
   // Admin routes require admin role
