@@ -248,7 +248,7 @@ export default function ProfilPage() {
                   </div>
                   <ol className="mt-1.5 list-inside list-decimal space-y-1 text-[11px] text-amber-800">
                     <li>Ouvrez <b>Paramètres &gt; Applications &gt; Chrome &gt; Notifications</b> et activez les notifications</li>
-                    <li>Ouvrez <b>Chrome &gt; palier.ma &gt; cadenas (🔒) &gt; Notifications &gt; Autoriser</b></li>
+                    <li>Ouvrez <b>Chrome &gt; palier.ma &gt; Paramètres du site &gt; Notifications &gt; Autoriser</b></li>
                   </ol>
                 </div>
               )}
